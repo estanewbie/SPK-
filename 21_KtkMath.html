@@ -1,0 +1,92 @@
+<script>
+// KtkMath - hitung uang KTK dengan BigInt (TANPA float). Dipakai View_Ktk.
+// Skala: harga x1e10, volume x1e4, hasil kali harga x volume = skala 1e10 (mul = (p*v + 5000n)/10000n).
+// Rumus pajak: hitung eksak, bulatkan hanya saat ditampilkan / di akhir.
+window.KtkMath = (function () {
+  const P10 = 10000000000n; // 1e10
+  const sgn = (a) => (a < 0n ? -1n : 1n);
+  const abs = (a) => (a < 0n ? -a : a);
+  // pembagian bulat half away from zero
+  const divRound = (a, b) => { const s = sgn(a) * sgn(b); const A = abs(a), B = abs(b); return s * ((2n * A + B) / (2n * B)); };
+
+  // teks angka (format Indonesia / titik desimal) -> { neg, int, frac } atau null
+  const split = (input) => {
+    let s = String(input === null || input === undefined ? '' : input).trim().replace(/\s+/g, '').replace(/^Rp/i, '');
+    if (!s) return { neg: false, int: '0', frac: '' };
+    let neg = false;
+    if (s[0] === '-') { neg = true; s = s.slice(1); } else if (s[0] === '+') s = s.slice(1);
+    if (s.indexOf(',') >= 0) s = s.replace(/\./g, '').replace(',', '.');
+    else if (/^\d{1,3}(\.\d{3})+$/.test(s)) s = s.replace(/\./g, '');
+    if (!/^\d*(\.\d*)?$/.test(s) || s === '' || s === '.') return null;
+    const parts = s.split('.');
+    return { neg, int: parts[0] || '0', frac: parts[1] || '' };
+  };
+  // teks -> BigInt berskala 10^dec (dibulatkan half-up pada digit berikutnya)
+  const scale = (input, dec) => {
+    const x = split(input);
+    if (!x) return 0n;
+    const frac = (x.frac + '0'.repeat(dec + 1)).slice(0, dec + 1);
+    let v = BigInt(x.int + frac.slice(0, dec));
+    if (frac.charCodeAt(dec) >= 53) v += 1n; // digit ke dec+1 >= 5
+    return x.neg ? -v : v;
+  };
+  const parseP = (s) => scale(s, 10); // harga -> x1e10
+  const parseV = (s) => scale(s, 4);  // volume -> x1e4
+  const mul = (p, v) => { const s = sgn(p) * sgn(v); return s * ((abs(p) * abs(v) + 5000n) / 10000n); }; // skala 1e10
+  const valid = (s) => split(s) !== null;
+
+  const group = (digits) => digits.replace(/\B(?=(\d{3})+(?!\d))/g, '.');
+  // BigInt berskala 1e10 -> "1.234.567,89" (2 desimal, half-up)
+  const fmt2 = (x) => {
+    const c = divRound(x, 100000000n); // sen
+    const neg = c < 0n; const a = abs(c);
+    const s = a.toString().padStart(3, '0');
+    return (neg ? '-' : '') + group(s.slice(0, -2)) + ',' + s.slice(-2);
+  };
+  // BigInt berskala 1e10 -> penuh, nol di belakang dibuang (mis. 7.340,024398), minimal tanpa desimal bila bulat
+  const fmtFull = (x, minDec) => {
+    const neg = x < 0n; const a = abs(x);
+    const s = a.toString().padStart(11, '0');
+    let frac = s.slice(-10).replace(/0+$/, '');
+    const md = minDec || 0;
+    if (frac.length < md) frac = frac.padEnd(md, '0');
+    return (neg ? '-' : '') + group(s.slice(0, -10)) + (frac ? ',' + frac : '');
+  };
+  // BigInt berskala 1e4 -> teks volume (tanpa nol di belakang)
+  const fmtVol = (v) => {
+    const neg = v < 0n; const a = abs(v);
+    const s = a.toString().padStart(5, '0');
+    const frac = s.slice(-4).replace(/0+$/, '');
+    return (neg ? '-' : '') + group(s.slice(0, -4)) + (frac ? ',' + frac : '');
+  };
+  // teks simpan di Sheet: 10 desimal, titik desimal (mis. "7340.0243980000")
+  const toSheetP = (x) => { const neg = x < 0n; const s = abs(x).toString().padStart(11, '0'); return (neg ? '-' : '') + s.slice(0, -10) + '.' + s.slice(-10); };
+  // teks simpan volume: titik desimal, tanpa nol di belakang
+  const toSheetV = (v) => { const neg = v < 0n; const s = abs(v).toString().padStart(5, '0'); const f = s.slice(-4).replace(/0+$/, ''); return (neg ? '-' : '') + s.slice(0, -4) + (f ? '.' + f : ''); };
+
+  // items: [{tipe, vol, pm, pj}] (vol/pm/pj = teks). Kembalikan { vm, vj } (BigInt 1e10).
+  const sumItems = (items) => {
+    let vm = 0n, vj = 0n;
+    (items || []).forEach((it) => {
+      if (it.tipe !== 'item') return;
+      const v = parseV(it.vol);
+      vm += mul(parseP(it.pm), v);
+      vj += mul(parseP(it.pj), v);
+    });
+    return { vm, vj };
+  };
+  // Total kontrak dari jumlah material & jasa (BigInt 1e10). Eksak, bulatkan di akhir.
+  //   jum = vm+vj | dpp = jum*11/12 | ppn = dpp*12% = jum*11/100 | gross = jum+ppn = jum*111/100
+  const hitung = (vm, vj) => {
+    const jum = vm + vj;
+    const dpp = divRound(jum * 11n, 12n);
+    const ppn = divRound(jum * 11n, 100n);
+    const gross = divRound(jum * 111n, 100n);
+    const bulat = divRound(gross, P10); // rupiah utuh
+    return { vm, vj, jum, dpp, ppn, gross, bulat };
+  };
+  const fmtRp = (bulat) => group(abs(bulat).toString()).replace(/^/, bulat < 0n ? '-' : '');
+
+  return { P10, divRound, parseP, parseV, mul, valid, fmt2, fmtFull, fmtVol, toSheetP, toSheetV, sumItems, hitung, fmtRp };
+})();
+</script>

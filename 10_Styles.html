@@ -1,0 +1,278 @@
+  <style>
+    /* ===== TEMA DASAR ===== */
+    html, body { font-family: 'Source Sans 3', system-ui, 'Segoe UI', sans-serif; -webkit-font-smoothing: antialiased; color: #23211E; background: #F7F8FC; }
+    /* UKURAN TEKS (permintaan terbaru): kecil turun 2 px dari ukuran asli aplikasi, sedang 3 px, besar 4 px. Batas bawah 10 px. */
+    body { font-variant-numeric: tabular-nums; font-size: 11px; line-height: 1.45; }
+    .text-\[8px\] { font-size: 10px !important; }
+    .text-\[9px\] { font-size: 10px !important; }
+    .text-\[10px\] { font-size: 10px !important; }
+    .text-\[11px\] { font-size: 10px !important; }
+    .text-\[12px\] { font-size: 10px !important; }
+    .text-\[13px\] { font-size: 11px !important; }
+    .text-\[14px\] { font-size: 12px !important; }
+    .text-\[15px\] { font-size: 12px !important; }
+    .text-\[16px\] { font-size: 13px !important; }
+    .text-\[17px\] { font-size: 14px !important; }
+    .text-\[18px\] { font-size: 15px !important; }
+    .text-\[19px\] { font-size: 15px !important; }
+    .text-\[20px\] { font-size: 16px !important; }
+    .text-\[21px\] { font-size: 17px !important; }
+    .text-\[22px\] { font-size: 18px !important; }
+    .text-\[23px\] { font-size: 19px !important; }
+    .text-\[24px\] { font-size: 20px !important; }
+    .text-\[25px\] { font-size: 21px !important; }
+    .text-\[26px\] { font-size: 22px !important; }
+    .text-\[27px\] { font-size: 23px !important; }
+    .text-\[28px\] { font-size: 24px !important; }
+    .text-\[29px\] { font-size: 25px !important; }
+    .text-\[30px\] { font-size: 26px !important; }
+    .text-\[31px\] { font-size: 27px !important; }
+    .text-\[32px\] { font-size: 28px !important; }
+    .text-\[33px\] { font-size: 29px !important; }
+    .text-\[34px\] { font-size: 30px !important; }
+    .text-\[35px\] { font-size: 31px !important; }
+    .text-\[36px\] { font-size: 32px !important; }
+    .text-\[37px\] { font-size: 33px !important; }
+    .text-\[38px\] { font-size: 34px !important; }
+    .text-\[39px\] { font-size: 35px !important; }
+    .text-\[40px\] { font-size: 36px !important; }
+    .text-sm { font-size: 12px !important; }
+    .text-lg { font-size: 15px !important; }
+    .text-2xl { font-size: 20px !important; }
+    .text-xs { font-size: 10px !important; }
+    .text-base { font-size: 13px !important; }
+    .text-4xl { font-size: 32px !important; }
+    .text-3xl { font-size: 26px !important; }
+    .text-xl { font-size: 16px !important; }
+    button, input, select, textarea { font-size: inherit; font-family: inherit; }
+    /* TOMBOL UTAMA: gradasi ungu tua ke biru tua. Berlaku untuk .btn-grad dan semua tombol berlatar biru/indigo aplikasi. */
+    .btn-grad, .bg-indigo-600, .bg-indigo-700, .bg-indigo-500, .bg-purple-600, .bg-violet-600, .bg-\[\#3A62B0\] {
+      background-image: linear-gradient(135deg, #6e51b1 0%, #3649a8 60%, #192a75 100%) !important; background-color: #2E3F93 !important; color: #fff;
+    }
+    .btn-grad:hover, button.bg-indigo-600:hover, button.bg-\[\#3A62B0\]:hover, .hover\:bg-indigo-700:hover { filter: brightness(1.1); }
+    /* Tombol utama yang belum bisa dipakai tetap TERLIHAT sebagai tombol (kotak abu bergaris), bukan teks pucat tanpa bentuk. */
+    button:disabled.btn-grad, button:disabled.bg-\[\#3A62B0\], button:disabled.bg-indigo-600, button:disabled.bg-indigo-700 {
+      background-image: none !important; background-color: #DCE1EE !important; color: #4A5368 !important; border: 1px solid #8E99B5 !important; opacity: 1 !important; filter: none !important; cursor: not-allowed;
+    }
+    ::selection { background: #C9D3E8; }
+    input:focus-visible, select:focus-visible, textarea:focus-visible, button:focus-visible { outline: 2px solid #5F7DB5; outline-offset: 1px; }
+    input[type=checkbox], input[type=radio] { accent-color: #0F2E66; }
+    /* Dialog SweetAlert mengikuti tema */
+    .swal2-popup { font-family: inherit !important; border-radius: 12px !important; padding: 1.5rem !important; }
+    .swal2-title { font-size: 15px !important; font-weight: 700 !important; color: #0f172a !important; }
+    .swal2-html-container { font-size: 12px !important; }
+    .swal2-styled { border-radius: 8px !important; font-size: 12px !important; font-weight: 600 !important; box-shadow: none !important; }
+    .swal2-styled.swal2-confirm { background-color: #3A62B0 !important; }
+    /* ===== STANDAR DESAIN (lihat DESIGN.md): hanya bobot 400/500, tanpa kapital semua, teks minimal 11px ===== */
+    .font-bold, .font-extrabold, .font-black, .font-semibold, b, strong, th, h1, h2, h3, h4 { font-weight: 500 !important; }
+    .uppercase { text-transform: none !important; }
+    [class*="tracking-"] { letter-spacing: 0 !important; }
+    input[type=checkbox], input[type=radio] { accent-color: #3A62B0; }
+    .swal2-title { font-weight: 500 !important; }    /* Animasi masuk halaman */
+    @keyframes page-in { from { opacity: 0; transform: translateY(4px); } to { opacity: 1; transform: none; } }
+    .page-in { animation: page-in .22s ease-out; }
+    /* Angka di tabel rata & rapi */
+    .num { font-variant-numeric: tabular-nums; text-align: right; }
+
+    /* Kustomisasi Scrollbar untuk UI */
+    .custom-scrollbar::-webkit-scrollbar { width: 6px; height: 6px; }
+    .custom-scrollbar::-webkit-scrollbar-track { background: transparent; }
+    .custom-scrollbar::-webkit-scrollbar-thumb { background: #cbd5e1; border-radius: 10px; }
+    .custom-scrollbar::-webkit-scrollbar-thumb:hover { background: #94a3b8; }
+
+    /* ===== BOOT LOADING SCREEN ===== */
+    html, body { margin:0; padding:0; height:100%; }
+    #boot-loading {
+      position:fixed; inset:0; background:#f8fafc;
+      display:flex; flex-direction:column; align-items:center; justify-content:center;
+      font-family: Arial, sans-serif;
+    }
+    .boot-logo {
+      width:56px; height:56px; background:#e11d48; border-radius:16px;
+      display:flex; align-items:center; justify-content:center;
+      color:#fff; font-weight:800; font-size:24px; margin-bottom:18px;
+      box-shadow:0 4px 14px rgba(225,29,72,.25);
+      animation: boot-pulse 1.4s ease-in-out infinite;
+    }
+    @keyframes boot-pulse { 0%,100%{transform:scale(1);} 50%{transform:scale(1.08);} }
+    .boot-spinner {
+      width:34px; height:34px; border:3px solid #e2e8f0; border-top-color:#4f46e5;
+      border-radius:50%; animation: boot-spin .8s linear infinite; margin-bottom:14px;
+    }
+    @keyframes boot-spin { to{transform:rotate(360deg);} }
+    .boot-text { font-size:12px; font-weight:700; color:#64748b; letter-spacing:.05em; text-transform:uppercase; }
+    .boot-subtext { font-size:10px; color:#94a3b8; margin-top:4px; }
+    .boot-error { color:#e11d48; font-weight:bold; font-size:12px; text-align:center; padding:0 20px; }
+    
+    /* Custom Checkbox */
+    .custom-checkbox:checked + div {
+      background-color: #4f46e5;
+      border-color: #4f46e5;
+      
+    }
+    .custom-checkbox:checked + div svg {
+      display: block;
+    }
+
+    /* ==================================================
+       PRINT FORMAT EXACTLY LIKE EXCEL (Aptos Narrow 11pt)
+       NO TAILWIND INTERFERENCE, NO CREATIVE STYLING
+       ================================================== */
+    .a4-paper {
+        width: 100%;
+        max-width: 210mm;
+
+        margin: 0 auto;
+        background: white;
+        box-shadow: 0 0 15px rgba(0,0,0,0.1);
+        padding: 8mm 10mm;
+    }
+
+    .a4-paper * {
+        font-family: "Aptos Narrow", "Arial Narrow", Calibri !important;
+        color: black !important;
+        box-sizing: border-box;
+    }
+
+    .crisp-image {
+        image-rendering: -webkit-optimize-contrast;
+        image-rendering: crisp-edges;
+        width: 100%; 
+        object-fit: fill; 
+        display: block;
+    }
+
+    .print-exact {
+        font-family: "Aptos Narrow", "Arial Narrow",Calibri !important;
+        color: black !important;
+    }
+    
+   .print-cell {
+        border: 1pt solid black !important;
+        font-family: "Aptos Narrow", "Arial Narrow",Calibri !important;
+        font-size: 9pt !important;
+        height: 12pt !important;
+        padding: 0 3px !important;
+        vertical-align: middle !important;
+        color: black !important;
+        white-space: normal!important;
+        overflow: hidden;
+        background-color: transparent !important;
+        word-wrap: break-word !important;
+        line-height: 1.1 !important; /* Jarak antar baris dipersempit agar tetap muat 1 kertas */
+        padding: 2px 3px !important;
+    }
+    
+    .print-header {
+        background-color: #d9d9d9 !important; /* WARNA ABU-ABU EXCEL (#D9D9D9) */
+        -webkit-print-color-adjust: exact !important;
+        print-color-adjust: exact !important;
+        font-weight: bold !important;
+        text-align: center !important;
+        border: 1pt solid black !important;
+        font-family: "Aptos Narrow", "Arial Narrow",Calibri !important;
+        font-size: 8pt !important;
+        height: 12pt !important;
+        padding: 0 3px !important;
+        vertical-align: middle !important;
+        color: black !important;
+    }
+    
+    .print-title {
+        font-weight: bold !important;
+        text-align: center !important;
+        color: black !important;
+    }
+
+    .print-table {
+        width: 100%;
+        border-collapse: collapse;
+        background-color: #ffffff !important;
+    }
+    
+    .print-table tr {
+        height: 12pt !important; 
+    }
+    
+    .print-table th, .print-table td {
+        border: 1px solid black !important;
+        padding: 0px 4px;
+        font-size: 9pt !important;
+        height: 12pt !important;
+        vertical-align: middle;
+        overflow: hidden;
+    }
+    
+    .print-table th {
+        background-color: #d9d9d9 !important; /* Warna abu-abu Excel (#D9D9D9) */
+        -webkit-print-color-adjust: exact;
+        print-color-adjust: exact;
+        font-weight: bold;
+        text-align: center;
+        color: black !important;
+    }
+
+    /* Tabel Metadata (Bagian Atas) - Solid Kotak Hitam */
+    .print-metadata-table {
+        width: 100%;
+        border-collapse: collapse;
+        margin-bottom: 10px;
+        background-color: #ffffff !important;
+    }
+
+    .print-metadata-table td {
+        border: 1px solid black !important;
+        padding: 2px 6px;
+        height: 15pt !important;
+        font-size: 9pt !important;
+        vertical-align: middle;
+        color: black !important;
+    }
+    
+@media print {
+        html, body { 
+            background: white !important; 
+            height: auto !important;
+            overflow: visible !important;
+        }
+
+        .no-print { display: none !important; }
+
+        #root > div {
+            display: block !important;
+            height: auto !important;
+            overflow: visible !important;
+        }
+
+        /* Modifikasi Posisi agar Tidak Terpotong */
+        div[class*="fixed inset-0"] {
+            position: absolute !important;
+            background: transparent !important;
+            backdrop-filter: none !important;
+            overflow: visible !important;
+            height: auto !important;
+            padding: 0 !important;
+            top: 0 !important;
+            left: 0 !important;
+        }
+
+        .custom-scrollbar {
+            overflow: visible !important;
+            max-height: none !important;
+        }
+
+        /* RATAKANAN: Paksa Skala & Kurangi Margin Kertas */
+        .a4-paper { 
+            box-shadow: none !important; 
+            margin: 0 auto !important; 
+            padding: 0 !important; 
+            width: 100% !important; 
+            max-width: 100% !important;
+            zoom: 0.92 !important; /* KUNCI RAHASIA: Memperkecil 8% khusus saat dicetak */
+        }
+
+        /* Margin kertas dipepetkan */
+        @page { size: A4 portrait; margin: 5mm; }
+    }
+
+  </style>

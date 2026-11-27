@@ -1,0 +1,299 @@
+<script type="text/babel">
+// Modal: Preview Cetak RAB
+window.Modals.CetakRab = (ctx) => {
+  const {
+    checkedLhs, handleTerbitkanRAB, isRabPrintOpen, managePkLhs, managePkOpen, masterDatabase,
+    setIsRabPrintOpen
+  } = ctx;
+  return (
+isRabPrintOpen && managePkOpen && (() => {
+              const selectedLhs = checkedLhs.length > 0 ? managePkLhs.filter(lh => checkedLhs.includes(lh.id)) : managePkLhs;
+              let grandTotalMat = 0;
+              let grandTotalJasa = 0;
+              const formatNum = (num) => new Intl.NumberFormat('id-ID').format(Math.round(num || 0));
+
+              // 🔥 1. MESIN PEMBERSIH ANGKA TERBARU (ANTI DESIMAL HILANG)
+              const parseAkurat = (val) => {
+                  if (!val) return 0;
+                  if (typeof val === 'number') return val;
+                  let s = String(val).trim().replace(/[^0-9.,-]/g, '');
+                  if (s.includes('.') && s.includes(',')) {
+                      s = s.replace(/\./g, '').replace(',', '.');
+                  } else if (s.includes(',')) {
+                      s = s.replace(/\,/g, '.'); 
+                  } else if (s.includes('.')) {
+                      if (s.startsWith('0.')) return parseFloat(s) || 0; 
+                      const parts = s.split('.');
+                      if (parts.length > 2 || parts[parts.length - 1].length === 3) s = s.replace(/\./g, '');
+                  }
+                  return parseFloat(s) || 0;
+              };
+
+              // 🔥 2. RADAR PENCARI HARGA DI DATABASE
+              const getPrices = (itemName) => {
+                  if (!itemName) return { mat: 0, jas: 0, bongkar: 0 };
+                  const found = (typeof masterDatabase !== 'undefined' ? masterDatabase : []).find(x => 
+                      String(x.Nama_Item || (x._raw && x._raw[2]) || '').trim().toLowerCase() === String(itemName).trim().toLowerCase()
+                  );
+                  if (!found) return { mat: 0, jas: 0, bongkar: 0 };
+                  return { 
+                      mat: parseAkurat(found.Harga_Material || (found._raw && found._raw[4]) || 0), 
+                      jas: parseAkurat(found.Harga_Jasa || (found._raw && found._raw[5]) || 0), 
+                      bongkar: parseAkurat(found.Harga_Bongkar || (found._raw && found._raw[6]) || 0) 
+                  };
+              };
+
+              return (
+              <div className="fixed inset-0 z-[80] flex justify-center bg-slate-900/90 backdrop-blur-sm overflow-y-auto p-4 custom-scrollbar">
+                  <div className="w-full max-w-[297mm] py-4 flex flex-col items-center">
+                      
+                      {/* HEADER TOMBOL CETAK */}
+                      <div className="no-print w-full flex justify-between items-center mb-4 bg-white p-4 rounded-xl shadow-lg border border-slate-200 sticky top-4 z-10">
+                          <div>
+                              <p className="text-[14px] font-bold text-slate-800"><i className="fa-solid fa-file-invoice-dollar text-emerald-600 mr-2"></i> Pratinjau RAB PK</p>
+                              <p className="text-[11px] text-slate-500">Menampilkan {selectedLhs.length} LH secara urut dan presisi.</p>
+                          </div>
+                          <div className="flex gap-2">
+                              <button onClick={() => setIsRabPrintOpen(false)} className="px-4 py-2 border rounded-lg text-[12px] font-bold text-slate-600 hover:bg-slate-100">Tutup</button>
+                              <button onClick={handleTerbitkanRAB} className="px-4 py-2 bg-indigo-600 text-white rounded-lg text-[12px] font-bold hover:bg-indigo-700 shadow-md">Terbitkan & Arsip</button>
+                              <button onClick={() => window.print()} className="px-4 py-2 bg-emerald-600 text-white rounded-lg text-[12px] font-bold hover:bg-emerald-700 shadow-md"><i className="fa-solid fa-print mr-1"></i> Cetak PDF</button>
+                          </div>
+                      </div>
+
+                      {/* AREA KERTAS CETAKAN */}
+                      <div id="area-cetak-rab" className="a4-paper print-container" style={{maxWidth: '100%'}}>
+                          <div className="print-exact" style={{ textAlign: 'center', fontWeight: 'bold', fontSize: '14pt', textDecoration: 'underline', marginBottom: '15px', color: 'black' }}>
+                              RENCANA ANGGARAN BIAYA (RAB)
+                          </div>
+                          <div style={{ marginBottom: '15px', fontSize: '10pt', color: 'black' }} className="print-exact">
+                              <table style={{ width: '50%' }}>
+                                  <tbody>
+                                      <tr><td style={{ width: '120px' }}>Pekerjaan</td><td>: {managePkOpen.nama}</td></tr>
+                                      <tr><td>Jenis Pekerjaan</td><td>: {managePkOpen.lokasi || managePkOpen.jenis_pekerjaan}</td></tr>
+                                      <tr><td>Vendor</td><td>: {managePkOpen.vendor}</td></tr>
+                                  </tbody>
+                              </table>
+                          </div>
+
+                          <table className="print-table print-exact" style={{ width: '100%', borderCollapse: 'collapse', backgroundColor: 'transparent' }}>
+                              <thead>
+                                  <tr style={{ height: '20pt', backgroundColor: '#d9d9d9' }}>
+                                      <th rowSpan={2} className="print-header" style={{ width: '4%' }}>NO</th>
+                                      <th rowSpan={2} className="print-header" style={{ width: '26%' }}>URAIAN PEKERJAAN</th>
+                                      <th rowSpan={2} className="print-header" style={{ width: '4%' }}>SAT</th>
+                                      <th colSpan={2} className="print-header" style={{ width: '10%' }}>VOLUME</th>
+                                      <th rowSpan={2} className="print-header" style={{ width: '4%' }}>JML</th>
+                                      <th colSpan={2} className="print-header" style={{ width: '16%' }}>HARGA SATUAN</th>
+                                      <th colSpan={2} className="print-header" style={{ width: '16%' }}>HARGA BAGIAN</th>
+                                      <th rowSpan={2} className="print-header" style={{ width: '8%' }}>TOTAL</th>
+                                  </tr>
+                                  <tr style={{ height: '15pt', backgroundColor: '#d9d9d9' }}>
+                                      <th className="print-header">PLN</th>
+                                      <th className="print-header">PEMB</th>
+                                      <th className="print-header">Material</th>
+                                      <th className="print-header">Jasa</th>
+                                      <th className="print-header">Material</th>
+                                      <th className="print-header">Jasa</th>
+                                  </tr>
+                              </thead>
+                              <tbody>
+                                  {selectedLhs.map((lh) => {
+                                      let subBagMat = 0; let subBagJasa = 0;
+                                      const d = lh.data || {};
+                                      let itemCounter = 1;
+
+                                      return (
+                                          <React.Fragment key={lh.id}>
+                                              {/* HEADER PEMISAH PER LH (INFO LENGKAP TANPA ID) */}
+                                              <tr className="bg-slate-50 border-b border-slate-200">
+                                                  <td colSpan={11} className="print-cell" style={{padding: '6px 8px'}}>
+                                                      <div style={{ display: 'flex', flexDirection: 'column', gap: '2px' }}>
+                                                          {/* ROW 1: Tanggal & Nama PK */}
+                                                          <div style={{ fontWeight: 'bold', fontSize: '10pt', color: '#0f172a' }}>
+                                                              {lh.data?.tanggal_lh || lh.tanggal} : {managePkOpen.nama}
+                                                          </div>
+                                                          {/* ROW 2: Uraian LH - Lokasi - Pengawas - Team */}
+                                                          <div style={{ fontWeight: 'normal', fontStyle: 'italic', fontSize: '9pt', color: '#475569' }}>
+                                                              <span style={{ fontWeight: 'bold' }}>{lh.data?.nama_pekerjaan_lh || lh.uraian || 'Pekerjaan Harian'}</span> - {lh.data?.lokasi_lh || 'Lokasi Belum Diisi'} - {lh.data?.pengawas_lh || '-'} - {lh.data?.team_lh || '-'}
+                                                          </div>
+                                                      </div>
+                                                  </td>
+                                              </tr>
+                                              
+                                              {/* ======================================================== */}
+                                              {/* A. MATERIAL UTAMA (Dari Laci Material MDU) */}
+                                              {/* ======================================================== */}
+                                              {(d.materialMdu || []).filter(m => m.nama).length > 0 && (
+                                                  <tr><td colSpan={11} className="print-cell" style={{ fontWeight: 'bold', padding: '2px 4px' }}>A. MATERIAL UTAMA</td></tr>
+                                              )}
+                                              {(d.materialMdu || []).filter(m => m.nama).map((m, i) => {
+                                                  const vol = parseAkurat(m.jumlah); 
+                                                  const p = getPrices(m.nama);
+                                                  const satMat = p.mat > 0 ? p.mat : parseAkurat(m.harga); 
+                                                  const satJas = p.jas;
+                                                  const bagMat = satMat * vol; const bagJas = satJas * vol;
+                                                  
+                                                  subBagMat += bagMat; subBagJasa += bagJas; 
+                                                  grandTotalMat += bagMat; grandTotalJasa += bagJas;
+                                                  return (
+                                                      <tr key={`mdu-${i}`}>
+                                                          <td className="print-cell" style={{ textAlign: 'center' }}>{itemCounter++}</td>
+                                                          <td className="print-cell">{m.nama}</td>
+                                                          <td className="print-cell" style={{ textAlign: 'center' }}>{m.satuan}</td>
+                                                          <td className="print-cell" style={{ textAlign: 'center' }}>-</td>
+                                                          <td className="print-cell" style={{ textAlign: 'center' }}>-</td>
+                                                          <td className="print-cell" style={{ textAlign: 'center', fontWeight: 'bold' }}>{vol > 0 ? vol : '-'}</td>
+                                                          <td className="print-cell" style={{ textAlign: 'right' }}>{satMat > 0 ? formatNum(satMat) : '-'}</td>
+                                                          <td className="print-cell" style={{ textAlign: 'right' }}>{satJas > 0 ? formatNum(satJas) : '-'}</td>
+                                                          <td className="print-cell" style={{ textAlign: 'right' }}>{bagMat > 0 ? formatNum(bagMat) : '-'}</td>
+                                                          <td className="print-cell" style={{ textAlign: 'right' }}>{bagJas > 0 ? formatNum(bagJas) : '-'}</td>
+                                                          <td className="print-cell" style={{ textAlign: 'right', fontWeight: 'bold' }}>{bagMat+bagJas > 0 ? formatNum(bagMat+bagJas) : '-'}</td>
+                                                      </tr>
+                                                  );
+                                              })}
+
+                                              {/* ======================================================== */}
+                                              {/* B. MATERIAL KONSTRUKSI (Dari Laci Uraian Pasang) */}
+                                              {/* ======================================================== */}
+                                              {(d.uraianPasang || []).filter(m => m.nama).length > 0 && (
+                                                  <tr><td colSpan={11} className="print-cell" style={{ fontWeight: 'bold', padding: '2px 4px' }}>B. MATERIAL KONSTRUKSI</td></tr>
+                                              )}
+                                              {(d.uraianPasang || []).filter(m => m.nama).map((m, i) => {
+                                                  const vP = parseAkurat(m.pln); 
+                                                  const vB = parseAkurat(m.pemb); 
+                                                  const vol = vP + vB || parseAkurat(m.jumlah);
+                                                  
+                                                  const p = getPrices(m.nama); 
+                                                  const satMat = p.mat; 
+                                                  const satJas = p.jas > 0 ? p.jas : parseAkurat(m.harga);
+                                                  const bagMat = satMat * vol; const bagJas = satJas * vol;
+                                                  
+                                                  subBagMat += bagMat; subBagJasa += bagJas; 
+                                                  grandTotalMat += bagMat; grandTotalJasa += bagJas;
+                                                  return (
+                                                      <tr key={`psg-${i}`}>
+                                                          <td className="print-cell" style={{ textAlign: 'center' }}>{itemCounter++}</td>
+                                                          <td className="print-cell">{m.nama}</td>
+                                                          <td className="print-cell" style={{ textAlign: 'center' }}>{m.satuan}</td>
+                                                          <td className="print-cell" style={{ textAlign: 'center' }}>{vP > 0 ? vP : '-'}</td>
+                                                          <td className="print-cell" style={{ textAlign: 'center' }}>{vB > 0 ? vB : '-'}</td>
+                                                          <td className="print-cell" style={{ textAlign: 'center', fontWeight: 'bold' }}>{vol > 0 ? vol : '-'}</td>
+                                                          <td className="print-cell" style={{ textAlign: 'right' }}>{satMat > 0 ? formatNum(satMat) : '-'}</td>
+                                                          <td className="print-cell" style={{ textAlign: 'right' }}>{satJas > 0 ? formatNum(satJas) : '-'}</td>
+                                                          <td className="print-cell" style={{ textAlign: 'right' }}>{bagMat > 0 ? formatNum(bagMat) : '-'}</td>
+                                                          <td className="print-cell" style={{ textAlign: 'right' }}>{bagJas > 0 ? formatNum(bagJas) : '-'}</td>
+                                                          <td className="print-cell" style={{ textAlign: 'right', fontWeight: 'bold' }}>{bagMat+bagJas > 0 ? formatNum(bagMat+bagJas) : '-'}</td>
+                                                      </tr>
+                                                  );
+                                              })}
+
+                                              {/* ======================================================== */}
+                                              {/* C. JASA DAN LAIN-LAIN (Dari Laci Uraian Bongkar -> VOLUME MASUK PEMB) */}
+                                              {/* ======================================================== */}
+                                              {(d.uraianBongkar || []).filter(m => m.nama).length > 0 && (
+                                                  <tr><td colSpan={11} className="print-cell" style={{ fontWeight: 'bold', padding: '2px 4px' }}>C. JASA DAN LAIN-LAIN</td></tr>
+                                              )}
+                                              {(d.uraianBongkar || []).filter(m => m.nama).map((m, i) => {
+                                                  const vol = parseAkurat(m.jumlah);
+                                                  const p = getPrices(m.nama);
+                                                  const satJas = p.bongkar > 0 ? p.bongkar : parseAkurat(m.harga);
+                                                  const bagJas = satJas * vol;
+                                                  
+                                                  subBagJasa += bagJas; grandTotalJasa += bagJas;
+                                                  return (
+                                                      <tr key={`bkr-${i}`}>
+                                                          <td className="print-cell" style={{ textAlign: 'center' }}>{itemCounter++}</td>
+                                                          <td className="print-cell">{m.nama}</td>
+                                                          <td className="print-cell" style={{ textAlign: 'center' }}>{m.satuan}</td>
+                                                          <td className="print-cell" style={{ textAlign: 'center' }}>-</td>
+                                                          <td className="print-cell" style={{ textAlign: 'center' }}>{vol > 0 ? vol : '-'}</td> {/* 🔥 VOLUME MASUK PEMB */}
+                                                          <td className="print-cell" style={{ textAlign: 'center', fontWeight: 'bold' }}>{vol > 0 ? vol : '-'}</td>
+                                                          <td className="print-cell" style={{ textAlign: 'right' }}>-</td>
+                                                          <td className="print-cell" style={{ textAlign: 'right' }}>{satJas > 0 ? formatNum(satJas) : '-'}</td>
+                                                          <td className="print-cell" style={{ textAlign: 'right' }}>-</td>
+                                                          <td className="print-cell" style={{ textAlign: 'right' }}>{bagJas > 0 ? formatNum(bagJas) : '-'}</td>
+                                                          <td className="print-cell" style={{ textAlign: 'right', fontWeight: 'bold' }}>{bagJas > 0 ? formatNum(bagJas) : '-'}</td>
+                                                      </tr>
+                                                  );
+                                              })}
+                                              
+                                              {/* SUBTOTAL PER LH */}
+                                              <tr style={{ backgroundColor: '#f8fafc' }}>
+                                                  <td colSpan={8} className="print-cell" style={{ textAlign: 'right', fontWeight: 'bold' }}>Subtotal</td>
+                                                  <td className="print-cell" style={{ textAlign: 'right', fontWeight: 'bold' }}>{subBagMat > 0 ? formatNum(subBagMat) : '-'}</td>
+                                                  <td className="print-cell" style={{ textAlign: 'right', fontWeight: 'bold' }}>{subBagJasa > 0 ? formatNum(subBagJasa) : '-'}</td>
+                                                  <td className="print-cell" style={{ textAlign: 'right', fontWeight: 'bold' }}>{subBagMat + subBagJasa > 0 ? formatNum(subBagMat + subBagJasa) : '-'}</td>
+                                              </tr>
+                                          </React.Fragment>
+                                      );
+                                  })}
+
+                                  {/* TOTAL KESELURUHAN */}
+                                  {(() => {
+                                      const totalAll = grandTotalMat + grandTotalJasa;
+                                      const ppn = Math.round(totalAll * 0.11);
+                                      const grandFinal = Math.round((totalAll + ppn) / 1000) * 1000;
+                                      return (
+                                          <>
+                                              <tr style={{ height: '20pt' }}>
+                                                  <td colSpan={8} className="print-cell" style={{ textAlign: 'right', fontWeight: 'bold' }}>Total Keseluruhan</td>
+                                                  <td className="print-cell" style={{ textAlign: 'right', fontWeight: 'bold' }}>{grandTotalMat > 0 ? formatNum(grandTotalMat) : '-'}</td>
+                                                  <td className="print-cell" style={{ textAlign: 'right', fontWeight: 'bold', color: '#e11d48' }}>{grandTotalJasa > 0 ? formatNum(grandTotalJasa) : '-'}</td>
+                                                  <td className="print-cell" style={{ textAlign: 'center' }}>
+                                                      <div style={{ display: 'inline-block', border: '2px solid #16a34a', borderRadius: '15px', color: '#16a34a', fontWeight: 'bold', padding: '1px 6px', minWidth: '85%' }}>
+                                                          {formatNum(totalAll)}
+                                                      </div>
+                                                  </td>
+                                              </tr>
+                                              <tr>
+                                                  <td colSpan={10} className="print-cell" style={{ textAlign: 'right', fontWeight: 'bold' }}>PPN 11%</td>
+                                                  <td className="print-cell" style={{ textAlign: 'right', fontWeight: 'bold' }}>{formatNum(ppn)}</td>
+                                              </tr>
+                                              {/* 🔥 BARIS INI SAYA KEMBALIKAN */}
+                                              <tr>
+                                                  <td colSpan={10} className="print-cell" style={{ textAlign: 'right', fontWeight: 'bold' }}>Jumlah</td>
+                                                  <td className="print-cell" style={{ textAlign: 'right', fontWeight: 'bold' }}>{formatNum(totalAll + ppn)}</td>
+                                              </tr>
+                                              <tr style={{ backgroundColor: '#f1f5f9' }}>
+                                                  <td colSpan={10} className="print-cell" style={{ textAlign: 'right', fontWeight: 'black', fontSize: '11pt' }}>Grand Total Dibulatkan</td>
+                                                  <td className="print-cell" style={{ textAlign: 'right', fontWeight: 'black', fontSize: '11pt' }}>{formatNum(grandFinal)}</td>
+                                              </tr>
+                                          </>
+                                      );
+                                  })()}
+                              </tbody>
+                            {/* 🔥 2. CSS SAKTI KHUSUS PRINT RAB (DITARUH DI SINI) */}
+                              <style dangerouslySetInnerHTML={{__html: `
+                              @media print {
+                                  /* Sembunyikan semua elemen di layar modal dan latar belakang */
+                                  body * { visibility: hidden !important; }
+                                  
+                                  /* Munculkan khusus isi dalam id="area-cetak-rab" */
+                                  #area-cetak-rab, #area-cetak-rab * { visibility: visible !important; }
+                                  
+                                  /* Posisikan id="area-cetak-rab" pas di sudut kiri atas kertas */
+                                  #area-cetak-rab {
+                                      position: absolute !important;
+                                      left: 0 !important;
+                                      top: 0 !important;
+                                      width: 100% !important;
+                                      max-width: 100% !important;
+                                      margin: 0 !important;
+                                      padding: 0 !important;
+                                      box-shadow: none !important;
+                                      border: none !important;
+                                  }
+                                  
+                                  /* Setel margin pinggiran kertas printer */
+                                  @page { size: auto; margin: 10mm; }
+                              }
+                          `}} />
+                          </table>
+                      </div>
+                  </div>
+              </div>
+              );
+          })()
+  );
+};
+</script>

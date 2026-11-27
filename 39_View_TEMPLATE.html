@@ -1,0 +1,21 @@
+<script type="text/babel">
+// TEMPLATE untuk menu lain. Salin, ganti nama, isi.
+// Contoh: View_AntreanPK.html  ->  window.Views.AntreanPK
+//
+// Cara memindahkan satu menu dari file lama:
+// 1. Ambil blok JSX  {currentView === 'monitor_pk' && ( ... )}  -> tempel di return(...) tanpa kondisinya
+// 2. Variabel yang dipakai blok itu (state, setter, fungsi) -> tulis di destructuring ctx
+// 3. Tambahkan nama yang sama di objek ctx pada App.html
+// 4. Ganti parseAkurat/getPrices lokal dengan H.parseAkurat / H.getPrices(masterDatabase, nama)
+window.Views.NamaMenu = (ctx) => {
+  const {
+    // contoh: pks, lhs, currentUser, showToast, setManagePkOpen, ...
+  } = ctx;
+
+  return (
+    <div>
+      {/* JSX menu di sini */}
+    </div>
+  );
+};
+</script>

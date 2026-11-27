@@ -1,0 +1,654 @@
+<script type="text/babel">
+// Menu: Pusat verifikasi = tempat Admin Code membuat dokumen Code 3, Code 7, dan AGO.
+// Tampilan mengikuti standar aplikasi (DESIGN.md, pola daftar Antrean PK): huruf dan komponen yang sama dengan menu lain.
+//
+// Antrean hanya berisi LH yang sudah lolos audit (atau selesai direvisi) dan masih kekurangan dokumen (aturan di UiKit: lhTahap, lhDokumen).
+// SKALA PRIORITAS (agar pekerjaan dikerjakan dari yang paling mendesak):
+//   Prioritas 1: LH yang sudah masuk KTK (kontraknya sedang disusun), dikelompokkan per KTK dan SPK-nya.
+//   Prioritas 2: LH di PK yang sudah masuk SPK, tetapi belum masuk KTK, dikelompokkan per SPK.
+//   Prioritas 3: LH di PK yang belum masuk SPK, dikelompokkan per PK.
+// Di dalam satu prioritas, kelompok yang paling lama menunggu tampil paling atas (KTK yang sudah Final lebih dulu).
+//
+// KEAMANAN UNGGAH: file diperiksa dulu di layar (tipe, ukuran), dikonfirmasi, lalu dikirim lewat window.safeRun (layar terkunci, ada batas waktu).
+// Server (lhUnggahDokumen) memeriksa ulang semuanya, menulis, lalu MEMBACA ULANG Sheet. LH baru berubah di layar bila server menjawab "terverifikasi".
+// CATATAN BERKAS: simpan sebagai UTF-8. Jangan membaca/menulis berkas ini lewat PowerShell Get-Content/Set-Content (merusak karakter).
+(() => {
+  const { useState, useMemo, useEffect, useDeferredValue, useRef } = React;
+  const UI = window.UI;
+  const lower = (s) => String(s == null ? '' : s).toLowerCase();
+  const DAY = 86400000;
+  const C = { ink: '#2B2F3A', mute: '#7A8190', line: '#E6E9F2', blue: '#3A62B0', purple: '#7E57C2', ago: '#5A7FD0', ok: '#3C8A5E', warn: '#B7791F', bad: '#B5524F' };
+  const btn = 'h-8 px-3.5 rounded-lg border bg-white hover:border-[#9FB0D2] disabled:opacity-40 disabled:cursor-not-allowed';
+  const inp = 'h-9 px-3 rounded-[10px] border bg-white outline-none text-[13px] focus:border-[#3A62B0] focus:ring-2 focus:ring-[#3A62B0]/20';
+  const parseTgl = (s) => {
+    s = String(s || '').trim(); let m;
+    if ((m = s.match(/^(\d{4})-(\d{1,2})-(\d{1,2})(?:[ T](\d{1,2}):(\d{2}))?/))) return new Date(+m[1], +m[2] - 1, +m[3], +(m[4] || 0), +(m[5] || 0)).getTime();
+    return window.Periode.waktu({ tanggal: s });   // format lain (dd/mm/yyyy, "16 Nov 2026") diterjemahkan oleh UiKit
+  };
+  const fmtPendek = (t) => t ? new Date(t).toLocaleDateString('id-ID', { day: '2-digit', month: 'short', year: 'numeric' }) : '-';
+  const DOK = { c3: { nama: 'Code 3', tipe: 'code3', file: 'File_Code3', col: C.blue }, c7: { nama: 'Code 7', tipe: 'code7', file: 'File_Code7', col: C.purple }, ago: { nama: 'AGO', tipe: 'ago', file: 'File_AGO', col: C.ago } };
+  const PRIO = {
+    1: { judul: 'Prioritas 1', sub: 'Sudah masuk KTK', hint: 'Kontraknya sedang disusun, kerjakan lebih dulu', color: C.bad, bg: '#FDF6F5' },
+    2: { judul: 'Prioritas 2', sub: 'Sudah masuk SPK, belum masuk KTK', hint: 'Sudah punya SPK, siap masuk KTK berikutnya', color: C.warn, bg: '#FFF9EC' },
+    3: { judul: 'Prioritas 3', sub: 'PK belum masuk SPK', hint: 'Belum terhubung ke SPK, kerjakan setelah yang lain', color: '#5B6475', bg: '#F4F5F8' }
+  };
+  // file yang boleh diunggah (sama dengan server: Dokumen.js)
+  const MAKS_BYTE = 8 * 1024 * 1024;
+  const MIME_OK = ['application/pdf', 'image/jpeg', 'image/png', 'image/webp', 'application/msword', 'application/vnd.openxmlformats-officedocument.wordprocessingml.document', 'application/vnd.ms-excel', 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'];
+  const EKSTENSI = { pdf: 'application/pdf', jpg: 'image/jpeg', jpeg: 'image/jpeg', png: 'image/png', webp: 'image/webp', doc: 'application/msword', docx: 'application/vnd.openxmlformats-officedocument.wordprocessingml.document', xls: 'application/vnd.ms-excel', xlsx: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' };
+  const mimeOf = (f) => { const t = String(f.type || '').toLowerCase(); if (MIME_OK.indexOf(t) >= 0) return t; const e = String(f.name || '').split('.').pop().toLowerCase(); return EKSTENSI[e] || ''; };
+  const bacaFile = (f) => new Promise((resolve, reject) => { const r = new FileReader(); r.onload = () => resolve(String(r.result || '')); r.onerror = () => reject(new Error('File tidak bisa dibaca. Pilih ulang file.')); r.onabort = () => reject(new Error('Pembacaan file dibatalkan.')); r.readAsDataURL(f); });
+  const mb = (b) => (b / 1048576).toFixed(b >= 1048576 ? 1 : 2).replace('.', ',') + ' MB';
+
+  // Kelola daftar nomor normalisasi (tab Daftar_Normalisasi di database). Hanya Super Admin dan Admin Code; server memeriksa ulang dan membaca ulang hasil tulisan.
+  function NormPanel({ auth, showToast, onTutup }) {
+    const [rows, setRows] = useState(null);
+    const [pesan, setPesan] = useState('');
+    const [q, setQ] = useState('');
+    const dq = useDeferredValue(q);
+    const [f, setF] = useState({ kodeLama: '', kode: '', deskripsi: '', pendek: '' });
+    const [busy, setBusy] = useState(false);
+    const [impor, setImpor] = useState(false);
+    const [teks, setTeks] = useState('');
+    const [lim, setLim] = useState(100);
+    const muat = async () => {
+      const out = await window.safeRun('code37NormDaftar', [auth], { label: 'Memuat daftar nomor normalisasi' });
+      if (out.ok && out.res && out.res.status === 'success' && Array.isArray(out.res.rows)) { setRows(out.res.rows); setPesan(''); }
+      else { setRows([]); setPesan((out.res && out.res.message) || out.message || 'Server tidak menjawab.'); }
+    };
+    useEffect(() => { muat(); }, []);
+    const ws = lower(dq).split(/\s+/).filter(Boolean);
+    const tampil = useMemo(() => (rows || []).filter((r) => ws.every((w) => lower(r.kode + ' ' + r.deskripsi + ' ' + r.pendek).indexOf(w) >= 0)), [rows, dq]);
+    const kosongF = { kodeLama: '', kode: '', deskripsi: '', pendek: '' };
+    const kirim = async (fn, args, label, ok) => {
+      if (busy) return; setBusy(true);
+      try {
+        const out = await window.safeRun(fn, args, { label });
+        if (!out.ok || !out.res || out.res.status !== 'success' || out.res.terverifikasi !== true) { showToast('Tidak tersimpan', (out.res && out.res.message) || out.message || 'Server tidak mengonfirmasi.', 'error'); return; }
+        setRows(out.res.rows); ok(out.res);
+      } catch (e) { showToast('Terjadi kesalahan', String((e && e.message) || e), 'error'); }
+      finally { setBusy(false); }
+    };
+    const simpan = () => {
+      if (!/^\d{7}$/.test(f.kode.trim())) { showToast('Nomor belum benar', 'Nomor normalisasi harus 7 angka.', 'error'); return; }
+      if (!f.deskripsi.trim() && !f.pendek.trim()) { showToast('Isi nama material', 'Isi deskripsi atau nama pendek.', 'error'); return; }
+      kirim('code37NormSimpan', [auth, { kodeLama: f.kodeLama, kode: f.kode.trim(), deskripsi: f.deskripsi, pendek: f.pendek }], 'Menyimpan nomor normalisasi', (r) => { setF(kosongF); showToast(r.baru ? 'Nomor ditambahkan' : 'Nomor diperbarui', r.kode, 'success'); });
+    };
+    const hapus = async (r) => {
+      const c = await Swal.fire({ icon: 'question', title: 'Hapus nomor ' + r.kode + '?', text: (r.pendek || r.deskripsi) + '. Bon yang sudah dicetak tidak berubah; pencarian nomor berikutnya tidak lagi memakai baris ini.', showCancelButton: true, confirmButtonText: 'Ya, hapus', cancelButtonText: 'Batal' });
+      if (!c.isConfirmed) return;
+      kirim('code37NormHapus', [auth, r.kode], 'Menghapus nomor normalisasi', () => { if (f.kodeLama === r.kode) setF(kosongF); showToast('Nomor dihapus', r.kode, 'success'); });
+    };
+    const doImpor = () => {
+      if (!teks.trim()) { showToast('Tempelan kosong', 'Tempel baris dari Excel dulu.', 'error'); return; }
+      kirim('code37NormImpor', [auth, teks], 'Mengimpor nomor normalisasi', (r) => { setTeks(''); setImpor(false); showToast('Impor selesai', r.ditambah + ' ditambah, ' + r.diubah + ' diperbarui' + (r.dilewati ? ', ' + r.dilewati + ' baris dilewati' : '') + '.', r.dilewati ? 'info' : 'success'); });
+    };
+    return (
+      <div className="fixed inset-0 z-50 flex items-center justify-center p-4" style={{ background: 'rgba(35,33,30,.35)' }} data-testid="panel-norm" role="dialog" aria-modal="true">
+        <div className="bg-white rounded-[14px] border w-full max-w-[1000px] max-h-[92vh] flex flex-col" style={{ borderColor: C.line }}>
+          <div className="px-5 py-3 border-b flex items-start justify-between gap-4" style={{ borderColor: C.line }}>
+            <div><div className="text-[16px] font-medium" style={{ color: C.ink }}>Daftar nomor normalisasi</div>
+              <div style={{ color: C.mute }}>{rows ? rows.length + ' material' : 'Memuat...'} · dipakai mencocokkan nama material di bon Code 3 dan Code 7, dibantu Convert material.</div></div>
+            <button className={btn} style={{ borderColor: '#8E99B5' }} onClick={onTutup} data-testid="norm-tutup">Tutup</button>
+          </div>
+          {pesan && <div className="px-5 py-2 text-[12px]" style={{ background: '#FDF3F2', color: C.bad }}>{pesan}</div>}
+          <div className="px-5 py-3 border-b space-y-2" style={{ borderColor: C.line }}>
+            <div className="flex flex-wrap items-end gap-2">
+              <label><span className="block text-[11px] mb-0.5" style={{ color: C.mute }}>Nomor (7 angka)</span><input value={f.kode} inputMode="numeric" maxLength={7} onChange={(e) => setF({ ...f, kode: e.target.value.replace(/\D/g, '') })} className={inp + ' w-[110px] num'} style={{ borderColor: '#8E99B5' }} data-testid="norm-kode" /></label>
+              <label className="flex-1 min-w-[220px]"><span className="block text-[11px] mb-0.5" style={{ color: C.mute }}>Deskripsi (nama di SAP)</span><input value={f.deskripsi} maxLength={150} onChange={(e) => setF({ ...f, deskripsi: e.target.value })} className={inp + ' w-full'} style={{ borderColor: '#8E99B5' }} data-testid="norm-deskripsi" /></label>
+              <label className="flex-1 min-w-[180px]"><span className="block text-[11px] mb-0.5" style={{ color: C.mute }}>Nama pendek</span><input value={f.pendek} maxLength={100} onChange={(e) => setF({ ...f, pendek: e.target.value })} className={inp + ' w-full'} style={{ borderColor: '#8E99B5' }} data-testid="norm-pendek" /></label>
+              <button className="h-9 px-4 rounded-lg text-white font-medium bg-[#3A62B0] hover:bg-[#2F5399] disabled:opacity-40" disabled={busy} onClick={simpan} data-testid="norm-simpan">{f.kodeLama ? 'Simpan perubahan' : 'Tambah'}</button>
+              {f.kodeLama && <button className={btn + ' !h-9'} style={{ borderColor: '#8E99B5' }} onClick={() => setF(kosongF)}>Batal ubah</button>}
+              <button className={btn + ' !h-9'} style={{ borderColor: '#8E99B5' }} onClick={() => setImpor(!impor)} data-testid="norm-buka-impor">{impor ? 'Tutup impor' : 'Impor dari Excel'}</button>
+            </div>
+            {impor && <div data-testid="norm-impor"><div className="text-[12px] mb-1" style={{ color: C.mute }}>Tempel baris dari Excel: Nomor (7 angka), Deskripsi, Nama pendek (dipisah tab atau titik koma). Nomor yang sudah ada diperbarui, yang belum ada ditambahkan. Maksimal 2000 baris sekali impor.</div>
+              <textarea value={teks} onChange={(e) => setTeks(e.target.value)} rows={5} className="w-full px-3 py-2 rounded-[10px] border outline-none text-[13px] focus:border-[#3A62B0]" style={{ borderColor: '#8E99B5' }} data-testid="norm-teks" />
+              <div className="mt-1"><button className="h-8 px-4 rounded-lg text-white font-medium bg-[#3A62B0] hover:bg-[#2F5399] disabled:opacity-40" disabled={busy || !teks.trim()} onClick={doImpor} data-testid="norm-kirim-impor">Impor</button></div></div>}
+            <input value={q} onChange={(e) => { setQ(e.target.value); setLim(100); }} placeholder="Cari nomor, deskripsi, atau nama pendek" className={inp + ' w-full'} style={{ borderColor: '#8E99B5' }} data-testid="norm-cari" />
+          </div>
+          <div className="overflow-auto flex-1">
+            <div className="grid gap-3 px-5 py-1.5 text-[11px] sticky top-0 bg-white border-b" style={{ gridTemplateColumns: '90px minmax(0,2fr) minmax(0,1.2fr) 110px', color: C.mute, borderColor: '#EEF0F7' }}><span>Nomor</span><span>Deskripsi</span><span>Nama pendek</span><span></span></div>
+            {rows === null && <div className="px-5 py-4" style={{ color: C.mute }}>Memuat...</div>}
+            {rows && tampil.length === 0 && <div className="px-5 py-6 text-center" style={{ color: C.mute }}>{ws.length ? 'Tidak ada yang cocok.' : 'Daftar kosong.'}</div>}
+            {tampil.slice(0, lim).map((r) => (
+              <div key={r.kode} data-testid="norm-baris" className="grid gap-3 items-start px-5 py-1.5 border-b" style={{ gridTemplateColumns: '90px minmax(0,2fr) minmax(0,1.2fr) 110px', borderColor: '#EEF0F7' }}>
+                <span className="num" style={{ color: C.purple }}>{r.kode}</span><span className="break-words">{r.deskripsi || '-'}</span><span className="break-words">{r.pendek || '-'}</span>
+                <span className="flex justify-end gap-3 whitespace-nowrap"><button className="hover:underline" style={{ color: C.blue }} onClick={() => setF({ kodeLama: r.kode, kode: r.kode, deskripsi: r.deskripsi, pendek: r.pendek })}>Ubah</button><button className="hover:underline" style={{ color: C.bad }} disabled={busy} onClick={() => hapus(r)}>Hapus</button></span>
+              </div>))}
+            {tampil.length > lim && <button onClick={() => setLim(lim + 100)} className="w-full py-2 hover:bg-[#F9FAFD]" style={{ color: C.blue }}>Tampilkan 100 berikutnya ({tampil.length - lim} lagi)</button>}
+          </div>
+        </div>
+      </div>);
+  }
+
+  function VerifikasiDesk({ ctx }) {
+    const { lhs, pks, spks, currentUser, showToast, setLhs, fetchMainAppData } = ctx;
+    const role = currentUser && currentUser.role;
+    const canUpload = role === 'Super Admin' || role === 'Admin Code';
+    const auth = { t: (currentUser && currentUser.token) || '', as: (currentUser && currentUser.asUser) || '' };
+    const [prio, setPrio] = useState({ state: 'muat', kontrak: {}, lh: {}, pk: {}, pesan: '' });
+    const [q, setQ] = useState('');
+    const dq = useDeferredValue(q);
+    const [spkF, setSpkF] = useState('');
+    const [dokF, setDokF] = useState('');
+    const [pF, setPF] = useState('');
+    const [open, setOpen] = useState({});
+    const [detail, setDetail] = useState({});
+    const [limit, setLimit] = useState(10);
+    const [busy, setBusy] = useState(false);
+    const [draf, setDraf] = useState(null);   // tabel bon yang sedang disunting sebelum dicetak
+    const [sedang, setSedang] = useState('');   // "idLH|dokumen" yang sedang diunggah
+    const [pd, setPd] = useState({ rows: [], muat: false });   // daftar penandatangan cetakan (Daftar_Penanda_Code), dikelola Admin Code
+    const [man, setMan] = useState({ rows: [], state: 'idle', pesan: '', buka: false });   // Code 3/7 manual (di luar LH), dipisah dari data LH
+    const [periode, setPeriode] = useState(() => window.Periode.baca('verifikasi'));
+
+    const muatPrioritas = () => {
+      setPrio((p) => ({ ...p, state: 'muat' }));
+      window.safeRun('lhPrioritasKtk', [auth], { timeout: 30000, tanpaBlokir: true }).then((out) => {
+        if (out.ok) setPrio({ state: 'ok', kontrak: out.res.kontrak || {}, lh: out.res.lh || {}, pk: out.res.pk || {}, pesan: '' });
+        else setPrio((p) => ({ ...p, state: 'gagal', pesan: out.message || 'Tidak diketahui.' }));
+      });
+    };
+    useEffect(() => { muatPrioritas(); }, []);
+
+    const safeLhs = lhs || [], safePks = pks || [], safeSpks = spks || [];
+    const pkBy = useMemo(() => { const m = {}; safePks.forEach((p) => { m[String(p.id).trim()] = p; }); return m; }, [safePks]);
+    const spkBy = useMemo(() => { const m = {}; safeSpks.forEach((s) => { m[String(s.id).trim()] = s; }); return m; }, [safeSpks]);
+
+    // semua LH yang sudah lolos audit dan butuh dokumen (lengkap maupun belum), lengkap dengan prioritasnya
+    const itemsSemua = useMemo(() => {
+      const out = [];
+      safeLhs.forEach((l) => {
+        if (window.lhTahap(l) !== 'lolos') return;
+        const dok = window.lhDokumen(l); if (!dok.need.ago) return;
+        const pk = pkBy[String(l.pk_id).trim()] || {};
+        const kid = prio.lh[String(l.id)] || prio.pk[String(l.pk_id).trim()] || '';
+        const ktk = kid ? prio.kontrak[kid] : null;
+        const spkId = String((ktk && ktk.idSpk) || pk.spk_id || '').trim();
+        const spk = spkId ? spkBy[spkId] : null;
+        const p = ktk ? 1 : (spk ? 2 : 3);
+        const since = parseTgl(l.audit_tgl) || parseTgl(l.tanggal);
+        const d = l.data || {};
+        out.push({ l, dok, pk, ktk, spkId, spk, p, since, selesai: dok.kurang.length === 0,
+          nama: String(d.nama_pekerjaan_lh || l.uraian || '').trim(), lokasi: d.lokasi_lh || pk.lokasi || '',
+          key: p === 1 ? 'K:' + ktk.id : p === 2 ? 'S:' + spkId : 'P:' + String(l.pk_id).trim() });
+      });
+      return out;
+    }, [safeLhs, pkBy, spkBy, prio]);
+    // PERIODE: bawaan sejak 1 November 2026 (UiKit: Periode). Yang di luar periode tidak hilang: jumlahnya ditampilkan dan bisa dibuka.
+    const items = useMemo(() => itemsSemua.filter((it) => window.Periode.cocok(periode, window.Periode.waktu(it.l))), [itemsSemua, periode]);
+    const diluar = useMemo(() => itemsSemua.filter((it) => !it.selesai && !window.Periode.cocok(periode, window.Periode.waktu(it.l))), [itemsSemua, periode]);
+    const opsiPeriode = useMemo(() => window.Periode.opsi(safeLhs), [safeLhs]);
+    const ubahPeriode = (v) => { setPeriode(v); window.Periode.simpan('verifikasi', v); setLimit(10); };
+    const tertahan = useMemo(() => safeLhs.filter((l) => window.lhTahap(l) !== 'lolos' && window.lhDokumen(l).kurang.length > 0 && window.Periode.cocok(periode, window.Periode.waktu(l))), [safeLhs, periode]);
+
+    const now = Date.now();
+    const groups = useMemo(() => {
+      const m = {};
+      items.forEach((it) => { const g = m[it.key] || (m[it.key] = { key: it.key, p: it.p, ktk: it.ktk, spkId: it.spkId, spk: it.spk, pk: it.pk, items: [] }); g.items.push(it); });
+      return Object.keys(m).map((k) => m[k]);
+    }, [items]);
+
+    const ws = lower(dq).split(/\s+/).filter(Boolean);
+    const cocok = (it) => !it.selesai && (!dokF || it.dok.st[dokF] === 'kurang') && (!spkF || it.spkId === spkF) &&
+      ws.every((w) => lower([it.l.id, it.nama, it.lokasi, it.pk.id, it.pk.nama, it.spkId, it.ktk && it.ktk.no, it.ktk && it.ktk.nama].join(' ')).indexOf(w) >= 0);
+    const tampil = useMemo(() => groups.map((g) => ({ ...g, pend: g.items.filter(cocok).sort((a, b) => (a.since || 1e15) - (b.since || 1e15)), total: g.items.length, selesaiN: g.items.filter((i) => i.selesai).length }))
+      .filter((g) => g.pend.length > 0 && (!pF || String(g.p) === String(pF))), [groups, dq, spkF, dokF, pF]);
+    const hari = (g) => { const t = Math.min(...g.pend.map((i) => i.since || now)); return Math.max(0, Math.floor((now - t) / DAY)); };
+    const urut = (a, b) => (a.ktk && b.ktk ? ((b.ktk.status === 'Final') - (a.ktk.status === 'Final')) : 0) || hari(b) - hari(a) || b.pend.length - a.pend.length || String(a.key).localeCompare(String(b.key));
+    const perPrio = { 1: [], 2: [], 3: [] }; tampil.forEach((g) => perPrio[g.p].push(g)); [1, 2, 3].forEach((p) => perPrio[p].sort(urut));
+    const nLh = { 1: 0, 2: 0, 3: 0 }, nGrup = { 1: 0, 2: 0, 3: 0 };
+    groups.forEach((g) => { const n = g.items.filter((i) => !i.selesai).length; nLh[g.p] += n; if (n) nGrup[g.p]++; });
+    const spkOptions = useMemo(() => Array.from(new Set(items.filter((i) => !i.selesai && i.spkId).map((i) => i.spkId))).sort(), [items]);
+    const firstKey = (perPrio[1][0] || perPrio[2][0] || perPrio[3][0] || {}).key;
+    const isOpen = (g) => open[g.key] !== undefined ? open[g.key] : g.key === firstKey;
+    const nTotal = nLh[1] + nLh[2] + nLh[3];
+    const unit = (p) => p === 1 ? 'KTK' : p === 2 ? 'SPK' : 'PK';
+
+    const namaKelompok = (g) => g.p === 1
+      ? { t: 'KTK ' + g.ktk.no, s: [g.ktk.nama, g.spk ? 'SPK ' + g.spk.id + (g.spk.vendor ? ' · ' + g.spk.vendor : '') : (g.spkId ? 'SPK ' + g.spkId : 'KTK belum dikaitkan ke SPK')].filter(Boolean).join(' · ') }
+      : g.p === 2 ? { t: 'SPK ' + g.spkId, s: [g.spk && g.spk.nama, g.spk && g.spk.vendor].filter(Boolean).join(' · ') }
+      : { t: 'PK ' + g.pk.id + (g.pk.nama ? ' · ' + g.pk.nama : ''), s: g.pk.lokasi || '' };
+
+    const unduh = () => {
+      try {
+        const lines = [['Prioritas', 'Kelompok', 'KTK', 'SPK', 'No. PK', 'Nama PK', 'ID LH', 'Tanggal LH', 'Pekerjaan LH', 'Code 3', 'Code 7', 'AGO', 'Menunggu (hari)']];
+        const kata = { ada: 'Ada', kurang: 'Belum ada', tidak: '-' };
+        [1, 2, 3].forEach((p) => perPrio[p].forEach((g) => g.pend.forEach((it) => lines.push([PRIO[p].judul + ' - ' + PRIO[p].sub, namaKelompok(g).t, it.ktk ? it.ktk.no : '', it.spkId, it.pk.id || it.l.pk_id, it.pk.nama || '', it.l.id, it.l.tanggal || '', it.nama, kata[it.dok.st.c3], kata[it.dok.st.c7], kata[it.dok.st.ago], it.since ? Math.max(0, Math.floor((now - it.since) / DAY)) : '']))));
+        if (lines.length === 1) return showToast('Tidak ada data', 'Tidak ada LH yang menunggu dokumen, jadi tidak ada yang diunduh.', 'error');
+        const csv = '﻿' + lines.map((row) => row.map((v) => '"' + String(v == null ? '' : v).replace(/"/g, '""') + '"').join(';')).join('\r\n');
+        if (!(window.URL && window.URL.createObjectURL)) return showToast('Tidak bisa mengunduh', 'Peramban ini tidak mendukung unduhan.', 'error');
+        const a = document.createElement('a'); a.href = window.URL.createObjectURL(new Blob([csv], { type: 'text/csv;charset=utf-8' })); a.download = 'prioritas-code3-code7-ago-' + new Date().toISOString().slice(0, 10) + '.csv';
+        document.body.appendChild(a); a.click(); document.body.removeChild(a);
+        showToast('Daftar prioritas diunduh', (lines.length - 1) + ' LH. Buka dengan Excel.', 'success');
+      } catch (e) { showToast('Gagal mengunduh', String((e && e.message) || e), 'error'); }
+    };
+
+    // ---------- unggah dokumen ----------
+    const konfirmasi = async (judul, teks, tombol) => {
+      try { const r = await Swal.fire({ title: judul, text: teks, icon: 'question', showCancelButton: true, confirmButtonText: tombol, cancelButtonText: 'Batal', confirmButtonColor: '#3A62B0' }); return !!(r && r.isConfirmed); } catch (e) { return false; }
+    };
+    const gagal = (judul, out) => {
+      if (!out.timeout) return showToast(judul, (out.message || 'Terjadi kesalahan.') + ' Data tidak berubah.', 'error');
+      // hasil BELUM DIKETAHUI (server tidak menjawab / jawaban tidak lengkap): peringatan yang harus dibaca dan ditutup pengguna
+      // (tidak hilang sendiri), sementara data disegarkan diam-diam dari server agar layar mencerminkan keadaan sebenarnya.
+      const pesan = (out.message || 'Hasil belum diketahui.') + ' Data sudah disegarkan dari server. Periksa status dokumen sebelum mengulang.';
+      try { Swal.fire({ icon: 'warning', title: judul, text: pesan, confirmButtonText: 'Mengerti', confirmButtonColor: '#3A62B0' }); } catch (e) { showToast(judul, pesan, 'error'); }
+      if (typeof fetchMainAppData === 'function') { try { fetchMainAppData({ senyap: true }); } catch (e) { /* abaikan */ } }
+    };
+    const unggah = async (it, k, file, ganti) => {
+      if (busy) return;
+      if (!canUpload) return showToast('Tidak diizinkan', 'Hanya Admin Code dan Super Admin yang boleh mengunggah dokumen.', 'error');
+      if (!file) return;
+      const D = DOK[k], id = it.l.id;
+      // 1. periksa file di layar (server memeriksa ulang)
+      if (!file.size) return showToast('File kosong', 'File yang dipilih tidak berisi data.', 'error');
+      if (file.size > MAKS_BYTE) return showToast('File terlalu besar', mb(file.size) + '. Maksimal 8 MB.', 'error');
+      if (!mimeOf(file)) return showToast('Jenis file tidak diizinkan', 'Gunakan PDF, gambar (JPG, PNG), Word, atau Excel.', 'error');
+      // 2. konfirmasi
+      const ya = await konfirmasi((ganti ? 'Ganti ' : 'Unggah ') + D.nama + ' untuk LH ' + id + '?', file.name + ' (' + mb(file.size) + ')' + (ganti ? '. Dokumen lama diganti dengan file ini.' : ''), ganti ? 'Ya, ganti' : 'Ya, unggah');
+      if (!ya) return;
+      // 3. kirim: layar terkunci sampai server menjawab
+      setBusy(true); setSedang(id + '|' + k);
+      const selesaiBaca = window.Proses.mulai('Menyiapkan file ' + D.nama);
+      try {
+        let dataUrl;
+        try { dataUrl = await bacaFile(file); } finally { selesaiBaca(); }
+        const out = await window.safeRun('lhUnggahDokumen', [auth, dataUrl, file.name, id, D.tipe, !!ganti], { label: 'Mengunggah ' + D.nama + ' untuk LH ' + id, timeout: 180000 });
+        if (!out.ok) return gagal(D.nama + ' tidak tersimpan', out);
+        const r = out.res;
+        if (r.terverifikasi !== true || !r.url || r.lhId !== id || r.tipe !== D.tipe) return gagal('Hasil dari server tidak lengkap', { message: 'Server tidak memastikan dokumen tersimpan.', timeout: true });
+        if (typeof setLhs === 'function') setLhs((prev) => (prev || []).map((x) => x.id === id ? { ...x, [D.tipe]: true, [D.file]: r.url, data: { ...(x.data || {}), [D.tipe]: true, ['file_' + D.tipe]: 'Tersimpan' } } : x));
+        showToast(D.nama + ' tersimpan', 'LH ' + id + ': dokumen tersimpan dan terverifikasi di database (' + mb(r.ukuran || file.size) + ').', 'success');
+      } catch (e) { showToast('Terjadi kesalahan', String((e && e.message) || e), 'error'); }
+      finally { setBusy(false); setSedang(''); }
+    };
+    const PilihFile = ({ it, k, ganti, children, cls }) => (
+      <label className={cls + (busy || !canUpload ? ' opacity-40 cursor-not-allowed' : ' cursor-pointer')} title={canUpload ? '' : 'Hanya Admin Code dan Super Admin'}>{children}
+        <input type="file" disabled={busy || !canUpload} style={{ display: 'none' }} accept=".pdf,.jpg,.jpeg,.png,.webp,.doc,.docx,.xls,.xlsx"
+          onChange={(e) => { const f = e.target.files && e.target.files[0]; try { e.target.value = ''; } catch (x) { /* abaikan */ } unggah(it, k, f, ganti); }} />
+      </label>);
+    // sel dokumen satu LH: ada / unggah / terkunci / tidak perlu
+    // Cetak Code 3 / Code 7: server menulis barisnya ke spreadsheet Code 3 / Code 7 lalu mengembalikan data yang sama untuk dicetak
+    // ---- daftar penandatangan dan Code manual ----
+    const PEJ0 = { id: '', pengembali: '', pemeriksa: '', setuju: '', kepalaGudang: '' };
+    const [normBuka, setNormBuka] = useState(false);   // panel kelola daftar nomor normalisasi
+    const cekJalan = useRef(false);
+    const ensurePd = async () => {
+      if (pd.muat) return pd.rows;
+      const out = await window.safeRun('code37Penanda', [auth], { label: 'Memuat daftar penandatangan' });
+      if (out.ok && out.res && out.res.status === 'success' && Array.isArray(out.res.rows)) { setPd({ rows: out.res.rows, muat: true }); return out.res.rows; }
+      showToast('Daftar penandatangan tidak terbaca', (out.res && out.res.message) || out.message || 'Nama bisa diisi manual di cetakan.', 'error'); return [];
+    };
+    const pejAwal = (rows) => { let id = ''; try { id = localStorage.getItem('c37pd') || ''; } catch (e) { /* abaikan */ } const x = rows.find((r) => r.id === id); return x ? { id: x.id, pengembali: x.pengembali, pemeriksa: x.pemeriksa, setuju: x.setuju, kepalaGudang: x.kepalaGudang } : { ...PEJ0 }; };
+    const pilihPd = (id) => { const x = pd.rows.find((r) => r.id === id); try { localStorage.setItem('c37pd', id); } catch (e) { /* abaikan */ } setDraf((d) => d && ({ ...d, pej: x ? { id: x.id, pengembali: x.pengembali, pemeriksa: x.pemeriksa, setuju: x.setuju, kepalaGudang: x.kepalaGudang } : { ...d.pej, id: '' } })); };
+    const ubahPej = (f, v) => setDraf((d) => d && ({ ...d, pej: { ...d.pej, [f]: v } }));
+    const simpanPd = async () => {
+      if (!draf || busy) return; const p = draf.pej;
+      let jenis = (pd.rows.find((r) => r.id === p.id) || {}).jenis || '';
+      if (!p.id) {
+        const r = await Swal.fire({ title: 'Nama jenis pekerjaan', input: 'text', inputPlaceholder: 'misalnya HAR TBN', showCancelButton: true, confirmButtonText: 'Simpan ke daftar', cancelButtonText: 'Batal', inputValidator: (v) => (!String(v || '').trim() ? 'Nama jenis wajib diisi' : null) });
+        if (!r.isConfirmed) return; jenis = String(r.value).trim();
+      }
+      setBusy(true);
+      try {
+        const out = await window.safeRun('code37PenandaSimpan', [auth, { id: p.id, jenis, pengembali: p.pengembali, pemeriksa: p.pemeriksa, setuju: p.setuju, kepalaGudang: p.kepalaGudang }], { label: 'Menyimpan penandatangan' });
+        if (!out.ok || !out.res || out.res.status !== 'success' || out.res.terverifikasi !== true) { showToast('Tidak tersimpan', (out.res && out.res.message) || out.message || 'Server tidak mengonfirmasi.', 'error'); return; }
+        setPd({ rows: out.res.rows, muat: true }); setDraf((d) => d && ({ ...d, pej: { ...d.pej, id: out.res.id } }));
+        try { localStorage.setItem('c37pd', out.res.id); } catch (e) { /* abaikan */ }
+        showToast('Daftar penandatangan tersimpan', jenis, 'success');
+      } catch (e) { showToast('Terjadi kesalahan', String((e && e.message) || e), 'error'); }
+      finally { setBusy(false); }
+    };
+    const hapusPd = async () => {
+      if (!draf || busy || !draf.pej.id) return; const x = pd.rows.find((r) => r.id === draf.pej.id);
+      const c = await Swal.fire({ icon: 'question', title: 'Hapus ' + ((x && x.jenis) || 'penandatangan') + ' dari daftar?', text: 'Hanya daftar pilihan yang berubah. Bon yang sudah dicetak tidak terpengaruh.', showCancelButton: true, confirmButtonText: 'Ya, hapus', cancelButtonText: 'Batal' });
+      if (!c.isConfirmed) return;
+      setBusy(true);
+      try {
+        const out = await window.safeRun('code37PenandaHapus', [auth, draf.pej.id], { label: 'Menghapus penandatangan' });
+        if (!out.ok || !out.res || out.res.status !== 'success' || out.res.terverifikasi !== true) { showToast('Tidak terhapus', (out.res && out.res.message) || out.message || 'Server tidak mengonfirmasi.', 'error'); return; }
+        setPd({ rows: out.res.rows, muat: true }); setDraf((d) => d && ({ ...d, pej: { ...d.pej, id: '' } }));
+        showToast('Dihapus dari daftar', (x && x.jenis) || '', 'success');
+      } catch (e) { showToast('Terjadi kesalahan', String((e && e.message) || e), 'error'); }
+      finally { setBusy(false); }
+    };
+    const muatManual = async () => {
+      if (!canUpload) return;
+      setMan((m) => ({ ...m, state: 'muat' }));
+      const out = await window.safeRun('code37ManualDaftar', [auth], { label: 'Memuat Code manual' });
+      if (out.ok && out.res && out.res.status === 'success' && Array.isArray(out.res.rows)) setMan((m) => ({ ...m, rows: out.res.rows, state: 'ok', pesan: '' }));
+      else setMan((m) => ({ ...m, rows: [], state: 'gagal', pesan: (out.res && out.res.message) || out.message || 'Server tidak menjawab.' }));
+    };
+    useEffect(() => { muatManual(); }, []);
+    // Menyiapkan tab Daftar_Normalisasi di database begitu Pusat verifikasi dibuka (dibuat dan diisi awal bila belum ada). Diam-diam: kegagalan tidak mengganggu layar.
+    useEffect(() => { if (canUpload) window.safeRun('code37NormDaftar', [auth], { label: 'Menyiapkan daftar nomor normalisasi', tanpaBlokir: true }).catch(() => {}); }, []);
+    const BARIS0 = (jenis) => ({ nama: '', kode: '', satuan: '', jumlah: '', kondisi: jenis === 'code3' ? 2 : '', catatan: '' });
+    const bukaManualBaru = async () => {
+      if (busy) return; setBusy(true);
+      try {
+        const rows = await ensurePd();
+        setDraf({ manual: { nama: '', alamat: '' }, k: 'c3', id: '', jenis: 'code3', meta: { nama: '', alamat: '', idPk: '', idSpk: '' }, bon: '', galat: '', cek: false, rows: [BARIS0('code3')], pej: pejAwal(rows), kodeCetak: '' });
+      } finally { setBusy(false); }
+    };
+    const bukaManualLama = async (e) => {
+      if (busy) return; setBusy(true);
+      try {
+        const rows = await ensurePd();
+        const out = await window.safeRun('code37ManualMuat', [auth, e.jenis, e.id], { label: 'Membuka ' + e.id });
+        if (!out.ok || !out.res || out.res.status !== 'success' || !Array.isArray(out.res.rows)) { showToast('Tidak bisa dibuka', (out.res && out.res.message) || out.message || 'Server tidak memberi isi bon.', 'error'); return; }
+        const r = out.res;
+        setDraf({ manual: { nama: r.nama, alamat: r.alamat }, k: r.jenis === 'code3' ? 'c3' : 'c7', id: r.id, jenis: r.jenis, meta: { nama: r.nama, alamat: r.alamat, idPk: '', idSpk: '' }, bon: r.bon || '', galat: '', cek: false,
+          rows: r.rows.map((x) => ({ nama: x.nama || '', kode: x.kode || '', satuan: x.satuan || '', jumlah: x.jumlah == null ? '' : String(x.jumlah), kondisi: x.kondisi || (r.jenis === 'code3' ? 2 : ''), catatan: x.catatan || '' })), pej: pejAwal(rows), kodeCetak: '' });
+      } catch (x) { showToast('Terjadi kesalahan', String((x && x.message) || x), 'error'); }
+      finally { setBusy(false); }
+    };
+    const ubahJenisManual = (jenis) => setDraf((d) => d && ({ ...d, jenis, k: jenis === 'code3' ? 'c3' : 'c7', kodeCetak: '', rows: d.rows.map((x) => ({ ...x, kondisi: jenis === 'code3' ? (x.kondisi || 2) : '' })) }));
+    // Langkah 1: ambil draf isi bon dari server (dicek ke daftar material, Convert_material, Master_Data), tampilkan sebagai tabel yang bisa disunting
+    const bukaDraf = async (it, k) => {
+      const jenis = DOK[k].tipe, id = it.l.id;
+      setBusy(true);
+      try {
+        const pdRows = await ensurePd();
+        const out = await window.safeRun('code37Siapkan', [auth, id, jenis], { label: 'Menyiapkan ' + DOK[k].nama + ' LH ' + id });
+        if (!out.ok || !out.res || out.res.status !== 'success' || !Array.isArray(out.res.rows)) { showToast('Draf tidak bisa dibuat', (out.res && out.res.message) || out.message || 'Server tidak memberi isi bon.', 'error'); return; }
+        const r = out.res;
+        setDraf({ k, id, jenis, meta: { nama: r.nama, alamat: r.alamat, idPk: r.idPk, idSpk: r.idSpk }, bon: r.saranBon || '', galat: '', cek: false, pej: pejAwal(pdRows), kodeCetak: '',
+          rows: (r.rows.length ? r.rows : [{}]).map((x) => ({ nama: x.nama || '', kode: x.kode || '', satuan: x.satuan || '', jumlah: x.jumlah == null ? '' : String(x.jumlah), kondisi: x.kondisi || (jenis === 'code3' ? 2 : ''), catatan: x.catatan || '', catAsli: x.catAsli || '', convert: x.convert || '', pokok: x.pokok || '', master: x.master || '', kodeStatus: x.kodeStatus || '', kodeSumber: x.kodeSumber || '', kodeCalon: x.kodeCalon || [] })) });
+      } catch (e) { showToast('Terjadi kesalahan', String((e && e.message) || e), 'error'); }
+      finally { setBusy(false); }
+    };
+    // ganti nama: nomor yang tadinya diisi otomatis dikosongkan (nomor lama bisa salah untuk nama baru); nomor ketikan sendiri dipertahankan
+    const ubahBaris = (i, f, v) => setDraf((d) => d && ({ ...d, galat: '', rows: d.rows.map((x, j) => j === i ? { ...x, [f]: v, ...(f === 'nama' ? { convert: '', master: '', pokok: '', kodeStatus: '', kodeCalon: [], ...(x.kodeSumber === 'daftar' || x.kodeSumber === 'convert' ? { kode: '', kodeSumber: '' } : {}) } : {}), ...(f === 'kode' ? { kodeSumber: v ? 'ketik' : '', kodeCalon: [] } : {}) } : x) }));
+    const norm = (s) => String(s || '').toLowerCase().replace(/[^a-z0-9]/g, '');
+    const ubahCat = (i, v) => setDraf((d) => d && ({ ...d, galat: '', rows: d.rows.map((x, j) => j === i ? { ...x, catatan: v } : x) }));
+    const periksaUlang = async () => {
+      if (!draf || busy) return; setBusy(true);
+      try {
+        const out = await window.safeRun('code37Periksa', [auth, draf.jenis, draf.rows.map((x) => ({ nama: x.nama, kode: x.kode, satuan: x.satuan, jumlah: x.jumlah, kondisi: x.kondisi }))], { label: 'Memeriksa material' });
+        if (!out.ok || !out.res || out.res.status !== 'success' || !Array.isArray(out.res.rows) || out.res.rows.length !== draf.rows.length) { showToast('Pemeriksaan gagal', (out.res && out.res.message) || out.message || 'Server tidak menjawab dengan benar.', 'error'); return; }
+        setDraf((d) => d && ({ ...d, rows: d.rows.map((x, i) => { const y = out.res.rows[i]; return { ...x, kode: x.kode || y.kode || '', kodeSumber: x.kode ? (x.kodeSumber || 'ketik') : (y.kodeSumber || ''), kodeCalon: y.kodeCalon || [], convert: y.convert || '', pokok: y.pokok || '', master: y.master || '', kodeStatus: y.kodeStatus || '' }; }) }));
+      } catch (e) { showToast('Terjadi kesalahan', String((e && e.message) || e), 'error'); }
+      finally { setBusy(false); }
+    };
+    // Pemeriksaan diam-diam begitu kolom nama ditinggalkan: nomor normalisasi terisi otomatis (daftar, lalu Convert material) tanpa mengunci layar,
+    // dan hanya baris yang namanya belum berubah sejak dikirim yang diperbarui.
+    const periksaDiam = async () => {
+      if (!draf || busy || cekJalan.current) return;
+      const snap = draf.rows; if (!snap.some((x) => String(x.nama || '').trim() && !x.kode && !x.kodeStatus)) return;
+      cekJalan.current = true;
+      try {
+        const out = await window.safeRun('code37Periksa', [auth, draf.jenis, snap.map((x) => ({ nama: x.nama, kode: x.kode, satuan: x.satuan, jumlah: x.jumlah, kondisi: x.kondisi }))], { label: 'Memeriksa material', tanpaBlokir: true });
+        if (!out.ok || !out.res || out.res.status !== 'success' || !Array.isArray(out.res.rows) || out.res.rows.length !== snap.length) return;
+        setDraf((d) => d && d.rows.length === snap.length ? ({ ...d, rows: d.rows.map((x, i) => { const y = out.res.rows[i], s = snap[i]; if (!y || x.nama !== s.nama || x.kode !== s.kode) return x; return { ...x, kode: x.kode || y.kode || '', kodeSumber: x.kode ? x.kodeSumber : (y.kodeSumber || ''), kodeCalon: y.kodeCalon || [], convert: y.convert || '', pokok: y.pokok || '', master: y.master || '', kodeStatus: y.kodeStatus || '' }; }) }) : d);
+      } catch (e) { /* diam: pemeriksaan manual lewat tombol tetap tersedia */ }
+      finally { cekJalan.current = false; }
+    };
+    // Langkah 2: kirim isi tabel yang sudah disesuaikan; server memeriksa ulang, menulis ke spreadsheet, membaca ulang, lalu layar mencetak
+    const kirimCetak = async () => {
+      if (!draf || busy) return;
+      const { k, id, jenis } = draf, bon = String(draf.bon || '').trim(), manual = draf.manual;
+      if (bon && !/^\d{1,6}$/.test(bon)) { setDraf({ ...draf, galat: 'Nomor bon hanya angka, maksimal 6 digit.' }); return; }
+      if (manual && !String(manual.nama || '').trim()) { setDraf({ ...draf, galat: 'Nama pekerjaan wajib diisi.' }); return; }
+      const isi = draf.rows.filter((x) => String(x.nama || '').trim() || String(x.jumlah || '').trim() || String(x.kode || '').trim());
+      if (!isi.length) { setDraf({ ...draf, galat: 'Isi minimal satu baris barang.' }); return; }
+      const salah = isi.findIndex((x) => !String(x.nama || '').trim() || !(parseFloat(String(x.jumlah).replace(',', '.')) > 0) || (x.kode && !/^\d{7}$/.test(String(x.kode).replace(/\s/g, ''))));
+      if (salah >= 0) { setDraf({ ...draf, galat: 'Baris ' + (salah + 1) + ': nama wajib diisi, jumlah lebih dari 0, dan nomor normalisasi 7 angka (atau kosong).' }); return; }
+      setBusy(true); setSedang(id + '|' + k);
+      try {
+        const out = await window.safeRun('code37Cetak', [auth, id, jenis, bon, isi.map((x) => ({ nama: String(x.nama).trim(), kode: String(x.kode || '').replace(/\s/g, ''), satuan: String(x.satuan || '').trim(), jumlah: String(x.jumlah).replace(',', '.'), kondisi: x.kondisi, catatan: x.catatan || '' })), manual ? { manual: true, nama: String(manual.nama).trim(), alamat: String(manual.alamat || '').trim() } : null], { label: 'Menulis ' + DOK[k].nama + (manual ? ' manual' : ' LH ' + id) + ' ke arsip', timeout: 120000 });
+        if (!out.ok) { if (out.timeout) Swal.fire({ icon: 'warning', title: 'Hasil belum diketahui', text: (out.message || '') + ' Periksa arsip ' + DOK[k].nama + ' sebelum mencetak ulang.' }); else showToast('Tidak tercetak', (out.res && out.res.message) || out.message || 'Gagal menyimpan ke arsip.', 'error'); return; }
+        const r = out.res;
+        if (r.terverifikasi !== true || (manual ? (r.manual !== true || !/^MAN-\d{4,7}$/.test(String(r.lhId))) : r.lhId !== id) || r.jenis !== jenis || !Array.isArray(r.rows) || !r.rows.length) { showToast('Hasil dari server tidak lengkap', 'Data tidak dicetak. Periksa arsip lalu coba lagi.', 'error'); return; }
+        window.CetakCode.cetak(jenis, { ...r, pejabat: draf.pej, kodeCetak: jenis === 'code3' && draf.kodeCetak ? [Number(draf.kodeCetak)] : null }); setDraf(null);
+        if (manual) muatManual();
+        showToast(DOK[k].nama + (manual ? ' manual' : '') + ' siap dicetak', (manual ? r.lhId + ', bon no. ' : 'Bon no. ') + r.noBon + ': ' + r.rows.length + ' barang tersimpan di arsip.', 'success');
+        if (Array.isArray(r.catatanBeda) && r.catatanBeda.length) Swal.fire({ icon: 'warning', title: 'Merk atau nomor seri berbeda dari LH', text: 'Tercatat di LH tetapi tidak ada di bon: ' + r.catatanBeda.join('; ') + '. Pastikan memang disengaja.' });
+        if (r.tanpaKode) Swal.fire({ icon: 'warning', title: r.tanpaKode + ' barang belum punya nomor normalisasi', text: 'Namanya tidak cocok dengan daftar material (atau cocok ke lebih dari satu kode), jadi kolom normalisasinya dikosongkan di bon dan di arsip. Isi manual.' });
+      } catch (e) { showToast('Terjadi kesalahan', String((e && e.message) || e), 'error'); }
+      finally { setBusy(false); setSedang(''); }
+    };
+    const TombolCetak = ({ it, k }) => (canUpload && (k === 'c3' || k === 'c7') && it.dok.st[k] !== 'tidak')
+      ? <button disabled={busy} data-testid={'cetak-' + k} className="h-7 px-2.5 rounded-lg border bg-white hover:border-[#9FB0D2] disabled:opacity-40" style={{ borderColor: '#8E99B5', color: C.ink }} title={'Periksa dan sesuaikan isi bon ' + DOK[k].nama + ', lalu simpan dan cetak'} onClick={() => bukaDraf(it, k)}>Cetak</button> : null;
+    const SelDok = ({ it, k }) => {
+      const ada = <SelDokInti it={it} k={k} />, cetak = <TombolCetak it={it} k={k} />;
+      return cetak ? <span className="inline-flex flex-wrap items-center gap-2">{ada}{cetak}</span> : ada;
+    };
+    const SelDokInti = ({ it, k }) => {
+      const st = it.dok.st[k]; const mengunggah = sedang === it.l.id + '|' + k;
+      if (st === 'tidak') return <span style={{ color: '#B3B8C6' }}>-</span>;
+      if (mengunggah) return <UI.Status tone="info">Mengunggah…</UI.Status>;
+      if (st === 'ada') return <span className="inline-flex items-center gap-2"><UI.Status tone="ok">sudah ada</UI.Status>{it.dok.url[k] && <a href={it.dok.url[k]} target="_blank" rel="noreferrer" style={{ color: C.blue }}>buka</a>}<PilihFile it={it} k={k} ganti cls="text-[11px]"><span style={{ color: C.mute }} className="hover:underline">ganti</span></PilihFile></span>;
+      if (k === 'ago' && !it.dok.agoSiap) return <span title="AGO dibuat setelah Code 3 dan Code 7 yang diperlukan selesai" style={{ color: C.mute }}>menunggu Code 3 dan Code 7</span>;
+      return <PilihFile it={it} k={k} cls="inline-flex items-center h-7 px-3 rounded-lg text-white font-medium bg-[#3A62B0] hover:bg-[#2F5399]">Unggah {D_NAMA[k]}</PilihFile>;
+    };
+    const D_NAMA = { c3: 'Code 3', c7: 'Code 7', ago: 'AGO' };
+    const Alasan = ({ it }) => {
+      const d = it.l.data || {};
+      const bekas = (d.returBekas || []).filter((m) => m && m.nama), ex = (d.materialMdu || []).filter((m) => m && /bekas|ex/i.test(m.catatan || ''));
+      return (<div className="space-y-0.5" style={{ color: C.mute }}>
+        {it.dok.need.c3 && <div><span className="font-medium" style={{ color: C.ink }}>Code 3 diperlukan</span> karena ada retur bekas: {bekas.map((m, i) => <span key={i}>{i ? '; ' : ''}{m.nama} ({m.jumlah} {m.satuan}){m.catatan ? ', SN/catatan: ' + m.catatan : ''}</span>)}</div>}
+        {it.dok.need.c7 && <div><span className="font-medium" style={{ color: C.ink }}>Code 7 diperlukan</span> karena catatan material "bekas" atau "ex": {ex.map((m, i) => <span key={i}>{i ? '; ' : ''}{m.nama} → {m.catatan}</span>)}</div>}
+        <div><span className="font-medium" style={{ color: C.ink }}>AGO diperlukan</span> karena LH ini butuh Code 3 atau Code 7. AGO dibuat setelah keduanya selesai.</div>
+      </div>);
+    };
+    const GRID = '104px minmax(240px,3fr) 215px 215px 150px 70px';
+
+    return (
+      <div className="space-y-3 pt-1">
+        {normBuka && <NormPanel auth={auth} showToast={showToast} onTutup={() => setNormBuka(false)} />}
+        {draf && (
+          <div className="fixed inset-0 z-50 flex items-center justify-center p-4" style={{ background: 'rgba(35,33,30,.35)' }} data-testid="draf-cetak" role="dialog" aria-modal="true">
+            <div className="bg-white rounded-[14px] border w-full max-w-[1280px] max-h-[92vh] flex flex-col" style={{ borderColor: C.line }}>
+              <div className="px-5 py-3 border-b flex items-start justify-between gap-4" style={{ borderColor: C.line }}>
+                {draf.manual ? (
+                  <div className="min-w-0 flex-1">
+                    <div className="text-[16px] font-medium" style={{ color: C.ink }}>Code 3/7 manual (di luar LH){draf.id ? ' · ' + draf.id : ''}</div>
+                    <div className="mt-2 flex flex-wrap items-end gap-3">
+                      <label><span className="block text-[11px] mb-0.5" style={{ color: C.mute }}>Jenis</span>
+                        <select value={draf.jenis} disabled={!!draf.id || busy} onChange={(e) => ubahJenisManual(e.target.value)} className={inp + ' w-[130px]'} style={{ borderColor: '#8E99B5' }} data-testid="manual-jenis"><option value="code3">Code 3</option><option value="code7">Code 7</option></select></label>
+                      <label className="flex-1 min-w-[280px]"><span className="block text-[11px] mb-0.5" style={{ color: C.mute }}>Nama pekerjaan</span>
+                        <input value={draf.manual.nama} maxLength={150} onChange={(e) => setDraf((d) => ({ ...d, galat: '', manual: { ...d.manual, nama: e.target.value } }))} className={inp + ' w-full'} style={{ borderColor: '#8E99B5' }} data-testid="manual-nama" /></label>
+                      <label className="flex-1 min-w-[240px]"><span className="block text-[11px] mb-0.5" style={{ color: C.mute }}>Alamat</span>
+                        <input value={draf.manual.alamat} maxLength={200} onChange={(e) => setDraf((d) => ({ ...d, manual: { ...d.manual, alamat: e.target.value } }))} className={inp + ' w-full'} style={{ borderColor: '#8E99B5' }} data-testid="manual-alamat" /></label>
+                    </div>
+                  </div>
+                ) : (
+                <div className="min-w-0">
+                  <div className="text-[16px] font-medium" style={{ color: C.ink }}>Isi bon {DOK[draf.k].nama} · LH {draf.id}</div>
+                  <div className="truncate" style={{ color: C.mute }}>{draf.meta.nama || 'Pekerjaan belum diberi nama'}{draf.meta.alamat ? ' · ' + draf.meta.alamat : ''}{draf.meta.idPk ? ' · PK ' + draf.meta.idPk : ''}{draf.meta.idSpk ? ' · SPK ' + draf.meta.idSpk : ''}</div>
+                </div>)}
+                <button className={btn} style={{ borderColor: '#8E99B5' }} disabled={busy} onClick={() => setDraf(null)}>Tutup</button>
+              </div>
+              <div className="px-5 py-2 text-[12px]" style={{ color: C.mute, background: '#F8F9FD' }}>Sesuaikan isi tabel sebelum dicetak. Perubahan di sini hanya berlaku untuk bon dan arsip {DOK[draf.k].nama}, data LH tidak berubah. Kolom Cek menunjukkan apakah material sudah ada di daftar nomor normalisasi, di data Convert material, dan di Master data.</div>
+              <div className="overflow-auto px-5 py-3 flex-1">
+                <table className="w-full" style={{ borderCollapse: 'collapse' }}>
+                  <thead><tr className="text-left text-[11px]" style={{ color: C.mute }}>
+                    <th className="pb-1 pr-2 w-8">No</th><th className="pb-1 pr-2">Nama barang</th><th className="pb-1 pr-2 w-[190px]">Merk / nomor seri</th><th className="pb-1 pr-2 w-[110px]">Normalisasi</th><th className="pb-1 pr-2 w-[70px]">Satuan</th><th className="pb-1 pr-2 w-[80px]">Jumlah</th>
+                    <th className="pb-1 pr-2 w-[250px]">Cek</th><th className="pb-1 w-8"></th></tr></thead>
+                  <tbody>
+                    {draf.rows.map((x, i) => (
+                      <tr key={i} data-testid="baris-draf" className="align-top border-t" style={{ borderColor: '#EEF0F7' }}>
+                        <td className="py-1.5 pr-2 num" style={{ color: C.mute }}>{i + 1}</td>
+                        <td className="py-1 pr-2"><input value={x.nama} maxLength={150} onChange={(e) => ubahBaris(i, 'nama', e.target.value)} onBlur={periksaDiam} className={inp + ' w-full'} style={{ borderColor: '#8E99B5' }} aria-label={'Nama barang baris ' + (i + 1)} data-testid="draf-nama" /></td>
+                        <td className="py-1 pr-2"><input value={x.catatan || ''} maxLength={200} onChange={(e) => ubahCat(i, e.target.value)} className={inp + ' w-full'} style={{ borderColor: '#8E99B5' }} aria-label={'Merk atau nomor seri baris ' + (i + 1)} data-testid="draf-catatan" />
+                          {x.catAsli && norm(x.catAsli) !== norm(x.catatan || '') && <div className="text-[11px] mt-0.5" style={{ color: '#C77700' }} data-testid="draf-cat-beda">Di LH tertulis: {x.catAsli}</div>}</td>
+                        <td className="py-1 pr-2"><input value={x.kode} maxLength={7} inputMode="numeric" onChange={(e) => ubahBaris(i, 'kode', e.target.value.replace(/\D/g, ''))} className={inp + ' w-full num'} style={{ borderColor: x.kode && x.kode.length !== 7 ? C.bad : '#8E99B5' }} aria-label={'Nomor normalisasi baris ' + (i + 1)} data-testid="draf-kode" /></td>
+                        <td className="py-1 pr-2"><input value={x.satuan} maxLength={12} onChange={(e) => ubahBaris(i, 'satuan', e.target.value)} className={inp + ' w-full'} style={{ borderColor: '#8E99B5' }} aria-label={'Satuan baris ' + (i + 1)} /></td>
+                        <td className="py-1 pr-2"><input value={x.jumlah} inputMode="decimal" onChange={(e) => ubahBaris(i, 'jumlah', e.target.value.replace(/[^0-9.,]/g, ''))} className={inp + ' w-full num'} style={{ borderColor: '#8E99B5' }} aria-label={'Jumlah baris ' + (i + 1)} data-testid="draf-jumlah" /></td>
+                        <td className="py-1.5 pr-2 text-[12px]" data-testid="draf-cek">
+                          {!x.convert && !x.master && !x.kodeStatus ? <span style={{ color: C.mute }}>belum diperiksa</span> : (
+                            <div className="flex flex-col gap-0.5">
+                              <UI.Status tone={x.kode ? 'ok' : 'warn'}>{x.kode ? (x.kodeSumber === 'convert' ? 'nomor normalisasi ada (lewat Convert material)' : 'nomor normalisasi ada') : (x.kodeStatus === 'ambigu' ? 'kode lebih dari satu, pilih manual' : 'nomor normalisasi belum ada')}</UI.Status>
+                              {!x.kode && x.kodeStatus === 'ambigu' && (x.kodeCalon || []).length > 0 && <div className="flex flex-wrap gap-1" data-testid="calon-kode-baris">{x.kodeCalon.map((c) => <button key={c.kode} type="button" title={c.uraian} onClick={() => ubahBaris(i, 'kode', c.kode)} className="px-2 h-6 rounded-full border bg-white text-[11px] num hover:border-[#3A62B0]" style={{ borderColor: '#8E99B5' }} data-testid="calon-kode">{c.kode}{c.uraian ? ' · ' + String(c.uraian).slice(0, 18) : ''}</button>)}</div>}
+                              <UI.Status tone={x.convert === 'ada' ? 'ok' : 'warn'}>{x.convert === 'ada' ? 'Convert material: ada' + (x.pokok ? ' (' + x.pokok + ')' : '') : 'Convert material: belum ada'}</UI.Status>
+                              <UI.Status tone={x.master === 'ada' ? 'ok' : 'warn'}>{x.master === 'ada' ? 'Master data: ada' : 'Master data: belum ada'}</UI.Status>
+                            </div>)}
+                        </td>
+                        <td className="py-1 text-right"><button className="h-8 w-8 rounded-lg hover:bg-[#FDF1F0]" style={{ color: C.bad }} title="Hapus baris" aria-label={'Hapus baris ' + (i + 1)} disabled={busy} onClick={() => setDraf((d) => ({ ...d, galat: '', rows: d.rows.filter((_, j) => j !== i) }))}>×</button></td>
+                      </tr>))}
+                  </tbody>
+                </table>
+                <div className="mt-2 flex flex-wrap gap-2">
+                  <button className={btn} style={{ borderColor: '#8E99B5' }} disabled={busy || draf.rows.length >= 40} data-testid="tambah-baris-draf" onClick={() => setDraf((d) => ({ ...d, rows: [...d.rows, { nama: '', kode: '', satuan: '', jumlah: '', kondisi: d.jenis === 'code3' ? 2 : '', catatan: '' }] }))}>Tambah baris</button>
+                  <button className={btn} style={{ borderColor: '#8E99B5' }} disabled={busy} data-testid="periksa-ulang" onClick={periksaUlang}>Periksa ulang material</button>
+                </div>
+                <div className="mt-4 rounded-xl border px-4 py-3 space-y-2.5" style={{ borderColor: C.line }} data-testid="panel-penanda">
+                  <div className="font-medium" style={{ color: C.ink }}>Penandatangan di cetakan</div>
+                  <div className="flex flex-wrap items-end gap-3">
+                    <label><span className="block text-[11px] mb-0.5" style={{ color: C.mute }}>Jenis pekerjaan (dari daftar)</span>
+                      <select value={draf.pej.id} onChange={(e) => pilihPd(e.target.value)} className={inp + ' w-[210px]'} style={{ borderColor: '#8E99B5' }} data-testid="pilih-penanda"><option value="">(isi sendiri)</option>{pd.rows.map((r) => <option key={r.id} value={r.id}>{r.jenis}</option>)}</select></label>
+                    {[['pengembali', 'Pengembali (pengawas / team)'], ['pemeriksa', 'Pemeriksa'], ['setuju', 'Setuju'], ['kepalaGudang', 'Kepala gudang']].map(([f, l]) => (
+                      <label key={f} className="flex-1 min-w-[170px]"><span className="block text-[11px] mb-0.5" style={{ color: C.mute }}>{l}</span>
+                        <input value={draf.pej[f]} maxLength={60} onChange={(e) => ubahPej(f, e.target.value)} className={inp + ' w-full'} style={{ borderColor: '#8E99B5' }} data-testid={'pej-' + f} /></label>))}
+                  </div>
+                  <div className="flex flex-wrap items-center gap-2">
+                    <button className={btn} style={{ borderColor: '#8E99B5' }} disabled={busy} data-testid="simpan-penanda" onClick={simpanPd}>{draf.pej.id ? 'Perbarui daftar' : 'Simpan ke daftar baru'}</button>
+                    {draf.pej.id && <button className={btn} style={{ borderColor: '#8E99B5', color: C.bad }} disabled={busy} data-testid="hapus-penanda" onClick={hapusPd}>Hapus dari daftar</button>}
+                    <span className="text-[12px]" style={{ color: C.mute }}>Nama ini hanya mengisi kolom tanda tangan di cetakan. Daftar jenis pekerjaan bisa ditambah dan diubah oleh Admin Code.</span>
+                  </div>
+                  {draf.jenis === 'code3' && (
+                    <label className="flex flex-wrap items-center gap-2"><span style={{ color: C.mute }}>Kode di cetakan (dilingkari)</span>
+                      <select value={String(draf.kodeCetak || '')} onChange={(e) => setDraf((d) => ({ ...d, kodeCetak: e.target.value }))} className={inp + ' w-[300px]'} style={{ borderColor: '#8E99B5' }} data-testid="pilih-kode-cetak">
+                        <option value="">Otomatis (sesuai data)</option><option value="1">1 · Barang dikembalikan dalam keadaan Rusak</option><option value="2">2 · Masih dapat dipergunakan</option><option value="3">3 · Barang dikembalikan dalam keadaan Baru</option></select>
+                      <span className="text-[12px]" style={{ color: C.mute }}>Nomor SPK dan PK dikosongkan di cetakan.</span></label>)}
+                </div>
+              </div>
+              {draf.galat && <div className="mx-5 mb-2 rounded-lg px-3 py-2" style={{ background: '#FDF1F0', color: C.bad }} data-testid="galat-draf">{draf.galat}</div>}
+              <div className="px-5 py-3 border-t flex flex-wrap items-center gap-3" style={{ borderColor: C.line }}>
+                <label className="flex items-center gap-2"><span style={{ color: C.mute }}>Nomor bon</span>
+                  <input value={draf.bon} maxLength={6} inputMode="numeric" onChange={(e) => setDraf({ ...draf, galat: '', bon: e.target.value.replace(/\D/g, '') })} placeholder="otomatis" className={inp + ' w-[110px] num'} style={{ borderColor: '#8E99B5' }} data-testid="bon-draf" /></label>
+                <span className="flex-1 text-[12px]" style={{ color: C.mute }}>Cetak ulang LH ini mengganti catatan lamanya di arsip.</span>
+                <button className={btn} style={{ borderColor: '#8E99B5' }} disabled={busy} onClick={() => setDraf(null)}>Batal</button>
+                <button disabled={busy} data-testid="tulis-cetak" className="h-8 px-4 rounded-lg text-white font-medium bg-[#3A62B0] hover:bg-[#2F5399] disabled:opacity-40" onClick={kirimCetak}>{busy ? 'Memproses…' : 'Simpan dan cetak'}</button>
+              </div>
+            </div>
+          </div>)}
+        <div className="flex flex-wrap items-center justify-between gap-3">
+          <div className="flex items-baseline gap-3">
+            <h2 className="text-[22px] leading-8 font-medium" style={{ color: C.ink }}>Pusat verifikasi</h2>
+            <span style={{ color: C.mute }}>{nTotal} LH menunggu dokumen · {nGrup[1] + nGrup[2] + nGrup[3]} kelompok</span>
+          </div>
+          <div className="flex flex-wrap items-center gap-2">
+            <label className="flex items-center gap-2"><span style={{ color: C.mute }}>Periode</span>
+              <select value={periode} onChange={(e) => ubahPeriode(e.target.value)} className={inp + ' w-[240px]'} style={{ borderColor: '#8E99B5' }} data-testid="pilih-periode">
+                {opsiPeriode.map((o) => <option key={o.v} value={o.v}>{o.label}</option>)}</select></label>
+            <input value={q} onChange={(e) => { setQ(e.target.value); setLimit(10); }} placeholder="Cari nomor LH, KTK, SPK, PK, pelanggan, atau lokasi" className={inp + ' w-[330px] max-w-full'} style={{ borderColor: '#8E99B5' }} />
+          </div>
+        </div>
+        {diluar.length > 0 && (
+          <div className="rounded-xl px-4 py-2 border flex flex-wrap items-center gap-x-4 gap-y-1" style={{ background: '#FFF6E3', borderColor: '#F2DFB0', color: '#6B4A00' }} data-testid="periode-tersembunyi">
+            <span>Menampilkan {window.Periode.nama(periode)}. <span className="font-medium">{diluar.length} LH di periode lain masih menunggu dokumen</span> dan disembunyikan dari daftar ini. Data lengkap tetap ada di menu lain.</span>
+            <button className="underline" style={{ color: C.blue }} onClick={() => ubahPeriode('semua')}>Tampilkan semua data</button>
+          </div>)}
+
+        {tertahan.length > 0 && (
+          <div className="rounded-xl px-4 py-2.5 border" style={{ background: '#FFF6E3', borderColor: '#F2DFB0', color: '#6B4A00' }} data-testid="verifikasi-tertahan">
+            <span className="font-medium">{tertahan.length} LH belum masuk antrean Anda</span>, karena belum lolos audit: {tertahan.filter((l) => window.lhTahap(l) === 'audit').length} menunggu Admin audit dan {tertahan.filter((l) => window.lhTahap(l) === 'revisi').length} menunggu revisi Admin LH. Setelah lolos audit (atau selesai direvisi), LH itu otomatis muncul di sini.
+          </div>)}
+        {prio.state === 'gagal' && (
+          <div className="rounded-xl px-4 py-2.5 border flex flex-wrap items-center gap-3" style={{ background: '#FFF6E3', borderColor: '#F2DFB0', color: '#6B4A00' }}>
+            <span style={{ flex: 1, minWidth: 260 }}><span className="font-medium">Prioritas KTK tidak bisa dimuat</span> ({prio.pesan}). Daftar tetap tampil, tetapi LH yang sudah masuk KTK belum bisa dipisahkan (dikelompokkan per SPK dan PK saja).</span>
+            <button className={btn} style={{ borderColor: '#8E99B5' }} onClick={muatPrioritas}>Coba lagi</button>
+          </div>)}
+
+        <div>
+          <div className="text-[11px] mb-1" style={{ color: C.mute }}>Skala prioritas {prio.state === 'muat' && '(memuat data KTK…)'}</div>
+          <div className="flex flex-wrap gap-2">
+            {[1, 2, 3].map((p) => (
+              <button key={p} onClick={() => { setPF(String(pF) === String(p) ? '' : String(p)); setLimit(10); }} className="flex-1 min-w-[240px] text-left pl-4 pr-4 py-2.5 rounded-xl bg-white border hover:border-[#9FB0D2]"
+                style={{ borderColor: String(pF) === String(p) ? C.blue : C.line, borderLeft: '4px solid ' + PRIO[p].color, boxShadow: String(pF) === String(p) ? '0 0 0 2px #E9EEFA' : 'none' }}>
+                <div className="font-medium" style={{ color: PRIO[p].color }}>{PRIO[p].judul} · {PRIO[p].sub}</div>
+                <div className="flex items-baseline gap-2"><span className="text-[22px] leading-8 num" style={{ color: PRIO[p].color }}>{nLh[p]}</span><span style={{ color: C.mute }}>LH · {nGrup[p]} {unit(p)}</span></div>
+                <div className="text-[11px]" style={{ color: C.mute }}>{PRIO[p].hint}</div>
+              </button>))}
+          </div>
+        </div>
+
+        <section className="bg-white border rounded-xl px-4 py-2.5 flex flex-wrap items-end gap-x-4 gap-y-2" style={{ borderColor: C.line }}>
+          <label className="block"><span className="block text-[11px] mb-0.5" style={{ color: C.mute }}>SPK</span>
+            <select value={spkF} onChange={(e) => { setSpkF(e.target.value); setLimit(10); }} className={inp + ' w-[240px]'} style={{ borderColor: '#8E99B5' }}><option value="">Semua SPK</option>{spkOptions.map((k) => <option key={k} value={k}>{k}</option>)}</select></label>
+          <label className="block"><span className="block text-[11px] mb-0.5" style={{ color: C.mute }}>Dokumen yang belum ada</span>
+            <select value={dokF} onChange={(e) => { setDokF(e.target.value); setLimit(10); }} className={inp + ' w-[190px]'} style={{ borderColor: '#8E99B5' }}><option value="">Semua dokumen</option><option value="c3">Code 3</option><option value="c7">Code 7</option><option value="ago">AGO</option></select></label>
+          <span className="flex-1"></span>
+          <button className={btn} style={{ borderColor: '#8E99B5' }} onClick={() => { const o = {}; [1, 2, 3].forEach((p) => perPrio[p].slice(0, limit).forEach((g) => { o[g.key] = true; })); setOpen(o); }}>Buka semua</button>
+          <button className={btn} style={{ borderColor: '#8E99B5' }} onClick={() => { const o = {}; [1, 2, 3].forEach((p) => perPrio[p].forEach((g) => { o[g.key] = false; })); setOpen(o); }}>Tutup semua</button>
+          <button className={btn} style={{ borderColor: '#8E99B5' }} onClick={unduh}>Unduh daftar prioritas</button>
+          {canUpload && <button className={btn} style={{ borderColor: '#8E99B5' }} disabled={busy} data-testid="kelola-normalisasi" onClick={() => setNormBuka(true)} title="Tambah, ubah, atau impor nomor normalisasi material">Nomor normalisasi</button>}
+          {canUpload && <button className="h-8 px-3.5 rounded-lg text-white font-medium bg-[#3A62B0] hover:bg-[#2F5399] disabled:opacity-40" disabled={busy} data-testid="buat-code-manual" onClick={bukaManualBaru} title="Buat Code 3 atau Code 7 untuk pekerjaan di luar LH">Buat Code 3/7 manual</button>}
+        </section>
+        {!canUpload && <div className="rounded-lg px-4 py-2" style={{ background: '#FFF6E3', color: '#6B4A00' }}>Peran Anda hanya bisa melihat. Unggah dokumen dilakukan Admin Code atau Super Admin.</div>}
+        {canUpload && (
+          <section className="bg-white border rounded-xl overflow-hidden" style={{ borderColor: C.line }} data-testid="daftar-code-manual">
+            <button className="w-full flex items-center gap-3 px-4 py-2 text-left hover:bg-[#F9FAFD]" onClick={() => setMan((m) => ({ ...m, buka: !m.buka }))}>
+              <span className="font-medium" style={{ color: C.ink }}>Code 3/7 manual (di luar LH)</span>
+              <span style={{ color: C.mute }}>{man.state === 'muat' ? 'memuat…' : man.state === 'gagal' ? 'tidak bisa dimuat' : man.rows.length + ' dokumen'} · terpisah dari LH, PK, dan SPK</span>
+              <span className="flex-1"></span><span style={{ color: C.blue }}>{man.buka ? 'Tutup' : 'Buka'}</span>
+            </button>
+            {man.buka && (man.state === 'gagal'
+              ? <div className="px-4 py-3 border-t flex items-center gap-3" style={{ borderColor: '#EEF0F7', color: C.bad }}><span className="flex-1">{man.pesan}</span><button className={btn} style={{ borderColor: '#8E99B5' }} onClick={muatManual}>Coba lagi</button></div>
+              : man.rows.length === 0 ? <div className="px-4 py-3 border-t" style={{ borderColor: '#EEF0F7', color: C.mute }}>Belum ada Code manual. Klik Buat Code 3/7 manual untuk pekerjaan di luar LH.</div>
+              : man.rows.map((e) => (
+                <div key={e.jenis + e.id} className="grid items-center gap-3 px-4 py-2 border-t" style={{ gridTemplateColumns: '70px 90px 70px minmax(0,1.6fr) minmax(0,1.2fr) 60px 130px 90px', borderColor: '#EEF0F7' }}>
+                  <span className="font-medium" style={{ color: e.jenis === 'code3' ? C.blue : C.purple }}>{e.jenis === 'code3' ? 'Code 3' : 'Code 7'}</span>
+                  <span className="num" style={{ color: C.mute }}>{e.id}</span><span className="num">No. {e.bon}</span>
+                  <span className="truncate" title={e.nama}>{e.nama}</span><span className="truncate" style={{ color: C.mute }} title={e.alamat}>{e.alamat || '-'}</span>
+                  <span className="num text-right">{e.n} brg</span><span className="num" style={{ color: C.mute }}>{e.waktu}</span>
+                  <button className={btn} style={{ borderColor: '#8E99B5' }} disabled={busy} onClick={() => bukaManualLama(e)}>Buka</button>
+                </div>)))}
+          </section>)}
+
+        {nTotal === 0
+          ? <div className="bg-white border rounded-[14px] py-12 text-center" style={{ borderColor: C.line, color: C.mute }}>Tidak ada LH yang menunggu dokumen. Semuanya aman.</div>
+          : tampil.length === 0 ? <div className="bg-white border rounded-[14px] py-12 text-center" style={{ borderColor: C.line, color: C.mute }}>Tidak ada LH yang cocok dengan saringan ini.</div>
+          : <section className="bg-white border rounded-[14px] overflow-hidden" style={{ borderColor: C.line }}>
+            {[1, 2, 3].map((p) => perPrio[p].length === 0 ? null : (
+              <React.Fragment key={p}>
+                <div className="flex items-center gap-2.5 px-5 h-8 border-t first:border-t-0" style={{ borderColor: C.line, background: PRIO[p].bg }}>
+                  <span className="w-[3px] h-4 rounded-full" style={{ background: PRIO[p].color }}></span>
+                  <span className="font-medium" style={{ color: PRIO[p].color }}>{PRIO[p].judul} · {PRIO[p].sub}</span>
+                  <span style={{ color: C.mute }}>{perPrio[p].length} {unit(p)}</span>
+                </div>
+                {perPrio[p].slice(0, limit).map((g) => { const nm = namaKelompok(g), o = isOpen(g), hr = hari(g), pct = g.total ? Math.round(g.selesaiN / g.total * 100) : 0;
+                  const c = { c3: g.pend.filter((i) => i.dok.st.c3 === 'kurang').length, c7: g.pend.filter((i) => i.dok.st.c7 === 'kurang').length, ago: g.pend.filter((i) => i.dok.st.ago === 'kurang').length };
+                  return (
+                  <React.Fragment key={g.key}>
+                    <div role="button" tabIndex={0} className="grid items-center gap-4 px-5 py-2.5 border-t cursor-pointer border-l-[3px] border-l-transparent hover:bg-[#F4F2FB] hover:border-l-[#7E57C2] transition-colors"
+                      style={{ gridTemplateColumns: '16px minmax(0,2.4fr) minmax(0,1.4fr) 220px', borderTopColor: '#EEF0F7' }}
+                      onClick={() => setOpen((s) => ({ ...s, [g.key]: !isOpen(g) }))} onKeyDown={(e) => { if (e.key === 'Enter') setOpen((s) => ({ ...s, [g.key]: !isOpen(g) })); }}>
+                      <span style={{ color: C.mute }}>{o ? '▾' : '▸'}</span>
+                      <div className="min-w-0">
+                        <div className="flex items-center gap-2"><span className="text-[14px] leading-5 font-medium truncate" style={{ color: C.ink }}>{nm.t}</span>
+                          {g.ktk && <UI.Status tone={g.ktk.status === 'Final' ? 'ok' : 'warn'}>{g.ktk.status || 'Draf'}</UI.Status>}{g.ktk && <span className="text-[11px]" style={{ color: C.mute }}>KTK jenis {g.ktk.jenis}</span>}</div>
+                        <div className="truncate" style={{ color: C.mute }}>{nm.s || '-'}</div>
+                      </div>
+                      <div><div className="font-medium" style={{ color: C.ink }}>{g.pend.length} LH menunggu dokumen</div><div className="text-[11px]" style={{ color: C.mute }}>{[c.c3 && 'Code 3: ' + c.c3, c.c7 && 'Code 7: ' + c.c7, c.ago && 'AGO: ' + c.ago].filter(Boolean).join(' · ')}</div></div>
+                      <div title={g.selesaiN + ' dari ' + g.total + ' LH sudah lengkap'}>
+                        <div className="text-[11px]" style={{ color: C.mute }}>Terlama menunggu {hr} hari · {g.selesaiN} dari {g.total} LH lengkap</div>
+                        <div className="h-[5px] rounded-full mt-1 overflow-hidden" style={{ background: C.line }}><div className="h-full" style={{ width: pct + '%', background: C.ok }}></div></div>
+                      </div>
+                    </div>
+                    {o && <div style={{ background: '#F8F9FD' }}>
+                      <div className="grid items-center gap-4 px-5 h-8 text-[11px] border-t" style={{ gridTemplateColumns: GRID, color: C.mute, borderTopColor: '#EEF0F7' }}><span>LH</span><span>Pekerjaan dan lokasi</span><span style={{ color: C.blue }}>Code 3</span><span style={{ color: C.purple }}>Code 7</span><span style={{ color: C.ago }}>AGO</span><span></span></div>
+                      {g.pend.map((it) => (
+                        <React.Fragment key={it.l.id}>
+                          <div className="grid items-center gap-4 px-5 py-2 border-t" style={{ gridTemplateColumns: GRID, borderTopColor: '#EEF0F7' }}>
+                            <div><div className="num" style={{ color: C.purple }}>{it.l.id}</div><div className="num text-[11px]" style={{ color: '#2F8F9D' }}>{fmtPendek(parseTgl(it.l.tanggal))}</div></div>
+                            <div className="min-w-0"><div className="break-words" style={{ color: C.ink }} title={it.nama}>{it.nama || 'Pekerjaan LH belum diberi nama'}</div><div className="text-[11px] break-words" style={{ color: C.mute }}>PK {it.pk.id || it.l.pk_id}{it.pk.nama && lower(it.pk.nama) !== lower(it.nama) ? ' · ' + it.pk.nama : ''}{it.lokasi ? ' · ' + it.lokasi : ''}</div></div>
+                            <div><SelDok it={it} k="c3" /></div><div><SelDok it={it} k="c7" /></div><div><SelDok it={it} k="ago" /></div>
+                            <div className="text-right"><button className="h-7 px-2.5 rounded-lg border bg-white hover:border-[#9FB0D2]" style={{ borderColor: '#8E99B5' }} onClick={() => setDetail((s) => ({ ...s, [it.l.id]: !s[it.l.id] }))}>{detail[it.l.id] ? 'Tutup' : 'Alasan'}</button></div>
+                          </div>
+                          {detail[it.l.id] && <div className="px-5 pb-2.5 pt-0.5 border-l-[3px]" style={{ borderLeftColor: C.purple }}><Alasan it={it} /><div className="mt-2"><UI.RiwayatLh id={it.l.id} auth={auth} ringkasLokal={{ dibuatOleh: it.l.dibuat_oleh, dibuatTgl: it.l.dibuat_tgl, diubahOleh: it.l.diubah_oleh, diubahTgl: it.l.diubah_tgl, auditOleh: it.l.audit_oleh, auditTgl: it.l.audit_tgl }} /></div></div>}
+                        </React.Fragment>))}
+                    </div>}
+                  </React.Fragment>); })}
+                {perPrio[p].length > limit && <button className="w-full py-2 border-t hover:bg-[#F9FAFD]" style={{ borderColor: C.line, color: C.blue }} onClick={() => setLimit(limit + 10)}>Tampilkan {Math.min(10, perPrio[p].length - limit)} {unit(p)} berikutnya ({perPrio[p].length - limit} lagi)</button>}
+              </React.Fragment>))}
+          </section>}
+      </div>
+    );
+  }
+
+  window.Views.Verifikasi = (ctx) => <UI.Guard nama="Pusat verifikasi"><VerifikasiDesk ctx={ctx} /></UI.Guard>;
+})();
+</script>

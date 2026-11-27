@@ -1,0 +1,399 @@
+<script type="text/babel">
+// Menu: Detail SPK (checklist PK + cetak lampiran)
+window.Views.SpkDetail = (ctx) => {
+  const {
+    fetchMainAppData, lhs, masterDatabase, pks, printedPkIds, selectedPksCetak,
+    selectedSpk, setCurrentView, setPrintedPkIds, setSelectedPksCetak, setSpkDetailStep, showToast,
+    spkDetailStep
+  } = ctx;
+  return (
+selectedSpk && (() => {
+                      // 1. Ekstraksi Data (Pos Anggaran ditaruh di bawah Wilayah)
+                      const idSpkAman = selectedSpk.ID_SPK || selectedSpk.id;
+                      const namaSpk = selectedSpk.Nama_SPK || selectedSpk.nama || "REHABILITASI JARINGAN DISTRIBUSI PAKET 16";
+                      const namaVendor = selectedSpk.Nama_Vendor || selectedSpk.vendor || "pt. nanda nirwana elektrik";
+                      const ulpWilayah = selectedSpk.ULP_Wilayah || selectedSpk.ulp_wilayah || "UP3 Bali Selatan";
+                      const posAnggaran = selectedSpk.Pos_Anggaran || selectedSpk.pos_anggaran || "Pos 61";
+
+                      const linkedPks = (pks || []).filter(pk => pk && String(pk.spk_id).trim() === String(idSpkAman).trim());
+                      // ====================================================================================
+              // LENGKAH 1 : HALAMAN CHECKLIST PK
+              // ====================================================================================
+              if (spkDetailStep === 'checklist') {
+                  return (
+                      <div className="space-y-4 animate-in fade-in duration-500 pb-20">
+                          {/* Tombol Kembali ke List SPK */}
+                          <div className="bg-white p-4 rounded-xl shadow-sm border border-slate-200">
+                              <button onClick={() => setCurrentView('spk_list')} className="px-4 py-2 bg-slate-100 text-slate-600 rounded-lg font-bold text-[12px] flex items-center gap-2 hover:bg-slate-200 shadow-sm transition-all">
+                                  <i className="fa-solid fa-arrow-left"></i> Kembali ke List SPK
+                              </button>
+                          </div>
+
+                          <div className="bg-slate-50 border border-slate-200 rounded-2xl p-5 shadow-inner">
+                              <div className="flex flex-col md:flex-row justify-between items-start md:items-center mb-4 border-b border-slate-200 pb-4 gap-3">
+                                  <div>
+                                      <h3 className="font-black text-slate-800 text-[16px] uppercase flex items-center gap-2">
+                                          <i className="fa-solid fa-list-check text-indigo-500"></i> Pilih PK Untuk Dicetak
+                                      </h3>
+                                      <p className="text-[11px] text-slate-500 mt-1">Centang PK di bawah ini, data LH-nya akan digabungkan dalam 1 lembar cetak A4.</p>
+                                  </div>
+                                  <span className="bg-indigo-600 text-white text-[11px] px-3 py-1.5 rounded-lg font-bold shadow-sm">
+                                      Terpilih: {selectedPksCetak.length} PK
+                                  </span>
+                              </div>
+
+                              <div className="overflow-x-auto max-h-[400px] custom-scrollbar mb-4 border border-slate-200 rounded-xl bg-white shadow-sm">
+                                  <table className="w-full text-left">
+                                      <thead className="bg-slate-100 sticky top-0 z-10">
+                                          <tr>
+                                              <th className="p-3 w-12 text-center border-b border-slate-200">
+                                                  <input type="checkbox" className="w-4 h-4 cursor-pointer accent-indigo-600"
+                                                      checked={selectedPksCetak.length === linkedPks.length && linkedPks.length > 0}
+                                                      onChange={() => {
+                                                          if (selectedPksCetak.length === linkedPks.length) setSelectedPksCetak([]);
+                                                          else setSelectedPksCetak(linkedPks.map(p => p.id));
+                                                      }}
+                                                  />
+                                              </th>
+                                              <th className="p-3 text-[10px] font-black text-slate-500 uppercase tracking-wider border-b border-slate-200">ID PK</th>
+                                              <th className="p-3 text-[10px] font-black text-slate-500 uppercase tracking-wider border-b border-slate-200">Uraian Pekerjaan & Lokasi</th>
+                                              <th className="p-3 text-[10px] font-black text-slate-500 uppercase tracking-wider text-center border-b border-slate-200 w-28">Status Cetak</th>
+                                          </tr>
+                                      </thead>
+                                      <tbody>
+                                          {linkedPks.length === 0 ? (
+                                              <tr><td colSpan="4" className="text-center py-6 text-slate-400 italic text-[11px]">Belum ada PK di SPK ini.</td></tr>
+                                          ) : (
+                                              linkedPks.map(pk => {
+                                                  // Cek memory printedPkIds untuk status
+                                                  const isPrinted = printedPkIds.includes(pk.id); 
+                                                  
+                                                  return (
+                                                      <tr key={pk.id} className="border-b border-slate-50 hover:bg-indigo-50/50 transition-colors cursor-pointer" 
+                                                          onClick={() => {
+                                                              if (selectedPksCetak.includes(pk.id)) setSelectedPksCetak(selectedPksCetak.filter(id => id !== pk.id));
+                                                              else setSelectedPksCetak([...selectedPksCetak, pk.id]);
+                                                          }}
+                                                      >
+                                                          <td className="p-3 text-center">
+                                                              <input type="checkbox" className="w-4 h-4 cursor-pointer accent-indigo-600 pointer-events-none" checked={selectedPksCetak.includes(pk.id)} readOnly />
+                                                          </td>
+                                                          <td className="p-3 font-bold text-slate-700 text-[12px]">{pk.id}</td>
+                                                          <td className="p-3">
+                                                              <div className="font-bold text-slate-800 text-[12px] leading-tight">{pk.nama}</div>
+                                                              <div className="text-[10px] text-slate-500 mt-1"><i className="fa-solid fa-location-dot mr-1 text-rose-400"></i>{pk.lokasi || '-'}</div>
+                                                          </td>
+                                                          <td className="p-3 text-center">
+                                                              {isPrinted ? (
+                                                                  <span className="bg-emerald-100 text-emerald-700 px-2 py-1 rounded text-[9px] font-extrabold uppercase shadow-sm border border-emerald-200"><i className="fa-solid fa-check mr-1"></i>Sudah</span>
+                                                              ) : (
+                                                                  <span className="bg-amber-100 text-amber-700 px-2 py-1 rounded text-[9px] font-extrabold uppercase shadow-sm border border-amber-200"><i className="fa-solid fa-clock mr-1"></i>Belum</span>
+                                                              )}
+                                                          </td>
+                                                      </tr>
+                                                  );
+                                              })
+                                          )}
+                                      </tbody>
+                                  </table>
+                              </div>
+
+                              <button 
+                                  onClick={() => {
+                                      if(selectedPksCetak.length === 0) return Swal.fire('Oops!', 'Pilih minimal 1 PK untuk dicetak.', 'warning');
+                                      setSpkDetailStep('preview'); // Lanjut ke halaman A4
+                                  }} 
+                                  className="w-full bg-indigo-600 text-white font-black text-[13px] py-4 rounded-xl shadow-lg hover:bg-indigo-700 transition-all flex items-center justify-center gap-2 uppercase tracking-widest border border-indigo-700"
+                              >
+                                  Lanjut Tampilkan Cetakan A4 <i className="fa-solid fa-arrow-right ml-1"></i>
+                              </button>
+                          </div>
+                      </div>
+                  );
+              }
+
+              // ====================================================================================
+              // LENGKAH 2 : HALAMAN KERTAS A4 (PRINT PREVIEW)
+              // ====================================================================================
+              if (spkDetailStep === 'preview') {
+                  // FILTER SAKTI: Hanya ambil PK yang dicentang!
+                  const pksToPrint = linkedPks.filter(pk => selectedPksCetak.includes(pk.id));
+
+                      // Fungsi Helper Hitung (Internal agar tidak bentrok)
+                      const parseNominal = (val) => {
+                          if (!val) return 0;
+                          if (typeof val === 'number') return val;
+                          let s = String(val).trim().replace(/[^0-9.,-]/g, '');
+                          if (s.includes('.') && s.includes(',')) s = s.replace(/\./g, '').replace(',', '.');
+                          else if (s.includes(',')) s = s.replace(/\,/g, '.');
+                          else if (s.includes('.') && s.split('.').pop().length === 3) s = s.replace(/\./g, '');
+                          return parseFloat(s) || 0;
+                      };
+
+                      const fetchHarga = (itemName) => {
+                          const found = window.masterFind(masterDatabase || [], itemName);
+                          if (!found) return { mat: 0, jas: 0 };
+                          return { 
+                              mat: parseNominal(found.Harga_Material || found._raw?.[4] || 0), 
+                              jas: parseNominal(found.Harga_Jasa || found._raw?.[5] || 0)
+                          };
+                      };
+
+                      let grandTotalAll = 0;
+                      let itemCounter = 1;
+
+                      return (
+                          <div className="space-y-4 animate-in fade-in duration-500 pb-20">
+                              
+                              {/* TOMBOL KONTROL (HANYA LAYAR) */}
+                              <div className="flex justify-between items-center bg-white p-3 rounded-xl shadow-sm border border-slate-200 print:hidden gap-4">
+                                  {/* Tombol Kembali Diperbaiki ke spk_list */}
+                                  <button onClick={() => setSpkDetailStep('checklist')} className="px-4 py-2 bg-slate-100 text-slate-600 rounded-lg font-bold text-[12px] flex items-center gap-2 hover:bg-slate-200 shadow-sm transition-all">
+                                      <i className="fa-solid fa-arrow-left"></i> Kembali
+                                  </button>
+                                  <button onClick={() => {
+                                      // 1. Update UI Lokal (Biar layar langsung berubah Hijau seketika)
+                                      setPrintedPkIds(prev => [...new Set([...prev, ...selectedPksCetak])]);
+
+                                      // 2. Tembak ke Database Google Sheets (Agar Permanen)
+                                      if (typeof google !== 'undefined') {
+                                          google.script.run
+                                              .withSuccessHandler((res) => {
+                                                  if (res.status === 'success') {
+                                                      if (typeof showToast === 'function') showToast('Sukses', 'Status cetak terekam di database!', 'success');
+                                                      if (typeof fetchMainAppData === 'function') fetchMainAppData(); // Tarik data terbaru biar sinkron
+                                                  } else {
+                                                      if (typeof showToast === 'function') showToast('Gagal', res.message, 'error');
+                                                  }
+                                              })
+                                              .withFailureHandler((err) => {
+                                                  if (typeof showToast === 'function') showToast('Error', 'Gagal menyambung ke database: ' + err.message, 'error');
+                                              })
+                                              .updateStatusCetakPK(selectedPksCetak); // Memanggil mesin di Code.gs
+                                      }
+
+                                      // 3. Panggil Dialog Print Browser
+                                      window.print();
+
+                                  }} className="px-5 py-2 bg-indigo-600 text-white rounded-lg font-bold text-[12px] flex items-center gap-2 shadow-sm hover:bg-indigo-700 transition-all uppercase tracking-wider">
+                                      <i className="fa-solid fa-print"></i> Cetak Lampiran PLN
+                                  </button>
+                              </div>
+
+                              {/* AREA CETAK A4 */}
+                              <div id="area-cetak-detail" className="bg-white p-10 mx-auto w-full max-w-[210mm] min-h-[297mm] shadow-lg border border-slate-200 text-black">
+                                  
+                                  {/* HEADER */}
+                                  <div className="border-b-2 border-black pb-2 mb-4 flex justify-between items-end">
+                                      <div>
+                                          <h3 className="text-lg font-bold uppercase tracking-tighter">REKAPITULASI RINCIAN BIAYA</h3>
+                                          <p className="text-[9px] font-bold text-slate-600 uppercase">PT PLN (PERSERO) UID BALI</p>
+                                      </div>
+                                  </div>
+
+                                  {/* INFO KONTRAK (Pos Anggaran di bawah Wilayah) */}
+                                  <div className="mb-4 text-[11px]">
+                                      <table className="w-full">
+                                          <tbody>
+                                              <tr><td className="w-24 font-bold text-slate-500 uppercase text-[8px]">Pekerjaan</td><td className="font-bold">: {namaSpk}</td></tr>
+                                              <tr><td className="w-24 font-bold text-slate-500 uppercase text-[8px]">Vendor / Mitra</td><td className="font-bold uppercase">: {namaVendor}</td></tr>
+                                              <tr><td className="w-24 font-bold text-slate-500 uppercase text-[8px]">Wilayah</td><td className="font-bold uppercase">: {ulpWilayah}</td></tr>
+                                              <tr><td className="w-24 font-bold text-slate-500 uppercase text-[8px]">Pos Anggaran</td><td className="font-bold uppercase">: {posAnggaran}</td></tr>
+                                          </tbody>
+                                      </table>
+                                  </div>
+
+                                 {/* TABEL ULTRA RAMPING DENGAN PERHITUNGAN PAJAK BARU */}
+                                  <table className="w-full border-collapse border border-black text-[9.5px]">
+                                      <thead>
+                                          <tr className="bg-slate-100/50">
+                                              <th className="border border-black px-1 py-1 text-center w-6">NO</th>
+                                              <th className="border border-black px-1 py-1 text-center w-20">TANGGAL LH</th>
+                                              <th className="border border-black px-2 py-1 text-left">URAIAN (PK - LH - LOKASI)</th>
+                                              <th className="border border-black px-1 py-1 text-right w-24">MATERIAL (Rp)</th>
+                                              <th className="border border-black px-1 py-1 text-right w-24">JASA (Rp)</th>
+                                              <th className="border border-black px-1 py-1 text-right w-24">TOTAL (Rp)</th>
+                                          </tr>
+                                      </thead>
+                                     <tbody>
+                                          {(() => {
+                                              let totalMatAll = 0;
+                                              let totalJasAll = 0;
+                                              let itemCounter = 1; // Penomoran urut anti putus
+
+                                              // 1. MESIN PARSER KEBAL MELSET
+                                              const parseAkurat = (val) => {
+                                                  if (!val) return 0;
+                                                  if (typeof val === 'number') return val;
+                                                  let s = String(val).trim().replace(/[^0-9.,-]/g, '');
+                                                  if (s.includes('.') && s.includes(',')) s = s.replace(/\./g, '').replace(',', '.');
+                                                  else if (s.includes(',')) s = s.replace(/\,/g, '.');
+                                                  else if (s.includes('.')) {
+                                                      if (s.startsWith('0.')) return parseFloat(s) || 0;
+                                                      const parts = s.split('.');
+                                                      if (parts.length > 2 || parts[parts.length - 1].length === 3) s = s.replace(/\./g, '');
+                                                  }
+                                                  return parseFloat(s) || 0;
+                                              };
+
+                                              // 2. RADAR HARGA KE DATABASE
+                                              const getPrices = (itemName) => {
+                                                  if (!itemName) return { m: 0, j: 0, b: 0 };
+                                                  const db = typeof masterDatabase !== 'undefined' ? masterDatabase : [];
+                                                  const f = window.masterFind(db, itemName);
+                                                  if (!f) return { m: 0, j: 0, b: 0 };
+                                                  return { 
+                                                      m: parseAkurat(f.Harga_Material || f._raw?.[4]), 
+                                                      j: parseAkurat(f.Harga_Jasa || f._raw?.[5]), 
+                                                      b: parseAkurat(f.Harga_Bongkar || f._raw?.[6]) 
+                                                  };
+                                              };
+
+                                              // 3. MAPPING DATA MENGGUNAKAN LOGIKA CETAK RAB
+                                              const rows = pksToPrint.flatMap((pk) => {
+                                                  const allLhs = typeof lhs !== 'undefined' ? lhs : (typeof pksData !== 'undefined' ? pksData.lhs : []);
+                                                  const lhTerkait = allLhs.filter(l => String(l.pk_id).trim() === String(pk.id).trim());
+                                                  
+                                                  return lhTerkait.map((lh) => {
+                                                      const d = lh.data || {};
+                                                      let fMat = 0, fJas = 0;
+
+                                                      const hitungRow = (item, type) => {
+                                                          if (!item.nama) return;
+                                                          const p = getPrices(item.nama);
+                                                          let hMat = 0, hJas = 0;
+
+                                                          if (type === 'MDU' || type === 'KONSTRUKSI') {
+                                                              hMat = p.m > 0 ? p.m : parseAkurat(item.harga);
+                                                              hJas = p.j > 0 ? p.j : 0;
+                                                          } else if (type === 'PASANG') {
+                                                              hMat = p.m > 0 ? p.m : 0;
+                                                              hJas = p.j > 0 ? p.j : parseAkurat(item.harga);
+                                                          } else if (type === 'BONGKAR') {
+                                                              hMat = 0;
+                                                              hJas = p.b > 0 ? p.b : parseAkurat(item.harga);
+                                                          }
+
+                                                          // Ambil volume dari PLN + PEMB (Sinkron RAB)
+                                                          const vPln = parseAkurat(item.pln);
+                                                          const vPemb = parseAkurat(item.pemb);
+                                                          let vJml = vPln + vPemb;
+                                                          if (vJml === 0 && item.jumlah) vJml = parseAkurat(item.jumlah);
+
+                                                          fMat += hMat * vJml;
+                                                          fJas += hJas * vJml;
+                                                      };
+
+                                                      (d.materialMdu || []).forEach(item => hitungRow(item, 'MDU'));
+                                                      (d.materialKonstruksi || []).forEach(item => hitungRow(item, 'KONSTRUKSI'));
+                                                      (d.uraianPasang || []).forEach(item => hitungRow(item, 'PASANG'));
+                                                      (d.uraianBongkar || []).forEach(item => hitungRow(item, 'BONGKAR'));
+
+                                                      totalMatAll += fMat;
+                                                      totalJasAll += fJas;
+                                                      const rowTotal = fMat + fJas;
+                                                      const tglRapi = (lh.tanggal || d.tanggal_lh || '').split('-').reverse().join('/');
+
+                                                      return (
+                                                          <tr key={`${pk.id}-${lh.id}`}>
+                                                              <td className="border border-black px-1 py-0.5 text-center">{itemCounter++}</td>
+                                                              <td className="border border-black px-1 py-0.5 text-center">{tglRapi}</td>
+                                                              <td className="border border-black px-2 py-0.5 leading-tight">
+                                                                  <span className="font-bold">{pk.nama}</span> - {d.nama_pekerjaan_lh || lh.uraian}
+                                                                  <div className="text-[7.5px] text-slate-500 italic mt-0.5 uppercase">Loc: {d.lokasi_lh || pk.lokasi}</div>
+                                                              </td>
+                                                              <td className="border border-black px-1 py-0.5 text-right">{fMat > 0 ? Math.round(fMat).toLocaleString('id-ID') : '-'}</td>
+                                                              <td className="border border-black px-1 py-0.5 text-right">{fJas > 0 ? Math.round(fJas).toLocaleString('id-ID') : '-'}</td>
+                                                              <td className="border border-black px-1 py-0.5 text-right font-medium">{Math.round(rowTotal).toLocaleString('id-ID')}</td>
+                                                          </tr>
+                                                      );
+                                                  });
+                                              });
+
+                                              // Hitung Pajak Sesuai Request Bos (Gambar Referensi)
+                                              const dppMat = totalMatAll * (11/12);
+                                              const dppJas = totalJasAll * (11/12);
+                                              const ppnMat = dppMat * 0.12;
+                                              const ppnJas = dppJas * 0.12;
+                                              const totalFinalMat = totalMatAll + ppnMat;
+                                              const totalFinalJas = totalJasAll + ppnJas;
+
+                                              return (
+                                                  <>
+                                                      {rows}
+                                                      {/* FOOTER PERHITUNGAN SESUAI GAMBAR */}
+                                                      <tr className="font-bold bg-slate-50">
+                                                          <td colSpan="3" className="border border-black px-2 py-1 text-left uppercase text-[8px]">Jumlah</td>
+                                                          <td className="border border-black px-1 py-1 text-right">{Math.round(totalMatAll).toLocaleString('id-ID')}</td>
+                                                          <td className="border border-black px-1 py-1 text-right">{Math.round(totalJasAll).toLocaleString('id-ID')}</td>
+                                                          <td className="border border-black px-1 py-1 text-right">{(Math.round(totalMatAll + totalJasAll)).toLocaleString('id-ID')}</td>
+                                                      </tr>
+                                                      <tr>
+                                                          <td colSpan="3" className="border border-black px-2 py-1 text-left uppercase text-[8px]">Nilai Dpp Lainnya (11/12)</td>
+                                                          <td className="border border-black px-1 py-1 text-right">{Math.round(dppMat).toLocaleString('id-ID')}</td>
+                                                          <td className="border border-black px-1 py-1 text-right">{Math.round(dppJas).toLocaleString('id-ID')}</td>
+                                                          <td className="border border-black px-1 py-1 text-right">{Math.round(dppMat + dppJas).toLocaleString('id-ID')}</td>
+                                                      </tr>
+                                                      <tr>
+                                                          <td colSpan="3" className="border border-black px-2 py-1 text-left uppercase text-[8px]">PPN 12%</td>
+                                                          <td className="border border-black px-1 py-1 text-right">{Math.round(ppnMat).toLocaleString('id-ID')}</td>
+                                                          <td className="border border-black px-1 py-1 text-right">{Math.round(ppnJas).toLocaleString('id-ID')}</td>
+                                                          <td className="border border-black px-1 py-1 text-right">{Math.round(ppnMat + ppnJas).toLocaleString('id-ID')}</td>
+                                                      </tr>
+                                                      <tr className="font-black bg-slate-100">
+                                                          <td colSpan="3" className="border border-black px-2 py-1 text-left uppercase text-[8px]">TOTAL</td>
+                                                          <td className="border border-black px-1 py-1 text-right">{Math.round(totalFinalMat).toLocaleString('id-ID')}</td>
+                                                          <td className="border border-black px-1 py-1 text-right">{Math.round(totalFinalJas).toLocaleString('id-ID')}</td>
+                                                          <td className="border border-black px-1 py-1 text-right">{(Math.round(totalFinalMat + totalFinalJas)).toLocaleString('id-ID')}</td>
+                                                      </tr>
+                                                      <tr className="font-black">
+                                                          <td colSpan="3" className="border border-black px-2 py-1 text-left uppercase text-[8px]">PEMBULATAN</td>
+                                                          <td className="border border-black px-1 py-1 text-right">{Math.round(totalFinalMat).toLocaleString('id-ID')}</td>
+                                                          <td className="border border-black px-1 py-1 text-right">{Math.round(totalFinalJas).toLocaleString('id-ID')}</td>
+                                                          <td className="border border-black px-1 py-1 text-right bg-yellow-50">{(Math.round(totalFinalMat + totalFinalJas)).toLocaleString('id-ID')}</td>
+                                                      </tr>
+                                                  </>
+                                              );
+                                          })()}
+                                      </tbody>
+                                  </table>
+
+                                  {/* TANDA TANGAN */}
+                                  <div className="mt-8 flex justify-end">
+                                      <div className="text-center w-56">
+                                          <p className="mb-14 text-[10px]">Denpasar, {new Date().toLocaleDateString('id-ID', { day: '2-digit', month: 'long', year: 'numeric' })}</p>
+                                          <p className="font-bold border-b border-black pb-0.5 mb-0.5 text-[10.5px]">Pejabat Berwenang</p>
+                                          <p className="text-[8px] text-slate-500 uppercase font-bold tracking-widest uppercase">PT PLN (Persero) {ulpWilayah}</p>
+                                      </div>
+                                  </div>
+                              </div>
+
+                              {/* CSS PRINT SAKTI BOSKU */}
+                              <style dangerouslySetInnerHTML={{__html: `
+                                  @media print {
+                                      div[class*="no-print"] { display: block !important; height: auto !important; overflow: visible !important; }
+                                      div[class*="bg-slate-900"], header, nav, aside, .print\\:hidden { display: none !important; }
+                                      body { background: white !important; }
+                                      body * { visibility: hidden; }
+                                      #area-cetak-detail, #area-cetak-detail * { visibility: visible !important; }
+                                      #area-cetak-detail { 
+                                          position: absolute !important; 
+                                          left: 0 !important; 
+                                          top: 0 !important; 
+                                          width: 100% !important; 
+                                          max-width: 100% !important;
+                                          margin: 0 !important; 
+                                          padding: 0 !important; 
+                                          box-shadow: none !important; 
+                                          border: none !important; 
+                                      }
+                                      @page { size: A4 portrait; margin: 10mm; }
+                                  }
+                              `}} /> 
+                          </div>
+                      );
+                      }
+                  })()
+  );
+};
+</script>

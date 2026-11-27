@@ -1,0 +1,55 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <base target="_top">
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <style>
+    html, body { margin:0; padding:0; height:100%; }
+    #boot-loading {
+      position:fixed; inset:0; background:#f8fafc;
+      display:flex; flex-direction:column; align-items:center; justify-content:center;
+      font-family: Arial, sans-serif;
+    }
+    .boot-logo {
+      width:56px; height:56px; background:#e11d48; border-radius:16px;
+      display:flex; align-items:center; justify-content:center;
+      color:#fff; font-weight:800; font-size:24px; margin-bottom:18px;
+      box-shadow:0 4px 14px rgba(225,29,72,.25);
+      animation: boot-pulse 1.4s ease-in-out infinite;
+    }
+    @keyframes boot-pulse { 0%,100%{transform:scale(1);} 50%{transform:scale(1.08);} }
+    .boot-spinner {
+      width:34px; height:34px; border:3px solid #e2e8f0; border-top-color:#4f46e5;
+      border-radius:50%; animation: boot-spin .8s linear infinite; margin-bottom:14px;
+    }
+    @keyframes boot-spin { to{transform:rotate(360deg);} }
+    .boot-text { font-size:12px; font-weight:700; color:#64748b; letter-spacing:.05em; text-transform:uppercase; }
+    .boot-subtext { font-size:10px; color:#94a3b8; margin-top:4px; }
+    .boot-error { color:#e11d48; font-weight:bold; font-size:12px; text-align:center; padding:0 20px; }
+  </style>
+</head>
+<body>
+  <div id="boot-loading">
+    <div class="boot-logo">N</div>
+    <div class="boot-spinner"></div>
+    <p class="boot-text">Memuat Aplikasi</p>
+    <p class="boot-subtext">PT. Nanda Nirwana Elektrik</p>
+  </div>
+
+  <script>
+    google.script.run
+      .withSuccessHandler(function(html) {
+        document.open();
+        document.write(html);
+        document.close();
+      })
+      .withFailureHandler(function(err) {
+        document.getElementById('boot-loading').innerHTML =
+          '<div class="boot-error">Gagal memuat aplikasi.<br>' + err.message + '<br><br>' +
+          '<button onclick="window.top.location.reload()" style="margin-top:10px;padding:8px 16px;background:#4f46e5;color:white;border:none;border-radius:8px;font-weight:bold;cursor:pointer;">Coba Lagi</button></div>';
+      })
+      .getMainAppHtml();
+  </script>
+</body>
+</html>

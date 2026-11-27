@@ -1,0 +1,363 @@
+<script type="text/babel">
+// Modal: Preview Cetak SPK + RAB bersih
+window.Modals.CetakSpk = (ctx) => {
+  const {
+    getNominalPKAkurat, isSpkPrintOpen, lhs, masterDatabase, pks, setIsSpkPrintOpen,
+    spkToPrint
+  } = ctx;
+  return (
+isSpkPrintOpen && spkToPrint && (() => {
+
+    // 🔥 MESIN CETAK RAB LH BERSIH (FORMAT PROFESSIONAL SC 2)
+
+    const handleCetakRABBersih = (pk) => {
+        // Ambil data LH (Support multi-variable)
+        const allLhs = typeof lhs !== 'undefined' ? lhs : (typeof pksData !== 'undefined' ? pksData.lhs : []);
+        const lhTerkait = (allLhs || []).filter(l => String(l.pk_id).trim() === String(pk.id).trim());
+        
+        let grandTotalMat = 0;
+        let grandTotalJas = 0;
+        let rowsHtml = '';
+
+        // 1. MESIN PARSER ANGKA AKURAT (ANTI MELSET)
+        const parseAkurat = (val) => {
+            if (!val) return 0;
+            if (typeof val === 'number') return val;
+            let s = String(val).trim().replace(/[^0-9.,-]/g, '');
+            if (s.includes('.') && s.includes(',')) s = s.replace(/\./g, '').replace(',', '.');
+            else if (s.includes(',')) s = s.replace(/\,/g, '.');
+            else if (s.includes('.')) {
+                if (s.startsWith('0.')) return parseFloat(s) || 0;
+                const parts = s.split('.');
+                if (parts.length > 2 || parts[parts.length - 1].length === 3) s = s.replace(/\./g, '');
+            }
+            return parseFloat(s) || 0;
+        };
+
+        // 2. RADAR HARGA KE DATABASE
+        const getPrices = (itemName) => {
+            if (!itemName) return { m: 0, j: 0, b: 0 };
+            const db = typeof masterDatabase !== 'undefined' ? masterDatabase : [];
+            const f = window.masterFind(db, itemName);
+            if (!f) return { m: 0, j: 0, b: 0 };
+            return { 
+                m: parseAkurat(f.Harga_Material || f._raw?.[4]), 
+                j: parseAkurat(f.Harga_Jasa || f._raw?.[5]), 
+                b: parseAkurat(f.Harga_Bongkar || f._raw?.[6]) 
+            };
+        };
+
+        if (lhTerkait.length === 0) {
+            rowsHtml = '<tr><td colSpan="11" style="border:1px solid black; padding:10px; text-align:center; font-style:italic; font-weight:bold; font-size:12px;">Belum ada data Laporan Harian (LH) untuk PK ini.</td></tr>';
+        } else {
+            lhTerkait.forEach((lh) => {
+                const d = lh.data || {};
+                const tgl = lh.tanggal || d.tanggal_lh || '-';
+                const namaKerja = d.nama_pekerjaan_lh || lh.uraian || pk.nama;
+                const lokasi = d.lokasi_lh || pk.lokasi || '-';
+
+                // JUDUL PEKERJAAN LH
+                rowsHtml += '<tr><td colSpan="11" style="border:1px solid black; padding:6px 8px; background:#fcfcfc;">' +
+                            '<div style="font-size:12px; font-weight:bold;">' + tgl + ' : ' + namaKerja + '</div>' +
+                            '<div style="font-size:10px; font-style:italic; color:#475569;">' + lokasi + '</div></td></tr>';
+
+                let subMatLH = 0;
+                let subJasLH = 0;
+
+                // FUNGSI RENDER BARIS ITEM (PINTAR MEMBEDAKAN MATERIAL VS JASA)
+                const renderRow = (item, index, type) => {
+                    if (!item.nama) return ''; // Lewati baris kosong
+                    const p = getPrices(item.nama);
+                    
+                    let hMat = 0;
+                    let hJas = 0;
+                    
+                    // Sesuaikan tarikan harga berdasarkan kategori (MDU, Pasang, Bongkar)
+                    if (type === 'MDU' || type === 'KONSTRUKSI') {
+                        hMat = p.m > 0 ? p.m : parseAkurat(item.harga);
+                        hJas = p.j > 0 ? p.j : 0;
+                    } else if (type === 'PASANG') {
+                        hMat = p.m > 0 ? p.m : 0;
+                        hJas = p.j > 0 ? p.j : parseAkurat(item.harga);
+                    } else if (type === 'BONGKAR') {
+                        hMat = 0;
+                        hJas = p.b > 0 ? p.b : parseAkurat(item.harga);
+                    } else if (type === 'RETOUR') {
+                        hMat = 0; 
+                        hJas = 0;
+                    }
+                    
+                    const vPln = parseAkurat(item.pln);
+                    const vPemb = parseAkurat(item.pemb);
+                    let vJml = vPln + vPemb;
+                    if (vJml === 0 && item.jumlah) vJml = parseAkurat(item.jumlah);
+                    
+                    const subMat = hMat * vJml;
+                    const subJas = hJas * vJml;
+                    const rowTotal = subMat + subJas;
+
+                    subMatLH += subMat;
+                    subJasLH += subJas;
+                    grandTotalMat += subMat;
+                    grandTotalJas += subJas;
+
+                    return '<tr style="font-size:12px;">' +
+                        '<td style="border:1px solid black; padding:4px; text-align:center;">' + (index + 1) + '</td>' +
+                        '<td style="border:1px solid black; padding:4px;">' + item.nama + '</td>' +
+                        '<td style="border:1px solid black; padding:4px; text-align:center;">' + (item.satuan || 'set') + '</td>' +
+                        '<td style="border:1px solid black; padding:4px; text-align:center;">' + (vPln || '-') + '</td>' +
+                        '<td style="border:1px solid black; padding:4px; text-align:center;">' + (vPemb || '-') + '</td>' +
+                        '<td style="border:1px solid black; padding:4px; text-align:center; font-weight:bold;">' + vJml + '</td>' +
+                        '<td style="border:1px solid black; padding:4px; text-align:right;">' + (hMat > 0 ? hMat.toLocaleString('id-ID') : '-') + '</td>' +
+                        '<td style="border:1px solid black; padding:4px; text-align:right;">' + (hJas > 0 ? hJas.toLocaleString('id-ID') : '-') + '</td>' +
+                        '<td style="border:1px solid black; padding:4px; text-align:right;">' + (subMat > 0 ? subMat.toLocaleString('id-ID') : '-') + '</td>' +
+                        '<td style="border:1px solid black; padding:4px; text-align:right;">' + (subJas > 0 ? subJas.toLocaleString('id-ID') : '-') + '</td>' +
+                        '<td style="border:1px solid black; padding:4px; text-align:right; font-weight:bold;">' + rowTotal.toLocaleString('id-ID') + '</td>' +
+                    '</tr>';
+                };
+
+                rowsHtml += '<tr><td colSpan="11" style="border:1px solid black; padding:4px 8px; font-weight:bold; font-size:11px;">A. MATERIAL UTAMA</td></tr>';
+                let aCount = 0;
+                (d.materialMdu || []).forEach(item => { if(item.nama) rowsHtml += renderRow(item, aCount++, 'MDU'); });
+                if(aCount === 0) rowsHtml += '<tr><td colSpan="11" style="border:1px solid black; padding:4px; text-align:center; font-style:italic; font-size:11px; color:#666;">Nihil</td></tr>';
+
+                rowsHtml += '<tr><td colSpan="11" style="border:1px solid black; padding:4px 8px; font-weight:bold; font-size:11px;">B. MATERIAL KONSTRUKSI</td></tr>';
+                let bCount = 0;
+                (d.materialKonstruksi || []).forEach(item => { if(item.nama) rowsHtml += renderRow(item, bCount++, 'KONSTRUKSI'); });
+                if(bCount === 0) rowsHtml += '<tr><td colSpan="11" style="border:1px solid black; padding:4px; text-align:center; font-style:italic; font-size:11px; color:#666;">Nihil</td></tr>';
+
+                rowsHtml += '<tr><td colSpan="11" style="border:1px solid black; padding:4px 8px; font-weight:bold; font-size:11px;">C. JASA DAN LAIN-LAIN</td></tr>';
+                let cCount = 0;
+                (d.uraianPasang || []).forEach(item => { if(item.nama) rowsHtml += renderRow(item, cCount++, 'PASANG'); });
+                (d.uraianBongkar || []).forEach(item => { if(item.nama) rowsHtml += renderRow(item, cCount++, 'BONGKAR'); });
+                if(cCount === 0) rowsHtml += '<tr><td colSpan="11" style="border:1px solid black; padding:4px; text-align:center; font-style:italic; font-size:11px; color:#666;">Nihil</td></tr>';
+
+                rowsHtml += '<tr><td colSpan="11" style="border:1px solid black; padding:4px 8px; font-weight:bold; font-size:11px;">D. MATERIAL RETOUR (BEKAS)</td></tr>';
+                let dCount = 0;
+
+                // 🔥 JURUS SAPU JAGAT: Tangkap semua kemungkinan nama tabel Retur di Database Bos 🔥
+                const dataRetur = d.returBekas || d.materialRetour || [];
+
+                dataRetur.forEach(item => { 
+                    if(item.nama) rowsHtml += renderRow(item, dCount++, 'RETOUR'); 
+                });
+
+                if(dCount === 0) rowsHtml += '<tr><td colSpan="11" style="border:1px solid black; padding:4px; text-align:center; font-style:italic; font-size:11px; color:#666;">Nihil</td></tr>';
+
+                // SUBTOTAL LH
+                rowsHtml += '<tr style="font-weight:bold; font-size:12px; background:#fcfcfc;">' +
+                    '<td colSpan="8" style="border:1px solid black; padding:4px 8px; text-align:right;">Subtotal</td>' +
+                    '<td style="border:1px solid black; padding:4px; text-align:right;">' + (subMatLH > 0 ? subMatLH.toLocaleString('id-ID') : '-') + '</td>' +
+                    '<td style="border:1px solid black; padding:4px; text-align:right;">' + (subJasLH > 0 ? subJasLH.toLocaleString('id-ID') : '-') + '</td>' +
+                    '<td style="border:1px solid black; padding:4px; text-align:right;">' + (subMatLH + subJasLH).toLocaleString('id-ID') + '</td>' +
+                '</tr>';
+            });
+        }
+
+        const grandTotalAll = grandTotalMat + grandTotalJas;
+        const ppn11 = grandTotalAll * 0.11;
+        const jumlahAll = grandTotalAll + ppn11;
+        const totalDibulatkan = Math.floor(jumlahAll / 1000) * 1000; 
+
+        // Auto Capitalize Vendor (Tetap ada)
+        let vendorRaw = typeof spkToPrint !== 'undefined' ? (spkToPrint?.Nama_Vendor || spkToPrint?.vendor || 'pt. nanda nirwana elektrik') : 'pt. nanda nirwana elektrik';
+        let vendorNama = vendorRaw.toLowerCase().replace(/\b\w/g, s => s.toUpperCase());
+        vendorNama = vendorNama.replace('Pt.', 'PT.').replace('Pt ', 'PT ');
+
+        const tglSekarang = new Date().toLocaleDateString('id-ID', {day:'2-digit', month:'long', year:'numeric'});
+
+        const win = window.open('', '_blank');
+        const contentHtml = 
+            '<html><head><title>RAB_' + pk.id + '</title>' +
+            '<style>body { font-family: Arial; padding: 20px; font-size: 10px; color: black; } table { width: 100%; border-collapse: collapse; margin-bottom: 10px; } th { border: 1px solid black; background: #eee; padding: 4px; font-size: 10px; text-align:center; } @page { size: A4 landscape; margin: 10mm; }</style></head>' +
+            '<body>' +
+            '<h2 style="text-align:center; text-decoration:underline; font-size:14px; margin-bottom:20px;">RENCANA ANGGARAN BIAYA (RAB)</h2>' +
+            
+            // Info Header RAB
+            '<table style="border:none; width:auto; margin-bottom:10px; font-size:11px;">' +
+            '<tr><td style="width:120px;">Pekerjaan</td><td>: ' + pk.nama + '</td></tr>' +
+            '<tr><td>Jenis Pekerjaan</td><td>: Pemeliharaan</td></tr>' +
+            '<tr><td>Vendor</td><td style="font-weight:bold;">: ' + vendorNama + '</td></tr></table>' +
+            
+            '<table>' +
+                '<thead>' +
+                    '<tr>' +
+                        '<th rowSpan="2" style="width:30px;">NO</th>' +
+                        '<th rowSpan="2">URAIAN PEKERJAAN</th>' +
+                        '<th rowSpan="2" style="width:40px;">SAT</th>' +
+                        '<th colSpan="2">VOLUME</th>' +
+                        '<th rowSpan="2" style="width:40px;">JML</th>' +
+                        '<th colSpan="2">HARGA SATUAN</th>' +
+                        '<th colSpan="2">HARGA BAGIAN</th>' +
+                        '<th rowSpan="2" style="width:80px;">TOTAL</th>' +
+                    '</tr>' +
+                    '<tr>' +
+                        '<th style="width:40px;">PLN</th><th style="width:40px;">PEMB</th>' +
+                        '<th style="width:75px;">Material</th><th style="width:75px;">Jasa</th>' +
+                        '<th style="width:75px;">Material</th><th style="width:75px;">Jasa</th>' +
+                    '</tr>' +
+                '</thead>' +
+                '<tbody>' + rowsHtml + '</tbody>' +
+                
+                '<tfoot>' +
+                    '<tr style="font-weight:bold; background:#eee; font-size:11px;">' +
+                        '<td colSpan="8" style="border:1px solid black; padding:6px 10px; text-align:right;">Total Keseluruhan</td>' +
+                        '<td style="border:1px solid black; padding:6px 4px; text-align:right;">' + grandTotalMat.toLocaleString('id-ID') + '</td>' +
+                        '<td style="border:1px solid black; padding:6px 4px; text-align:right;">' + grandTotalJas.toLocaleString('id-ID') + '</td>' +
+                        '<td style="border:1px solid black; padding:6px 4px; text-align:right; border-radius:10px; border:2px solid #22c55e; color:#166534;">' + grandTotalAll.toLocaleString('id-ID') + '</td>' +
+                    '</tr>' +
+                    '<tr style="font-weight:bold; font-size:11px;">' +
+                        '<td colSpan="10" style="border:1px solid black; padding:4px 10px; text-align:right;">PPN 11%</td>' +
+                        '<td style="border:1px solid black; padding:4px; text-align:right;">' + Math.round(ppn11).toLocaleString('id-ID') + '</td>' +
+                    '</tr>' +
+                    '<tr style="font-weight:bold; font-size:11px;">' +
+                        '<td colSpan="10" style="border:1px solid black; padding:4px 10px; text-align:right;">Jumlah</td>' +
+                        '<td style="border:1px solid black; padding:4px; text-align:right;">' + Math.round(jumlahAll).toLocaleString('id-ID') + '</td>' +
+                    '</tr>' +
+                    '<tr style="font-weight:bold; font-size:11px;">' +
+                        '<td colSpan="10" style="border:1px solid black; padding:4px 10px; text-align:right;">Grand Total Dibulatkan</td>' +
+                        '<td style="border:1px solid black; padding:4px; text-align:right;">' + totalDibulatkan.toLocaleString('id-ID') + '</td>' +
+                    '</tr>' +
+                '</tfoot>' +
+            '</table>' +
+            
+            '<div style="margin-top:40px; display:flex; justify-content:space-between; padding:0 30px;">' +
+                '<div style="text-align:center; width:220px;">' +
+                    '<p style="margin-bottom:70px; font-weight:bold;">Mengetahui,<br/>PT PLN (Persero) UID BALI</p>' +
+                    '<p style="font-weight:bold; border-bottom:1px solid black; font-size:11px;">MANAGER ULP</p>' +
+                '</div>' +
+                '<div style="text-align:center; width:220px;">' +
+                    '<p style="margin-bottom:70px; font-weight:bold;">Denpasar, ' + tglSekarang + '<br/>' + vendorNama + '</p>' +
+                    '<p style="font-weight:bold; border-bottom:1px solid black; font-size:11px;">DIREKTUR</p>' +
+                '</div>' +
+            '</div>' +
+            
+            '<script>window.onload = function(){ window.print(); };</sc' + 'ript>' +
+            '</body></html>';
+
+        win.document.write(contentHtml);
+        win.document.close();
+    };
+
+    // Filter PK untuk SPK ini
+    const spkIdAman = spkToPrint?.id || spkToPrint?.ID_SPK || '';
+    const pksInSpk = (pks || []).filter(pk => pk && String(pk.spk_id).trim() === String(spkIdAman).trim());
+
+    return (
+        <div className="fixed inset-0 bg-slate-900/80 z-[100] flex flex-col items-center justify-start overflow-y-auto p-4 md:p-8">
+            
+            {/* Tombol Aksi (Sticky di atas kertas) */}
+            <div className="w-full max-w-4xl bg-white rounded-t-xl p-4 flex justify-between items-center shadow-md print:hidden">
+                <h3 className="font-bold text-slate-700"><i className="fa-solid fa-file-contract mr-2"></i> Preview Cetak SPK</h3>
+                <div className="flex gap-2">
+                    <button onClick={() => setIsSpkPrintOpen(false)} className="px-5 py-2.5 bg-slate-100 text-slate-600 rounded-lg hover:bg-slate-200 font-bold text-[13px] transition-colors">
+                        Tutup
+                    </button>
+                    {/* Tombol print SPK utama tetap ada jika Bos mau cetak list ini */}
+                    <button onClick={() => window.print()} className="px-5 py-2.5 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 font-bold text-[13px] flex items-center gap-2 shadow-sm transition-colors">
+                        <i className="fa-solid fa-print"></i> Cetak Dokumen Ini
+                    </button>
+                </div>
+            </div>
+            
+            {/* 📄 KERTAS A4 (Printable Area) - VERSI FIT ROW & PROFESIONAL */}
+            <div id="area-cetak-spk" className="w-full max-w-4xl bg-white min-h-[297mm] p-8 md:p-10 shadow-2xl mt-1 print:m-0 print:shadow-none print:w-full print:p-6 text-black">
+                
+                {/* Header Kop Surat Ramping */}
+                <div className="border-b-2 border-slate-800 pb-2 mb-4 flex justify-between items-end">
+                    <div>
+                        <h1 className="text-[16px] font-black uppercase text-slate-800 tracking-widest">WADAH KONTRAK (SPK)</h1>
+                        <p className="text-[10px] font-bold text-slate-500 mt-0.5">PT PLN (PERSERO) UID BALI - <span className="text-slate-800 uppercase">{spkToPrint.ulp_wilayah || 'AREA BALI'}</span></p>
+                    </div>
+                    <div className="text-right">
+                        <p className="text-[9px] text-slate-500 font-bold uppercase tracking-wider mb-0.5">Nomor Referensi:</p>
+                        <p className="text-[12px] font-black text-slate-800">{spkToPrint.id}</p>
+                    </div>
+                </div>
+
+                {/* Isi Dokumen (Info SPK) - Fit Row */}
+                <div className="mb-5">
+                    <table className="w-full text-[10px]">
+                        <tbody>
+                            <tr className="border-b border-slate-100/50">
+                                <td className="py-1.5 w-40 font-bold text-slate-500 uppercase">Uraian Pekerjaan</td>
+                                <td className="py-1.5 font-bold text-slate-800 uppercase">: {spkToPrint.nama}</td>
+                            </tr>
+                            <tr className="border-b border-slate-100/50">
+                                <td className="py-1.5 font-bold text-slate-500 uppercase">Pelaksana / Vendor</td>
+                                <td className="py-1.5 font-bold text-slate-800 uppercase">: {spkToPrint.vendor || spkToPrint.Nama_Vendor || 'BELUM DITUNJUK'}</td>
+                            </tr>
+                            <tr className="border-b border-slate-100/50">
+                                <td className="py-1.5 font-bold text-slate-500 uppercase">Masa Berlaku</td>
+                                <td className="py-1.5 font-bold text-slate-800">: {spkToPrint.tanggal} <span className="text-slate-400 font-normal mx-1.5">s.d</span> {spkToPrint.exp}</td>
+                            </tr>
+                            <tr className="bg-slate-50">
+                                <td className="py-2 px-1.5 font-bold text-slate-600 uppercase">Kapasitas Maksimal</td>
+                                <td className="py-2 font-black text-[12px] text-indigo-700">: Rp {new Intl.NumberFormat('id-ID').format(spkToPrint.nominal_total || 0)}</td>
+                            </tr>
+                        </tbody>
+                    </table>
+                </div>
+
+                {/* 🔥 TABEL DAFTAR MUATAN PK (FIT ROW) 🔥 */}
+                <div>
+                    <h4 className="font-bold text-slate-800 mb-2 text-[12px] uppercase border-b-2 border-slate-800 pb-0.5 inline-block">Daftar Pekerjaan (Muatan PK)</h4>
+                    
+                    {pksInSpk.length === 0 ? (
+                        <div className="p-4 text-center border border-dashed border-slate-300 bg-slate-50 rounded-lg text-[10px] text-slate-500 font-bold italic">
+                            Belum ada PK yang dimasukkan ke SPK ini.
+                        </div>
+                    ) : (
+                        <table className="w-full border-collapse border border-slate-800 text-[10px]">
+                            <thead>
+                                <tr className="bg-[#e9eff6] print:bg-slate-200">
+                                    <th className="border border-slate-800 px-2 py-1.5 text-center w-8 text-slate-800 font-bold text-[12px]">No</th>
+                                    <th className="border border-slate-800 px-2 py-1.5 text-left w-32 text-slate-800 font-bold text-[12px]">ID PK</th>
+                                    <th className="border border-slate-800 px-2 py-1.5 text-left text-slate-800 font-bold text-[12px]">Uraian Pekerjaan</th>
+                                    <th className="border border-slate-800 px-2 py-1.5 text-left w-40 text-slate-800 font-bold text-[12px]">Lokasi / Penyulang</th>
+                                    <th className="border border-slate-800 px-2 py-1.5 text-right w-28 text-slate-800 font-bold text-[12px]">Nilai Anggaran (Rp)</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                {pksInSpk.map((pk, idx) => (
+                                    <tr key={idx} className="hover:bg-slate-50 transition-colors">
+                                        <td className="border border-slate-800 px-2 py-1.5 text-center text-slate-700">{idx + 1}</td>
+                                        <td className="border border-slate-800 px-2 py-1.5 font-bold text-slate-800">{pk?.id || '-'}</td>
+                                        <td className="border border-slate-800 px-2 py-1.5 text-slate-800 uppercase leading-snug">{pk?.nama || '-'}</td>
+                                        <td className="border border-slate-800 px-2 py-1.5 text-slate-800 uppercase leading-snug">{pk?.lokasi || pk?.penyulang || '-'}</td>
+                                        <td className="border border-slate-800 px-2 py-1.5 text-right font-mono font-bold">
+                                            
+                                            {/* 🔥 TOMBOL SAKTI CETAK RAB (ANGKA BIRU) 🔥 */}
+                                            <button 
+                                                type="button"
+                                                onClick={() => handleCetakRABBersih(pk)}
+                                                className="text-indigo-600 hover:text-indigo-800 hover:underline cursor-pointer transition-all print:text-indigo-700 print:no-underline text-[10px]"
+                                                title="Klik untuk mencetak RAB PK ini"
+                                            >
+                                                {new Intl.NumberFormat('id-ID').format(getNominalPKAkurat(pk))}
+                                            </button>
+
+                                        </td>
+                                    </tr>
+                                ))}
+                            </tbody>
+                        </table>
+                    )}
+                </div>
+            </div>
+                            {/* CSS SAKTI: Menyembunyikan elemen latar saat nge-print */}
+                        <style dangerouslySetInnerHTML={{__html: `
+                            @media print {
+                                body * { visibility: hidden; }
+                                #area-cetak-spk, #area-cetak-spk * { visibility: visible; }
+                                #area-cetak-spk { position: absolute; left: 0; top: 0; width: 100%; padding: 0; margin: 0; box-shadow: none; }
+                                /* Sembunyikan header/footer bawaan browser */
+                                @page { margin: 1cm; }
+                            }
+                        `}} />
+                    </div>
+                      );
+                  })()
+  );
+};
+</script>

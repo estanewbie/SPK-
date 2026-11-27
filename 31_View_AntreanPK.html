@@ -1,0 +1,380 @@
+<script type="text/babel">
+// Menu: Antrean PK (monitor_pk). Desain terpilih: daftar baris dengan bar bersegmen (D2), tab filter status (C),
+// kotak angka kecil C3 / C7 / AGO putih (D1), tema biru, ungu, putih. Tanpa geser samping.
+// Logika hitung nilai (sinkron dengan Cetak RAB) dan syarat C3/C7/AGO sama dengan versi lama dan tab PK ke SPK di KTK.
+// Antrean PK punya dua tab: daftar antrean dan Log harian (tabel eksternal, untuk membuat LH).
+window.Views.AntreanPK = (ctx) => <AntreanShell ctx={ctx} />;
+// Kolom cari: ketikan disimpan lokal dan baru diterapkan 250 ms setelah berhenti, supaya daftar tidak dihitung ulang tiap huruf.
+function SearchBox({ value, onValue, ...rest }) {
+  const { useState, useEffect, useRef } = React;
+  const [v, setV] = useState(value || ''); const timer = useRef(null); const last = useRef(value || '');
+  useEffect(() => { if ((value || '') !== last.current) { setV(value || ''); last.current = value || ''; } }, [value]);
+  useEffect(() => () => clearTimeout(timer.current), []);
+  return <input type="text" {...rest} value={v} onChange={(e) => { const x = e.target.value; setV(x); clearTimeout(timer.current); timer.current = setTimeout(() => { last.current = x; onValue(x); }, 250); }} />;
+}
+
+function AntreanShell({ ctx }) {
+  const { useState } = React;
+  const canLog = ['Super Admin', 'Admin PK', 'Admin SPK'].includes(ctx.currentUser?.role);
+  const [mode, setMode] = useState(ctx.currentView === 'log_harian' && canLog ? 'log' : 'antrean');
+  const Tab = ({ id, children }) => (
+    <button onClick={() => setMode(id)} className={`h-8 px-3.5 rounded-lg ${mode === id ? 'bg-[#E9EEFA] text-[#3A62B0] font-medium' : 'text-[#7A8190] hover:bg-[#EEF0F7]'}`}>{children}</button>
+  );
+  // Di tab Log harian pun, LH yang perlu revisi tidak boleh terlewat: spanduk merah mengarahkan ke daftarnya.
+  const nRevisi = React.useMemo(() => (['Super Admin', 'Admin PK', 'Admin SPK'].includes(ctx.currentUser?.role) ? (ctx.lhs || []).filter(l => window.lhTahap(l) === 'revisi').length : 0), [ctx.lhs, ctx.currentUser]);
+  return (
+    <div className="space-y-1 pt-1">
+      {canLog && <div className="flex items-center gap-1"><Tab id="antrean">Antrean PK</Tab><Tab id="log">Log harian</Tab></div>}
+      {mode === 'log' && nRevisi > 0 && (
+        <div className="rounded-xl px-4 py-2 flex flex-wrap items-center gap-3" style={{ background: '#FBE9E7', border: '1px solid #EBC3BF', color: '#9B2C2C' }} data-testid="spanduk-revisi">
+          <span className="font-medium">{nRevisi} LH perlu direvisi.</span><span>Admin audit menemukan hal yang harus diperbaiki.</span>
+          <button className="underline font-medium" onClick={() => setMode('antrean')}>Lihat LH yang perlu revisi</button>
+        </div>)}
+      {mode === 'log' && canLog ? <LogHarianPage ctx={ctx} /> : <AntreanPkPage ctx={ctx} />}
+    </div>
+  );
+}
+
+function AntreanPkPage({ ctx }) {
+  const { useState, useEffect, useMemo, useRef } = React;
+  const {
+    currentUser, eksekusiHapus, filterPekerjaan, filterTanggal, filteredPks, handleDeletePk,
+    isDeleteModalOpen, lhs, masterDatabase, maxAnggaran, minAnggaran, openEditPk, openNewPk, pendingPKs, pks,
+    setFilterPekerjaan, setFilterPengawas, setFilterTanggal, setIsDeleteModalOpen, setManagePkOpen,
+    setMaxAnggaran, setMinAnggaran, setSelectedPkId
+  } = ctx;
+
+  const PAGE = 12;
+  const GRID = '84px minmax(200px,1.5fr) 96px minmax(110px,.9fr) 116px 50px 50px 50px 128px 60px';
+  const [tab, setTab] = useState('semua');
+  const [page, setPage] = useState(1);
+  const [showFilter, setShowFilter] = useState(false);
+
+  const role = currentUser?.role;
+  const canEdit = ['Super Admin', 'Admin PK', 'Admin SPK'].includes(role) && role !== 'Admin Code';
+  const safeLhs = lhs || [];
+  const rp = (n) => 'Rp ' + new Intl.NumberFormat('id-ID').format(Math.round(n || 0));
+
+  // warna per jenis pekerjaan, vendor, dan tanggal (semua lembut, satu keluarga)
+  const jenisOf = (pk) => String(pk.jenis_pekerjaan || '').trim() || 'Tanpa jenis';
+  const jenisCol = (j) => {
+    const s = j.toLowerCase();
+    if (s.includes('pemeliharaan')) return '#B7791F';
+    if (s.includes('pfk')) return '#B5546F';
+    if (s.includes('bongkar')) return '#C0563B';
+    if (s.includes('pasang') || s.includes('baru')) return '#2F8F6B';
+    return '#3A62B0';
+  };
+  const VEN = ['#3A62B0', '#2F8F9D', '#7E57C2', '#B45F8A', '#5E8B3E', '#B7791F'];
+  const venCol = (s) => { let h = 0; String(s || '').split('').forEach(c => { h = (h * 31 + c.charCodeAt(0)) >>> 0; }); return VEN[h % VEN.length]; };
+  const DATE_COL = '#2F8F9D';
+  const CHIP = {
+    ok: ['#E6F5EC', '#2D7A4E'], warn: ['#FFF3D6', '#94620F'], bad: ['#FCE8EA', '#AE4850'], mute: ['#EEF0F5', '#6B7180']
+  };
+  // tema: biru (C3), ungu (C7), biru-keunguan (AGO)
+  const C = { c3: '#3A62B0', c7: '#7E57C2', ago: '#5A7FD0', ink: '#2B2F3A', mute: '#7A8190', line: '#E6E9F2', soft: '#EEF0F7' };
+  const TONE = { ok: '#3C8A5E', warn: '#B7791F', bad: '#B5524F', mute: '#8A93A3' };
+
+  const parseAkurat = (val) => {
+    if (!val) return 0;
+    if (typeof val === 'number') return val;
+    let s = String(val).trim().replace(/[^0-9.,-]/g, '');
+    if (s.includes('.') && s.includes(',')) s = s.replace(/\./g, '').replace(',', '.');
+    else if (s.includes(',')) s = s.replace(/\,/g, '.');
+    else if (s.includes('.')) {
+      if (s.startsWith('0.')) return parseFloat(s) || 0;
+      const parts = s.split('.');
+      if (parts.length > 2 || parts[parts.length - 1].length === 3) s = s.replace(/\./g, '');
+    }
+    return parseFloat(s) || 0;
+  };
+  const getPrices = (itemName) => {
+    if (!itemName) return { mat: 0, jas: 0, bongkar: 0 };
+    const found = window.masterFind(masterDatabase || [], itemName);
+    if (!found) return { mat: 0, jas: 0, bongkar: 0 };
+    return {
+      mat: parseAkurat(found.Harga_Material || (found._raw && found._raw[4]) || 0),
+      jas: parseAkurat(found.Harga_Jasa || (found._raw && found._raw[5]) || 0),
+      bongkar: parseAkurat(found.Harga_Bongkar || (found._raw && found._raw[6]) || 0)
+    };
+  };
+
+  // semua hitungan satu PK: nilai (jumlah RAB semua LH sebelum PPN), C3/C7/AGO, revisi, status
+  const info = (pk, ownIn) => {
+    const own = ownIn || safeLhs.filter(l => String(l.pk_id).trim() === String(pk.id).trim());
+    let total = 0;
+    own.forEach(lh => {
+      const d = lh.data || {};
+      let fm = 0, fj = 0;
+      (d.materialMdu || []).forEach(m => { if (!m.nama) return; const v = parseAkurat(m.jumlah); const p = getPrices(m.nama); fm += (p.mat > 0 ? p.mat : parseAkurat(m.harga)) * v; fj += p.jas * v; });
+      (d.uraianPasang || []).forEach(m => { if (!m.nama) return; const v = (parseAkurat(m.pln) + parseAkurat(m.pemb)) || parseAkurat(m.jumlah); const p = getPrices(m.nama); fm += p.mat * v; fj += (p.jas > 0 ? p.jas : parseAkurat(m.harga)) * v; });
+      (d.uraianBongkar || []).forEach(m => { if (!m.nama) return; const v = parseAkurat(m.jumlah); const p = getPrices(m.nama); fj += (p.bongkar > 0 ? p.bongkar : parseAkurat(m.harga)) * v; });
+      const one = fm + fj;
+      total += one > 0 ? one : parseAkurat(d.nominal_rab);
+    });
+    const bypass = pk.is_bypassed === true || pk.bypass === true;
+    const need3 = bypass ? [] : own.filter(l => l.data?.butuh_c3 || l.data?.c3 || String(l.data?.centang_c3) === 'true');
+    const need7 = bypass ? [] : own.filter(l => l.data?.butuh_c7 || l.data?.c7 || String(l.data?.centang_c7) === 'true');
+    const needA = bypass ? [] : own.filter(l => l.data?.butuh_c3 === true || l.data?.butuh_c7 === true || l.data?.c3 || l.data?.c7);
+    const c3 = [need3.filter(l => l.data?.url_c3 || l.data?.file_c3 || l.data?.code3 === true || l.code3 === true || l.fotoUrl).length, need3.length];
+    const c7 = [need7.filter(l => l.data?.url_c7 || l.data?.file_c7 || l.data?.code7 === true || l.code7 === true || l.fotoUrl).length, need7.length];
+    const ag = [needA.filter(l => l.ago === true || l.data?.ago === true || l.data?.status_ago === 'OK' || l.data?.file_ago).length, needA.length];
+    const revisi = own.filter(l => l.audit_note || l.Audit_Note).length;
+    const kurang = (c3[1] - c3[0]) + (c7[1] - c7[0]) + (ag[1] - ag[0]);
+    let st = { key: 'siap', tone: 'ok', text: 'Siap masuk SPK' };
+    if (own.length === 0) st = { key: 'kosong', tone: 'mute', text: 'Belum ada LH' };
+    else if (revisi > 0) st = { key: 'revisi', tone: 'bad', text: 'Perlu revisi' };
+    else if (kurang > 0) st = { key: 'kurang', tone: 'warn', text: 'Dokumen kurang' };
+    return { nilai: total > 0 ? total : (pk.nominal || 0), sinkron: total > 0, nLh: own.length, c3, c7, ag, revisi, st };
+  };
+
+  // hitung sekali per render untuk seluruh antrean
+  // dihitung ulang hanya bila data PK, LH, atau Master_Data berubah (bukan tiap ketukan atau tiap render)
+  const infoById = useMemo(() => {
+    const by = {}; safeLhs.forEach(l => { const k = String(l.pk_id).trim(); (by[k] = by[k] || []).push(l); });
+    const m = {}; pendingPKs.forEach(pk => { m[pk.id] = info(pk, by[String(pk.id).trim()] || []); }); return m;
+  }, [pks, lhs, masterDatabase]);
+  // LH YANG PERLU REVISI (temuan Admin audit), SEMUA PK: tidak ikut saringan tab, pencarian, maupun periode. Tampil langsung di sini
+  // lengkap dengan isi temuannya, sehingga admin tidak perlu membuka PK untuk mengetahui apa yang harus diperbaiki.
+  const revisiLh = useMemo(() => {
+    const pkBy = {}; (pks || []).forEach(p => { pkBy[String(p.id).trim()] = p; });
+    return safeLhs.filter(l => window.lhTahap(l) === 'revisi').map(l => {
+      const pk = pkBy[String(l.pk_id).trim()] || null; const d = l.data || {};
+      return { l, pk, nama: String(d.nama_pekerjaan_lh || l.uraian || '').trim(), lokasi: d.lokasi_lh || (pk && pk.lokasi) || '', t: window.Periode.waktu(l) };
+    }).sort((a, b) => (a.t || 9e15) - (b.t || 9e15) || String(a.l.id).localeCompare(String(b.l.id)));
+  }, [lhs, pks]);
+  const [revLimit, setRevLimit] = useState(5);
+  // buka formulir revisi LH langsung (tanpa melewati daftar LH di dalam PK); PK-nya ikut diatur supaya penyimpanan tetap ke PK yang benar
+  const revisiSekarang = (x) => {
+    if (!x.pk) { if (ctx.showToast) ctx.showToast('PK tidak ditemukan', 'PK untuk LH ini tidak ada di data. Muat ulang data lalu coba lagi.', 'error'); return; }
+    if (typeof ctx.openEditLh !== 'function') { if (ctx.showToast) ctx.showToast('Tidak bisa membuka LH', 'Muat ulang halaman (Ctrl+F5) lalu coba lagi.', 'error'); return; }
+    setManagePkOpen(x.pk); ctx.openEditLh(x.l, x.pk);   // PK dikirim eksplisit: jendela Kelola PK baru terbuka pada render berikutnya
+  };
+  const count = (k) => pendingPKs.filter(pk => infoById[pk.id].st.key === k).length;
+  const TABS = [
+    ['semua', 'Semua', pendingPKs.length, C.ink],
+    ['siap', 'Siap masuk SPK', count('siap'), TONE.ok],
+    ['kurang', 'Dokumen kurang', count('kurang'), TONE.warn],
+    ['revisi', 'Perlu revisi', count('revisi'), TONE.bad],
+    ['kosong', 'Belum ada LH', count('kosong'), TONE.mute]
+  ];
+
+  // daftar tampil: hasil filter App (cari, tanggal, anggaran) lalu tab status, lalu halaman
+  const base = (filteredPks || pendingPKs);
+  const list = [...base].filter(pk => tab === 'semua' || (infoById[pk.id] || info(pk)).st.key === tab);
+  // terbaru di atas: kelompok diurutkan dari tanggal terbaru di dalamnya, baris dari tanggal terakhir dibuat
+  const tgl = (pk) => {
+    const s = String(pk.tanggal || '').trim(); let m;
+    if ((m = s.match(/^(\d{4})-(\d{1,2})-(\d{1,2})/))) return Date.UTC(+m[1], +m[2] - 1, +m[3]);
+    if ((m = s.match(/^(\d{1,2})[\/.-](\d{1,2})[\/.-](\d{4})/))) return Date.UTC(+m[3], +m[2] - 1, +m[1]);
+    return 0;
+  };
+  const newest = {};
+  list.forEach(pk => { const j = jenisOf(pk); newest[j] = Math.max(newest[j] || 0, tgl(pk)); });
+  list.sort((a, b) => (newest[jenisOf(b)] - newest[jenisOf(a)]) || jenisOf(a).localeCompare(jenisOf(b)) || (tgl(b) - tgl(a)) || String(b.id).localeCompare(String(a.id)));
+  const grpStat = {};
+  list.forEach(pk => { const j = jenisOf(pk); grpStat[j] = grpStat[j] || { n: 0, nilai: 0 }; grpStat[j].n++; grpStat[j].nilai += (infoById[pk.id] || info(pk)).nilai; });
+  const totalPages = Math.max(1, Math.ceil(list.length / PAGE));
+  const cur = Math.min(page, totalPages);
+  const rows = list.slice((cur - 1) * PAGE, cur * PAGE);
+  // buka Kelola PK; bila diberi ID LH, daftar LH di dalamnya langsung disaring ke LH itu. Tanpa ID, saringan lama dibersihkan.
+  const openAt = (pk, lhId) => {
+    if (ctx.setFilterLhNama) ctx.setFilterLhNama(lhId || '');
+    if (ctx.setFilterLhPengawas) ctx.setFilterLhPengawas(''); if (ctx.setFilterLhTeam) ctx.setFilterLhTeam(''); if (ctx.setFilterLhTanggal) ctx.setFilterLhTanggal('');
+    setManagePkOpen(pk);
+  };
+  // LH yang cocok dengan kata cari, ditampilkan di bawah PK-nya (hanya untuk baris yang tampil)
+  const lhHits = useMemo(() => {
+    const q = String(filterPekerjaan || '').toLowerCase().trim(); if (!q) return {};
+    const out = {};
+    const pageIds = {}; rows.forEach(pk => { pageIds[String(pk.id).trim()] = 1; });
+    safeLhs.forEach(l => {
+      const k = String(l.pk_id).trim(); if (!pageIds[k]) return;
+      const hit = window.lhMatch(l, q); if (!hit) return;
+      const d = l.data || {};
+      (out[k] = out[k] || []).push({ id: l.id, nama: d.nama_pekerjaan_lh || l.uraian || '', tgl: d.tanggal_lh || l.tanggal || '', where: hit.join(' · '), pengawas: d.pengawas_lh || '' });
+    });
+    return out;
+  }, [filterPekerjaan, lhs, rows]);
+  useEffect(() => { setPage(1); }, [tab, filterPekerjaan, filterTanggal, minAnggaran, maxAnggaran]);
+
+  // kotak angka kecil, latar putih. Lengkap = bingkai penuh, kurang = bingkai putus-putus, tidak wajib = abu-abu.
+  const Metric = ({ label, v, col, title }) => {
+    const [ok, need] = v;
+    const done = need > 0 && ok >= need;
+    return (
+      <div title={title} className="w-[50px] h-[38px] rounded-[9px] bg-white flex flex-col items-center justify-center"
+        style={{ border: `1.5px ${need === 0 ? 'solid' : done ? 'solid' : 'dashed'} ${need === 0 ? '#DADDE7' : col}`, color: need === 0 ? '#B3B8C6' : col }}>
+        <span className="text-[10px] leading-3 opacity-80">{label}</span>
+        <span className="text-[13px] leading-4 font-medium num !text-center">{need ? `${ok}/${need}` : '-'}</span>
+      </div>
+    );
+  };
+  const reset = () => {
+    setFilterTanggal(''); setFilterPengawas(''); setFilterPekerjaan(''); setMinAnggaran(''); setMaxAnggaran('');
+    if (typeof ctx.setQueriedPks === 'function') ctx.setQueriedPks(null);
+  };
+  const lo = Number(minAnggaran || 0), hi = Number(maxAnggaran || 500000000);
+  const totalNilai = pendingPKs.reduce((a, pk) => a + infoById[pk.id].nilai, 0);
+
+  return (
+    <div className="space-y-3 pt-1">
+      <div className="flex flex-wrap items-center justify-between gap-3">
+        <div className="flex items-baseline gap-3">
+          <h2 className="text-[22px] leading-8 font-medium" style={{ color: C.ink }}>Antrean PK</h2>
+          <span style={{ color: C.mute }}>{pendingPKs.length} PK · {rp(totalNilai)}</span>
+        </div>
+        <div className="flex items-center gap-2">
+          <SearchBox value={filterPekerjaan} onValue={setFilterPekerjaan} placeholder="Cari pekerjaan, vendor, jenis, atau ULP" className="w-[300px] max-w-full h-9 px-3 rounded-[10px] border bg-white outline-none focus:border-[#3A62B0]" style={{ borderColor: '#D9DDE9' }} />
+          <button onClick={() => setShowFilter(!showFilter)} className="h-9 px-3 rounded-[10px] border bg-white hover:border-[#9FB0D2]" style={{ borderColor: '#D9DDE9', color: showFilter ? C.c3 : C.ink }}>Filter</button>
+          {(role === 'Admin PK' || role === 'Super Admin') && (
+            <button onClick={openNewPk} className="btn-grad h-9 px-4 rounded-[10px] font-medium">+ Daftarkan PK baru</button>
+          )}
+        </div>
+      </div>
+
+      {canEdit && revisiLh.length > 0 && (
+        <section className="rounded-xl border overflow-hidden" style={{ borderColor: '#EBC3BF', background: '#FFFBFA' }} data-testid="panel-revisi">
+          <div className="flex flex-wrap items-center gap-x-4 gap-y-1 px-5 py-2.5" style={{ background: '#FBE9E7' }}>
+            <span className="inline-flex items-center gap-2"><span className="w-[9px] h-[9px] rounded-full" style={{ background: TONE.bad }}></span><span className="text-[16px] leading-6 font-medium" style={{ color: '#9B2C2C' }}>{revisiLh.length} LH perlu direvisi</span></span>
+            <span style={{ color: '#7A4A4A' }}>Admin audit menemukan hal yang harus diperbaiki. Klik "Revisi LH ini" untuk langsung membuka LH, tanpa membuka PK. Setelah disimpan, LH otomatis lanjut ke Admin Code.</span>
+          </div>
+          <div className="grid items-center gap-4 px-5 h-8 text-[11px]" style={{ gridTemplateColumns: '112px minmax(0,1.3fr) minmax(0,2fr) 176px', color: C.mute }}><span>LH</span><span>Pekerjaan dan PK</span><span>Temuan Admin audit</span><span></span></div>
+          {revisiLh.slice(0, revLimit).map(x => (
+            <div key={x.l.id} className="grid items-start gap-4 px-5 py-3 border-t" style={{ gridTemplateColumns: '112px minmax(0,1.3fr) minmax(0,2fr) 176px', borderTopColor: '#F3DAD7' }}>
+              <div><div className="num font-medium" style={{ color: C.c7 }}>{x.l.id}</div><div className="num text-[11px]" style={{ color: DATE_COL }}>{x.l.tanggal || '-'}</div></div>
+              <div className="min-w-0">
+                <div className="text-[14px] leading-5 font-medium" style={{ color: C.ink }}>{x.nama || 'Pekerjaan LH belum diberi nama'}</div>
+                <div className="text-[11px]" style={{ color: C.c3 }}>PK {x.pk ? x.pk.id : x.l.pk_id}{x.pk && x.pk.nama && String(x.pk.nama).toLowerCase() !== x.nama.toLowerCase() ? ' · ' + x.pk.nama : ''}</div>
+                <div className="text-[11px]" style={{ color: C.mute }}>{x.lokasi || '-'}{x.pk && x.pk.spk_id ? ' · SPK ' + x.pk.spk_id : ' · belum masuk SPK'}</div>
+              </div>
+              <div className="rounded-lg px-3 py-2" style={{ background: '#FBE9E7', border: '1px solid #EBC3BF' }}>
+                <div className="text-[11px]" style={{ color: '#9B2C2C' }}>Yang harus diperbaiki</div>
+                <div className="text-[14px] leading-5 font-medium" style={{ color: '#9B2C2C', whiteSpace: 'pre-wrap', wordBreak: 'break-word' }}>{x.l.audit_note}<div className="text-[12px] font-normal mt-1" style={{ color: C.mute }} data-testid="jejak-revisi">Dibuat oleh {x.l.dibuat_oleh ? 'ID ' + x.l.dibuat_oleh : 'ID tidak tercatat'}{x.l.audit_oleh ? ' · diaudit oleh ID ' + x.l.audit_oleh : ''}</div></div>
+              </div>
+              <div className="flex flex-col items-stretch gap-1.5">
+                <button onClick={() => revisiSekarang(x)} className="h-8 px-3 rounded-lg text-white font-medium hover:opacity-90" style={{ background: C.c3 }}>Revisi LH ini</button>
+                {x.pk && <button onClick={() => openAt(x.pk, x.l.id)} className="h-7 px-3 rounded-lg border bg-white hover:border-[#9FB0D2]" style={{ borderColor: '#D9DDE9', color: C.mute }}>Buka PK</button>}
+              </div>
+            </div>))}
+          {revisiLh.length > revLimit && <button onClick={() => setRevLimit(revLimit + 10)} className="w-full py-2 border-t hover:bg-[#FFF3F1]" style={{ borderColor: '#F3DAD7', color: C.c3 }}>Tampilkan {Math.min(10, revisiLh.length - revLimit)} LH berikutnya ({revisiLh.length - revLimit} lagi)</button>}
+        </section>)}
+
+      {showFilter && (
+        <section className="bg-white border rounded-xl px-4 py-2.5 flex flex-wrap items-end gap-x-6 gap-y-2" style={{ borderColor: C.line }}>
+          <label className="block"><span className="block text-[11px] mb-0.5" style={{ color: C.mute }}>Tanggal</span>
+            <input type="date" value={filterTanggal} onChange={e => setFilterTanggal(e.target.value)} className="h-8 px-2 border rounded-lg bg-white outline-none focus:border-[#3A62B0]" style={{ borderColor: '#D9DDE9' }} /></label>
+          <div className="w-[300px] max-w-full">
+            <div className="flex justify-between text-[11px] mb-0.5" style={{ color: C.mute }}><span>Rentang anggaran</span><span className="num" style={{ color: C.c3 }}>{rp(lo)} - {rp(hi)}</span></div>
+            <div className="flex gap-2 items-center h-8">
+              <input type="range" min="0" max="500000000" step="1000000" value={minAnggaran || 0} onChange={e => setMinAnggaran(e.target.value)} className="w-1/2 h-1 cursor-pointer" title="Batas minimal" />
+              <input type="range" min="0" max="500000000" step="1000000" value={maxAnggaran || 500000000} onChange={e => setMaxAnggaran(e.target.value)} className="w-1/2 h-1 cursor-pointer" title="Batas maksimal" />
+            </div>
+          </div>
+          <button onClick={reset} className="h-8 px-3 rounded-lg border bg-white" style={{ borderColor: '#D9DDE9' }}>Atur ulang</button>
+        </section>
+      )}
+
+      {/* tab status */}
+      <nav className="flex flex-wrap gap-x-7 border-b" style={{ borderColor: C.line }}>
+        {TABS.map(([k, label, n, col]) => (
+          <button key={k} onClick={() => setTab(k)} className="h-9 -mb-px border-b-2 flex items-center gap-1.5"
+            style={{ borderColor: tab === k ? C.c3 : 'transparent', color: tab === k ? C.ink : col, fontWeight: tab === k ? 500 : 400 }}>
+            {label}<span className="num" style={{ color: tab === k ? C.c3 : col, opacity: tab === k ? 1 : .8 }}>{n}</span>
+          </button>))}
+      </nav>
+
+      {/* daftar dikelompokkan per jenis pekerjaan; baris bisa diklik untuk Kelola */}
+      <section className="bg-white border rounded-[14px] overflow-hidden" style={{ borderColor: C.line }}>
+        <div className="grid items-center gap-4 px-5 h-9 text-[11px]" style={{ gridTemplateColumns: GRID, background: '#F4F6FB', color: C.mute }}>
+          <span>Tanggal</span><span>Pekerjaan</span><span>Lokasi</span><span>Vendor</span><span>Keterangan</span>
+          <span className="text-center" style={{ color: C.c3 }}>C3</span><span className="text-center" style={{ color: C.c7 }}>C7</span><span className="text-center" style={{ color: C.ago }}>AGO</span>
+          <span className="text-right">Nilai</span><span></span>
+        </div>
+        {rows.map((pk, idx) => {
+          const x = infoById[pk.id] || info(pk);
+          const ulp = pk.ulp || pk.ulp_wilayah;
+          const j = jenisOf(pk), jc = jenisCol(j);
+          const newGroup = idx === 0 || jenisOf(rows[idx - 1]) !== j;
+          const ch = CHIP[x.st.tone];
+          const show = (v) => x.nLh > 0 && v[1] > 0; // kode yang tidak wajib disembunyikan
+          const lhHit = lhHits[String(pk.id).trim()] || [];
+          return (
+            <React.Fragment key={pk.id || idx}>
+              {newGroup && (
+                <div className="flex items-center gap-2.5 px-5 h-8 border-t" style={{ borderColor: C.line, background: jc + '0F' }}>
+                  <span className="w-[3px] h-4 rounded-full" style={{ background: jc }}></span>
+                  <span className="font-medium" style={{ color: jc }}>{j}</span>
+                  <span style={{ color: C.mute }}>{grpStat[j].n} PK · {rp(grpStat[j].nilai)}</span>
+                </div>
+              )}
+              <div onClick={() => openAt(pk)} role="button" tabIndex={0}
+                onKeyDown={(e) => { if (e.key === 'Enter') openAt(pk); }}
+                title="Klik untuk mengelola PK ini"
+                className="grid items-center gap-4 px-5 py-2.5 border-t cursor-pointer border-l-[3px] border-l-transparent hover:bg-[#F4F2FB] hover:border-l-[#7E57C2] transition-colors"
+                style={{ gridTemplateColumns: GRID, borderTopColor: '#EEF0F7' }}>
+                <span className="num !text-left font-medium" style={{ color: DATE_COL }}>{pk.tanggal || '-'}</span>
+                <div className="min-w-0">
+                  <div className="text-[14px] leading-5 font-medium truncate" style={{ color: C.ink }} title={pk.nama}>{pk.nama}</div>
+                  <div className="text-[11px]" style={{ color: C.c3 }}>{pk.id}</div>
+                </div>
+                <span className="truncate" style={{ color: '#5B6275' }} title={ulp}>{ulp || ''}</span>
+                <span className="truncate font-medium" style={{ color: venCol(pk.vendor) }} title={pk.vendor}>{pk.vendor || ''}</span>
+                <span className="inline-flex items-center gap-1.5 h-6 px-2.5 rounded-full w-fit max-w-full" style={{ background: ch[0], color: ch[1] }}>
+                  <span className="w-[6px] h-[6px] rounded-full shrink-0" style={{ background: ch[1] }}></span><span className="truncate">{x.st.text}{x.revisi > 0 ? ` (${x.revisi})` : ''}</span>
+                </span>
+                {show(x.c3) ? <Metric label="C3" v={x.c3} col={C.c3} title={`Code 3: ${x.c3[0]} dari ${x.c3[1]} LH sudah mengunggah`} /> : <span></span>}
+                {show(x.c7) ? <Metric label="C7" v={x.c7} col={C.c7} title={`Code 7: ${x.c7[0]} dari ${x.c7[1]} LH sudah mengunggah`} /> : <span></span>}
+                {show(x.ag) ? <Metric label="AGO" v={x.ag} col={C.ago} title={`AGO: ${x.ag[0]} dari ${x.ag[1]} LH sudah lengkap`} /> : <span></span>}
+                <div className="text-right leading-5">
+                  <div className="num font-medium" style={{ color: C.c3 }}>{rp(x.nilai)}</div>
+                  <div className="text-[11px]" style={{ color: x.sinkron ? TONE.ok : '#A3A9B8' }}>{x.sinkron ? `dari ${x.nLh} LH` : 'estimasi awal'}</div>
+                </div>
+                <div className="flex items-center justify-end gap-0.5" onClick={(e) => e.stopPropagation()}>
+                  {canEdit && (<>
+                    <button onClick={() => openEditPk(pk)} title="Ubah data PK" className="w-7 h-7 rounded-md hover:bg-[#E9EEFA]" style={{ color: C.mute }}><i className="fa-solid fa-pen text-[11px]"></i></button>
+                    <button onClick={() => handleDeletePk(pk.id)} title="Hapus PK" className="w-7 h-7 rounded-md hover:bg-[#FBEFEE]" style={{ color: TONE.bad }}><i className="fa-solid fa-trash-can text-[11px]"></i></button>
+                  </>)}
+                </div>
+              </div>
+              {lhHit.length > 0 && (
+                <div className="px-5 pb-2 pt-1 border-l-[3px]" style={{ background: '#F8F9FD', borderLeftColor: '#7E57C2' }}>
+                  <div className="text-[11px] mb-1" style={{ color: C.mute }}>{lhHit.length} LH di dalam PK ini cocok dengan pencarian. Klik satu LH untuk langsung membukanya.</div>
+                  <div className="flex flex-wrap gap-1.5">
+                    {lhHit.slice(0, 8).map(h => (
+                      <button key={h.id} onClick={() => openAt(pk, h.id)} title={h.nama}
+                        className="w-[380px] max-w-full text-left px-2.5 py-1.5 rounded-lg bg-white border hover:border-[#7E57C2]" style={{ borderColor: '#D9DDE9' }}>
+                        <div className="flex items-center gap-2"><span className="num" style={{ color: C.c7 }}>{h.id}</span>{h.tgl ? <span style={{ color: DATE_COL }}>{h.tgl}</span> : null}<span className="ml-auto text-[11px]" style={{ color: C.mute }}>cocok di {h.where}</span></div>
+                        <div className="truncate" style={{ color: C.ink }}>{h.nama || '-'}</div>
+                      </button>))}
+                    {lhHit.length > 8 && <span className="self-center" style={{ color: C.mute }}>+{lhHit.length - 8} lagi</span>}
+                  </div>
+                </div>
+              )}
+            </React.Fragment>
+          );
+        })}
+        {list.length === 0 && <div className="py-12 text-center border-t" style={{ borderColor: C.line, color: C.mute }}>{pendingPKs.length === 0 ? 'Antrean bersih. Semua PK sudah masuk SPK.' : 'Tidak ada PK pada pilihan ini.'}</div>}
+      </section>
+      <div className="flex justify-between items-center">
+        <button onClick={() => setPage(Math.max(cur - 1, 1))} disabled={cur === 1} className="h-8 px-3.5 rounded-lg border bg-white disabled:opacity-40 disabled:cursor-not-allowed" style={{ borderColor: '#D9DDE9' }}>Sebelumnya</button>
+        <span style={{ color: C.mute }}>Halaman {cur} dari {totalPages} · {list.length} PK</span>
+        <button onClick={() => setPage(Math.min(cur + 1, totalPages))} disabled={cur === totalPages} className="h-8 px-3.5 rounded-lg border bg-white disabled:opacity-40 disabled:cursor-not-allowed" style={{ borderColor: '#D9DDE9' }}>Berikutnya</button>
+      </div>
+
+      {isDeleteModalOpen && (
+        <div className="fixed inset-0 z-[9999] flex items-center justify-center p-4 bg-[#23263A]/40">
+          <div className="bg-white rounded-xl shadow-xl w-full max-w-[380px] p-5">
+            <h3 className="text-[15px] font-medium mb-1">Hapus PK ini?</h3>
+            <p className="mb-5" style={{ color: C.mute }}>Data yang dihapus tidak bisa dikembalikan.</p>
+            <div className="flex justify-end gap-2">
+              <button onClick={() => { setIsDeleteModalOpen(false); setSelectedPkId(null); }} className="h-8 px-4 rounded-lg border bg-white" style={{ borderColor: '#D9DDE9' }}>Batal</button>
+              <button onClick={eksekusiHapus} className="h-8 px-4 rounded-lg text-white font-medium" style={{ background: TONE.bad }}>Ya, hapus</button>
+            </div>
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}
+</script>

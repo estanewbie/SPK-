@@ -1,0 +1,315 @@
+<script type="text/babel">
+// Menu: Pengelolaan (khusus Super Admin): kelola akun pengguna, pulihkan data dari arsip, dan buat cadangan.
+// Semua tindakan diperiksa lagi di server (Pengelolaan.js): peran, validasi, tulis lalu baca ulang. CATATAN BERKAS: simpan sebagai UTF-8.
+(() => {
+  const { useState, useEffect, useCallback } = React;
+  const UI = window.UI;
+  const inp = 'h-9 px-3 rounded-[10px] border border-[#D9DDE9] bg-white outline-none focus:border-[#3A62B0] text-[13px] w-full';
+  const lbl = 'block text-[12px] text-[#6B665E] mb-1';
+  const fmtAman = (s) => s === 'hash' ? ['ok', 'Aman (hash)'] : s === 'teks' ? ['bad', 'Teks biasa, belum diamankan'] : ['warn', 'Kosong'];
+
+  function AkunTab({ auth, showToast }) {
+    const [st, setSt] = useState({ s: 'muat', users: [], roles: [], saya: '', msg: '' });
+    const [form, setForm] = useState(null);   // null = tertutup
+    const muat = useCallback(async () => {
+      setSt((x) => ({ ...x, s: 'muat' }));
+      const o = await window.safeRun('akunDaftar', [{ t: auth.t, as: auth.as }], { label: 'Memuat akun', tanpaBlokir: true });
+      if (o.ok) setSt({ s: 'ok', users: o.res.users || [], roles: o.res.roles || [], saya: o.res.saya || '', msg: '' }); else setSt({ s: 'galat', users: [], roles: [], saya: '', msg: o.message || 'Akun tidak bisa dimuat.' });
+    }, [auth.t, auth.as]);
+    useEffect(() => { muat(); }, []);
+    const buka = (u) => setForm(u ? { baru: false, id: u.id, nama: u.nama, role: u.role, status: u.status, sandi: '' } : { baru: true, id: '', nama: '', role: 'Admin PK', status: 'Aktif', sandi: '' });
+    const simpan = async () => {
+      const f = form; const lama = st.users.find((u) => u.id === f.id);
+      if (!f.baru && f.status === 'Nonaktif' && (!lama || lama.status !== 'Nonaktif')) {
+        const c = await Swal.fire({ icon: 'warning', title: 'Nonaktifkan akun ' + f.id + '?', text: 'Akun ini tidak bisa masuk lagi dan sesinya yang sedang berjalan langsung berakhir.', showCancelButton: true, confirmButtonText: 'Ya, nonaktifkan', cancelButtonText: 'Batal', focusCancel: true });
+        if (!c.isConfirmed) return;
+      }
+      const o = await window.safeRun('akunSimpan', [{ t: auth.t, as: auth.as }, { baru: f.baru, id: f.id.trim(), nama: f.nama, role: f.role, status: f.status, sandi: f.sandi }], { label: 'Menyimpan akun' });
+      if (o.ok && o.res.terverifikasi) { showToast('Akun tersimpan', f.id + (o.res.sandiBaru ? ' · sandi diatur ulang' : ''), 'success'); setForm(null); muat(); }
+      else if (o.timeout) { Swal.fire({ icon: 'warning', title: 'Hasil belum diketahui', text: o.message + ' Segarkan daftar akun lalu periksa sebelum mengulang.' }); muat(); }
+      else showToast('Gagal', (o.res && o.res.message) || o.message || 'Akun tidak tersimpan.', 'error');
+    };
+    const nTeks = st.users.filter((u) => u.sandi === 'teks').length;
+    return (
+      <div className="space-y-3" data-testid="tab-akun">
+        <div className="flex items-center justify-between gap-3 flex-wrap">
+          <p className="text-[#6B665E]">Tambah akun, ubah nama dan peran, atur ulang sandi, atau nonaktifkan. Sandi disimpan sebagai hash dan tidak pernah ditampilkan.</p>
+          <UI.Btn kind="primary" onClick={() => buka(null)} data-testid="tambah-akun">Tambah akun</UI.Btn>
+        </div>
+        {nTeks > 0 && <div className="rounded-xl px-4 py-2.5 border" style={{ background: '#FFF6E3', borderColor: '#F2DFB0', color: '#6B4A00' }} data-testid="peringatan-sandi">{nTeks} akun masih menyimpan sandi sebagai teks biasa. Sandi itu otomatis diamankan saat pemiliknya masuk, atau atur ulang sandinya di sini.</div>}
+        {st.s === 'galat' && <div role="alert" className="rounded-xl px-4 py-3 border" style={{ background: '#FDF6F5', borderColor: '#F0C4BF', color: '#B42318' }}>{st.msg} <button className="underline ml-2" onClick={muat}>Coba lagi</button></div>}
+        <div className="bg-white border border-[#E6E9F2] rounded-xl overflow-x-auto">
+          <table className="w-full min-w-[720px] text-[13px]">
+            <thead><tr className="text-left text-[12px] text-[#6B665E] border-b border-[#E6E9F2]"><th className="px-4 py-2 font-normal">ID akun</th><th className="px-3 py-2 font-normal">Nama</th><th className="px-3 py-2 font-normal">Peran</th><th className="px-3 py-2 font-normal">Status</th><th className="px-3 py-2 font-normal">Sandi</th><th className="px-3 py-2"></th></tr></thead>
+            <tbody>
+              {st.s === 'muat' && <tr><td colSpan={6} className="px-4 py-8 text-center text-[#6B665E]"><i className="fa-solid fa-circle-notch fa-spin mr-2"></i>Memuat akun...</td></tr>}
+              {st.s === 'ok' && st.users.map((u) => { const a = fmtAman(u.sandi); return (
+                <tr key={u.id} className="border-b border-[#F0F2F8] last:border-0" data-testid="baris-akun">
+                  <td className="px-4 py-2 text-[#23211E]">{u.id}{u.id === st.saya ? <span className="ml-2 text-[12px] text-[#6B665E]">(Anda)</span> : null}</td>
+                  <td className="px-3 py-2 text-[#23211E]">{u.nama}</td><td className="px-3 py-2 text-[#6B665E]">{u.role}</td>
+                  <td className="px-3 py-2"><UI.Status tone={u.status === 'Aktif' ? 'ok' : 'mute'}>{u.status}</UI.Status></td>
+                  <td className="px-3 py-2"><UI.Status tone={a[0]}>{a[1]}</UI.Status></td>
+                  <td className="px-3 py-2 text-right"><button className="text-[#3A62B0] hover:underline" onClick={() => buka(u)}>Ubah</button></td>
+                </tr>); })}
+            </tbody>
+          </table>
+        </div>
+        <UI.Drawer open={!!form} title={form && form.baru ? 'Tambah akun' : 'Ubah akun ' + (form && form.id)} onClose={() => setForm(null)} width={420}
+          footer={form && <div className="flex gap-2"><UI.Btn kind="primary" onClick={simpan} data-testid="simpan-akun">Simpan</UI.Btn><UI.Btn onClick={() => setForm(null)}>Batal</UI.Btn></div>}>
+          {form && (<div className="space-y-3">
+            <label className="block"><span className={lbl}>ID akun (dipakai untuk masuk)</span><input className={inp} value={form.id} disabled={!form.baru} onChange={(e) => setForm({ ...form, id: e.target.value })} placeholder="huruf, angka, titik, strip" /></label>
+            <label className="block"><span className={lbl}>Nama</span><input className={inp} value={form.nama} onChange={(e) => setForm({ ...form, nama: e.target.value })} /></label>
+            <label className="block"><span className={lbl}>Peran</span><select className={inp} value={form.role} onChange={(e) => setForm({ ...form, role: e.target.value })}>{st.roles.map((r) => <option key={r} value={r}>{r}</option>)}</select></label>
+            <label className="block"><span className={lbl}>Status</span><select className={inp} value={form.status} onChange={(e) => setForm({ ...form, status: e.target.value })}><option value="Aktif">Aktif</option><option value="Nonaktif">Nonaktif (tidak bisa masuk)</option></select></label>
+            <label className="block"><span className={lbl}>{form.baru ? 'Sandi (minimal 8 karakter)' : 'Sandi baru (kosongkan bila tidak diubah)'}</span><input type="password" autoComplete="new-password" className={inp} value={form.sandi} onChange={(e) => setForm({ ...form, sandi: e.target.value })} /></label>
+            <p className="text-[12px] text-[#6B665E]">Server memeriksa ulang semuanya dan hanya melaporkan berhasil setelah data terbaca ulang. Harus selalu ada minimal satu Super Admin aktif; akun Anda sendiri tidak bisa diturunkan atau dinonaktifkan.</p>
+          </div>)}
+        </UI.Drawer>
+      </div>);
+  }
+
+  function PemulihanTab({ auth, showToast }) {
+    const [st, setSt] = useState({ s: 'muat', data: [], total: 0, msg: '' });
+    const muat = useCallback(async () => {
+      setSt((x) => ({ ...x, s: 'muat' }));
+      const o = await window.safeRun('arsipDaftar', [{ t: auth.t, as: auth.as }], { label: 'Memuat arsip', tanpaBlokir: true });
+      if (o.ok) setSt({ s: 'ok', data: o.res.data || [], total: o.res.total || 0, msg: '' }); else setSt({ s: 'galat', data: [], total: 0, msg: o.message || 'Arsip tidak bisa dimuat.' });
+    }, [auth.t, auth.as]);
+    useEffect(() => { muat(); }, []);
+    const pulihkan = async (x) => {
+      const c = await Swal.fire({ icon: 'question', title: 'Pulihkan ' + x.objek + ' ' + x.id + '?', text: x.jenis === 'ktk' ? 'KTK dikembalikan ke folder asalnya lengkap dengan paket, volume, dan LH/PK yang dipilih. Ditolak bila SPK-nya sudah punya KTK lain.' : 'Data dikembalikan ke tempat asalnya. Ditolak bila ID-nya sudah ada lagi.', showCancelButton: true, confirmButtonText: 'Ya, pulihkan', cancelButtonText: 'Batal' });
+      if (!c.isConfirmed) return;
+      const o = await window.safeRun('arsipPulihkan', [{ t: auth.t, as: auth.as }, x.jenis, x.kunci], { label: 'Memulihkan ' + x.id });
+      if (o.ok && o.res.terverifikasi) { showToast('Dipulihkan', x.objek + ' ' + x.id + ' kembali' + (o.res.folderHilang ? '. Folder asalnya sudah tidak ada, kontrak hanya terlihat Super Admin sampai dipindahkan.' : '.'), 'success'); muat(); }
+      else if (o.timeout) { Swal.fire({ icon: 'warning', title: 'Hasil belum diketahui', text: o.message + ' Segarkan lalu periksa sebelum mengulang.' }); muat(); }
+      else showToast('Tidak dipulihkan', (o.res && o.res.message) || o.message, 'error');
+    };
+    return (
+      <div className="space-y-3" data-testid="tab-pemulihan">
+        <p className="text-[#6B665E]">LH, PK, dan SPK yang dihapus, serta KTK yang dikembalikan ke Perlu dibuat KTK, disalin ke arsip lebih dulu. Dari sini data itu bisa dipulihkan. {st.total > 300 ? 'Menampilkan 300 terbaru dari ' + st.total + '.' : ''}</p>
+        {st.s === 'galat' && <div role="alert" className="rounded-xl px-4 py-3 border" style={{ background: '#FDF6F5', borderColor: '#F0C4BF', color: '#B42318' }}>{st.msg} <button className="underline ml-2" onClick={muat}>Coba lagi</button></div>}
+        <div className="bg-white border border-[#E6E9F2] rounded-xl overflow-x-auto">
+          <table className="w-full min-w-[760px] text-[13px]">
+            <thead><tr className="text-left text-[12px] text-[#6B665E] border-b border-[#E6E9F2]"><th className="px-4 py-2 font-normal">Waktu</th><th className="px-3 py-2 font-normal">Oleh (ID)</th><th className="px-3 py-2 font-normal">Jenis</th><th className="px-3 py-2 font-normal">ID</th><th className="px-3 py-2 font-normal">Isi ringkas</th><th className="px-3 py-2"></th></tr></thead>
+            <tbody>
+              {st.s === 'muat' && <tr><td colSpan={6} className="px-4 py-8 text-center text-[#6B665E]"><i className="fa-solid fa-circle-notch fa-spin mr-2"></i>Memuat arsip...</td></tr>}
+              {st.s === 'ok' && !st.data.length && <tr><td colSpan={6} className="px-4 py-8 text-center text-[#6B665E]">Arsip kosong. Belum ada data yang dihapus atau dikembalikan.</td></tr>}
+              {st.s === 'ok' && st.data.map((x) => (
+                <tr key={x.jenis + x.kunci} className="border-b border-[#F0F2F8] last:border-0" data-testid="baris-arsip">
+                  <td className="px-4 py-2 whitespace-nowrap text-[#23211E]">{x.waktu}</td><td className="px-3 py-2 text-[#6B665E]">{x.user}</td><td className="px-3 py-2 text-[#6B665E]">{x.objek}</td>
+                  <td className="px-3 py-2 text-[#23211E]">{x.id}</td><td className="px-3 py-2 text-[#6B665E] max-w-[280px] truncate" title={x.ringkas}>{x.ringkas}</td>
+                  <td className="px-3 py-2 text-right"><button className="text-[#3A62B0] hover:underline" onClick={() => pulihkan(x)}>Pulihkan</button></td>
+                </tr>))}
+            </tbody>
+          </table>
+        </div>
+      </div>);
+  }
+
+  // Arsip data: pindahkan LH lama per rentang tanggal ke file spreadsheet lain (memotong dari Data_LH), dan pulihkan lagi bila perlu.
+  function ArsipRentangTab({ auth, showToast }) {
+    const [st, setSt] = useState({ s: 'muat', files: [], batches: [], maks: 500, msg: '' });
+    const [url, setUrl] = useState(''), [label, setLabel] = useState('');
+    const [idFile, setIdFile] = useState(''), [dari, setDari] = useState(''), [sampai, setSampai] = useState('');
+    const [prev, setPrev] = useState(null), [konf, setKonf] = useState(''), [sibuk, setSibuk] = useState(false);
+    const A = () => ({ t: auth.t, as: auth.as });
+    const muat = useCallback(async () => {
+      setSt((x) => ({ ...x, s: 'muat' }));
+      const o = await window.safeRun('arsipRentangFileDaftar', [A()], { label: 'Memuat file arsip', tanpaBlokir: true });
+      if (o.ok && o.res && o.res.status === 'success') { setSt({ s: 'ok', files: o.res.files || [], batches: o.res.batches || [], maks: o.res.maks || 500, msg: '' }); setIdFile((cur) => cur || ((o.res.files || [])[0] || {}).id || ''); }
+      else setSt({ s: 'galat', files: [], batches: [], maks: 500, msg: (o.res && o.res.message) || o.message || 'Daftar arsip tidak bisa dimuat.' });
+    }, [auth.t, auth.as]);
+    useEffect(() => { muat(); }, []);
+    const ubahForm = (fn) => { setPrev(null); setKonf(''); fn(); };
+    const tambah = async () => {
+      if (sibuk) return; setSibuk(true);
+      try {
+        const o = await window.safeRun('arsipRentangFileTambah', [A(), url.trim(), label.trim()], { label: 'Menambah file arsip' });
+        if (o.ok && o.res && o.res.terverifikasi) { showToast('File arsip ditambahkan', label.trim(), 'success'); setUrl(''); setLabel(''); setIdFile(o.res.id); await muat(); }
+        else showToast('Tidak ditambahkan', (o.res && o.res.message) || o.message, 'error');
+      } finally { setSibuk(false); }
+    };
+    const hapusFile = async (f) => {
+      const c = await Swal.fire({ icon: 'question', title: 'Lepas ' + f.label + ' dari daftar?', text: 'Hanya tautannya yang dihapus dari aplikasi. File spreadsheet-nya tidak disentuh.', showCancelButton: true, confirmButtonText: 'Ya, lepas', cancelButtonText: 'Batal' });
+      if (!c.isConfirmed) return;
+      const o = await window.safeRun('arsipRentangFileHapus', [A(), f.id], { label: 'Melepas tautan arsip' });
+      if (o.ok && o.res && o.res.terverifikasi) { showToast('Tautan dilepas', f.label, 'success'); setIdFile(''); await muat(); } else showToast('Tidak dilepas', (o.res && o.res.message) || o.message, 'error');
+    };
+    const periksa = async () => {
+      if (sibuk) return; setSibuk(true); setPrev(null); setKonf('');
+      try {
+        const o = await window.safeRun('arsipRentangPeriksa', [A(), idFile, dari, sampai], { label: 'Memeriksa rentang', tanpaBlokir: true });
+        if (o.ok && o.res && o.res.status === 'success') setPrev(o.res); else showToast('Tidak bisa diperiksa', (o.res && o.res.message) || o.message, 'error');
+      } finally { setSibuk(false); }
+    };
+    const pindah = async () => {
+      if (sibuk || !prev || konf.trim() !== 'PINDAHKAN') return; setSibuk(true);
+      try {
+        const o = await window.safeRun('arsipRentangPindah', [A(), idFile, dari, sampai, 'PINDAHKAN'], { label: 'Memindahkan LH ke file arsip', timeout: 300000 });
+        if (o.ok && o.res && o.res.terverifikasi) {
+          showToast('LH dipindahkan', o.res.jumlah + ' LH ke ' + o.res.file + (o.res.tersisa ? '. Masih ada ' + o.res.tersisa + ' LH di rentang ini, ulangi untuk melanjutkan.' : '.') + ' Klik Sinkronkan data agar layar memakai data terbaru.', 'success');
+          setPrev(null); setKonf(''); await muat();
+        } else if (o.timeout) { Swal.fire({ icon: 'warning', title: 'Hasil belum diketahui', text: (o.message || '') + ' Muat ulang daftar dan periksa riwayat pemindahan sebelum mengulang.' }); await muat(); }
+        else showToast('Tidak dipindahkan', (o.res && o.res.message) || o.message, 'error');
+      } finally { setSibuk(false); }
+    };
+    const pulihkan = async (b) => {
+      const c = await Swal.fire({ icon: 'question', title: 'Pulihkan ' + b.id + '?', text: b.jumlah + ' LH bertanggal ' + b.dari + ' s.d. ' + b.sampai + ' dikembalikan dari ' + b.labelFile + ' ke Data_LH. Ditolak bila ID-nya sudah dipakai LH lain.', showCancelButton: true, confirmButtonText: 'Ya, pulihkan', cancelButtonText: 'Batal' });
+      if (!c.isConfirmed) return; setSibuk(true);
+      try {
+        const o = await window.safeRun('arsipRentangPulihkan', [A(), b.id], { label: 'Memulihkan ' + b.id, timeout: 300000 });
+        if (o.ok && o.res && o.res.terverifikasi) { showToast('Dipulihkan', o.res.jumlah + ' LH kembali ke Data_LH. Klik Sinkronkan data.', 'success'); await muat(); }
+        else if (o.timeout) { Swal.fire({ icon: 'warning', title: 'Hasil belum diketahui', text: (o.message || '') + ' Muat ulang daftar dan periksa sebelum mengulang.' }); await muat(); }
+        else showToast('Tidak dipulihkan', (o.res && o.res.message) || o.message, 'error');
+      } finally { setSibuk(false); }
+    };
+    const inp = 'h-9 px-3 border border-[#D9DDE9] rounded-lg bg-white outline-none focus:border-[#3A62B0]';
+    const tglOk = /^\d{4}-\d{2}-\d{2}$/.test(dari) && /^\d{4}-\d{2}-\d{2}$/.test(sampai) && dari <= sampai;
+    const aktifFile = (st.files.find((f) => f.id === idFile) || {}).aktif || 0;
+    return (
+      <div className="space-y-5" data-testid="tab-arsip-rentang">
+        <p className="text-[#6B665E] max-w-[820px]">Memindahkan LH lama ke file spreadsheet lain supaya Data_LH tidak terlalu besar. Yang dipindah hanya baris Data_LH bertanggal dalam rentang; PK, SPK, RAB, dan KTK tidak disentuh. LH yang sudah dipindah tidak muncul di aplikasi sampai dipulihkan. Cadangan seluruh database dibuat otomatis sebelum memindah, dan LH dibuat hari ini tidak ikut dipindah. Satu proses memindah paling banyak {st.maks} LH.</p>
+        {st.s === 'galat' && <div role="alert" className="rounded-xl px-4 py-3 border" style={{ background: '#FDF6F5', borderColor: '#F0C4BF', color: '#B42318' }}>{st.msg} <button className="underline ml-2" onClick={muat}>Coba lagi</button></div>}
+
+        <section className="bg-white border border-[#E6E9F2] rounded-xl p-4 space-y-3">
+          <div className="font-medium text-[#23211E]">1. File arsip</div>
+          <p className="text-[12px] text-[#6B665E]">Buat spreadsheet kosong baru di Google Sheets, beri akses Editor ke akun pemilik aplikasi, lalu tempel linknya di sini. Boleh lebih dari satu file, misalnya satu per tahun.</p>
+          {st.files.length === 0 && st.s === 'ok' && <div className="text-[#6B665E]" data-testid="arsip-file-kosong">Belum ada file arsip.</div>}
+          {st.files.map((f) => (
+            <div key={f.id} className="grid items-center gap-3 border-t border-[#EEF0F7] pt-2" style={{ gridTemplateColumns: '90px minmax(0,1fr) 120px 150px 80px' }} data-testid="baris-file-arsip">
+              <span className="num text-[#6B665E]">{f.id}</span>
+              <span className="min-w-0"><span className="font-medium text-[#23211E]">{f.label}</span> <a href={f.url} target="_blank" rel="noreferrer" className="text-[#3A62B0] hover:underline ml-2">buka file</a></span>
+              <span className="text-[#6B665E]">{f.aktif ? f.aktif + ' pemindahan aktif' : 'kosong'}</span><span className="text-[#6B665E]">{f.waktu}</span>
+              <button className="text-[#B42318] hover:underline text-right disabled:opacity-40" disabled={sibuk} onClick={() => hapusFile(f)}>Lepas</button>
+            </div>))}
+          <div className="flex flex-wrap items-end gap-3 border-t border-[#EEF0F7] pt-3">
+            <label className="flex-1 min-w-[320px]"><span className="block text-[11px] text-[#8A93A3] mb-0.5">Link spreadsheet arsip</span><input value={url} onChange={(e) => setUrl(e.target.value)} placeholder="https://docs.google.com/spreadsheets/d/..." className={inp + ' w-full'} data-testid="arsip-url" /></label>
+            <label className="w-[220px]"><span className="block text-[11px] text-[#8A93A3] mb-0.5">Nama arsip</span><input value={label} maxLength={40} onChange={(e) => setLabel(e.target.value)} placeholder="Arsip 2025" className={inp + ' w-full'} data-testid="arsip-label" /></label>
+            <UI.Btn kind="primary" disabled={sibuk || !url.trim() || !label.trim()} onClick={tambah} data-testid="arsip-tambah">Tambah file arsip</UI.Btn>
+          </div>
+        </section>
+
+        <section className="bg-white border border-[#E6E9F2] rounded-xl p-4 space-y-3">
+          <div className="font-medium text-[#23211E]">2. Pindahkan LH berdasarkan tanggal</div>
+          <div className="flex flex-wrap items-end gap-3">
+            <label><span className="block text-[11px] text-[#8A93A3] mb-0.5">Ke file arsip</span>
+              <select value={idFile} onChange={(e) => ubahForm(() => setIdFile(e.target.value))} className={inp + ' w-[220px]'} data-testid="arsip-pilih-file"><option value="">Pilih file arsip</option>{st.files.map((f) => <option key={f.id} value={f.id}>{f.label}</option>)}</select></label>
+            <label><span className="block text-[11px] text-[#8A93A3] mb-0.5">Tanggal LH dari</span><input type="date" value={dari} onChange={(e) => ubahForm(() => setDari(e.target.value))} className={inp} data-testid="arsip-dari" /></label>
+            <label><span className="block text-[11px] text-[#8A93A3] mb-0.5">sampai</span><input type="date" value={sampai} onChange={(e) => ubahForm(() => setSampai(e.target.value))} className={inp} data-testid="arsip-sampai" /></label>
+            <UI.Btn disabled={sibuk || !idFile || !tglOk} onClick={periksa} data-testid="arsip-periksa">Periksa dulu</UI.Btn>
+          </div>
+          {prev && (
+            <div className="rounded-xl border px-4 py-3 space-y-2" style={{ background: '#FFFBF0', borderColor: '#F0DEB0' }} data-testid="arsip-pratinjau">
+              <div className="text-[#23211E]"><b>{prev.akanDipindah} LH</b> akan dipindah ke <b>{prev.file}</b>{prev.akanDipindah ? ', bertanggal ' + prev.tglPertama + ' s.d. ' + prev.tglTerakhir : ''}.{prev.tersisaSetelahnya > 0 ? ' Masih ada ' + prev.tersisaSetelahnya + ' LH lagi di rentang ini; ulangi prosesnya setelah ini.' : ''}</div>
+              {prev.dalamKtk > 0 && <div className="text-[#B42318]" data-testid="arsip-peringatan-ktk">Perhatian: {prev.dalamKtk} LH sudah dipilih di KTK ({prev.ktkTerdampak.join(', ')}). Setelah dipindah, LH itu hilang dari KTK tersebut dan nilainya ikut berubah sampai dipulihkan.</div>}
+              {prev.pkTerdampak > 0 && <div className="text-[#6B665E]">{prev.pkTerdampak} PK terkait. PK dan SPK tetap ada, tetapi LH-nya tidak terhitung selama berada di arsip.</div>}
+              {prev.dilewatiHariIni > 0 && <div className="text-[#6B665E]">{prev.dilewatiHariIni} LH yang dibuat hari ini sengaja tidak ikut dipindah.</div>}
+              {prev.tanpaTanggal > 0 && <div className="text-[#94620F]">{prev.tanpaTanggal} LH bertanggal tidak terbaca dan tidak ikut dipindah.</div>}
+              {aktifFile > 0 && <div className="text-[#6B665E]">File ini sudah berisi {aktifFile} pemindahan aktif sebelumnya.</div>}
+              {prev.akanDipindah > 0 && (
+                <div className="flex flex-wrap items-end gap-3 pt-1">
+                  <label><span className="block text-[11px] text-[#8A93A3] mb-0.5">Ketik PINDAHKAN untuk melanjutkan</span><input value={konf} onChange={(e) => setKonf(e.target.value)} className={inp + ' w-[190px]'} data-testid="arsip-konfirmasi" /></label>
+                  <UI.Btn kind="primary" disabled={sibuk || konf.trim() !== 'PINDAHKAN'} onClick={pindah} data-testid="arsip-pindah">{sibuk ? 'Memproses...' : 'Pindahkan ' + prev.akanDipindah + ' LH'}</UI.Btn>
+                </div>)}
+            </div>)}
+        </section>
+
+        <section className="bg-white border border-[#E6E9F2] rounded-xl overflow-x-auto">
+          <div className="px-4 py-2.5 font-medium text-[#23211E] border-b border-[#E6E9F2]">3. Riwayat pemindahan</div>
+          <table className="w-full min-w-[820px] text-[13px]">
+            <thead><tr className="text-left text-[12px] text-[#6B665E] border-b border-[#E6E9F2]"><th className="px-4 py-2 font-normal">Batch</th><th className="px-3 py-2 font-normal">Waktu</th><th className="px-3 py-2 font-normal">Rentang tanggal LH</th><th className="px-3 py-2 font-normal">File arsip</th><th className="px-3 py-2 font-normal text-right">LH</th><th className="px-3 py-2 font-normal">Status</th><th className="px-3 py-2"></th></tr></thead>
+            <tbody>
+              {st.s === 'ok' && !st.batches.length && <tr><td colSpan={7} className="px-4 py-6 text-center text-[#6B665E]">Belum ada pemindahan.</td></tr>}
+              {st.batches.map((b) => (
+                <tr key={b.id} className="border-b border-[#F0F2F8] last:border-0" data-testid="baris-batch-arsip">
+                  <td className="px-4 py-2 num">{b.id}</td><td className="px-3 py-2 whitespace-nowrap text-[#6B665E]">{b.waktu}</td><td className="px-3 py-2 whitespace-nowrap">{b.dari} s.d. {b.sampai}</td><td className="px-3 py-2">{b.labelFile}</td>
+                  <td className="px-3 py-2 num text-right">{b.jumlah}</td><td className="px-3 py-2"><UI.Status tone={b.status === 'Aktif' ? 'info' : 'ok'}>{b.status === 'Aktif' ? 'Di file arsip' : 'Sudah dipulihkan'}</UI.Status></td>
+                  <td className="px-3 py-2 text-right">{b.status === 'Aktif' && <button className="text-[#3A62B0] hover:underline disabled:opacity-40" disabled={sibuk} onClick={() => pulihkan(b)} data-testid="arsip-pulihkan">Pulihkan</button>}</td>
+                </tr>))}
+            </tbody>
+          </table>
+        </section>
+      </div>);
+  }
+
+  function CadanganTab({ auth, showToast }) {
+    const [hasil, setHasil] = useState(null);
+    const buat = async () => {
+      const o = await window.safeRun('cadanganManual', [{ t: auth.t, as: auth.as }], { label: 'Membuat cadangan database', timeout: 170000 });
+      if (o.ok) { setHasil({ ok: true, nama: o.res.nama, dibuang: o.res.dibuang }); showToast('Cadangan dibuat', o.res.nama, 'success'); }
+      else setHasil({ ok: false, msg: o.message || (o.res && o.res.message) || 'Cadangan gagal.' });
+    };
+    return (
+      <div className="space-y-3 max-w-[640px]" data-testid="tab-cadangan">
+        <p className="text-[#6B665E]">Menyalin seluruh database ke folder Drive aplikasi. Cadangan terbaru 14 buah disimpan, yang lebih lama dibuang ke tempat sampah. Untuk cadangan otomatis tiap malam, jalankan <b className="font-medium text-[#23211E]">pasangCadanganHarian</b> sekali dari editor Apps Script.</p>
+        <UI.Btn kind="primary" onClick={buat} data-testid="buat-cadangan">Buat cadangan sekarang</UI.Btn>
+        {hasil && (hasil.ok
+          ? <div role="status" className="rounded-xl px-4 py-2.5 border" style={{ background: '#F4FAF6', borderColor: '#CFE6D8' }}><UI.Status tone="ok">Cadangan dibuat</UI.Status> <span className="ml-2 text-[#23211E]">{hasil.nama}{hasil.dibuang ? ' · ' + hasil.dibuang + ' cadangan lama dibuang' : ''}</span></div>
+          : <div role="alert" className="rounded-xl px-4 py-2.5 border" style={{ background: '#FDF6F5', borderColor: '#F0C4BF', color: '#B42318' }}>{hasil.msg}</div>)}
+      </div>);
+  }
+
+  // Padanan nama: semua nama material di LH yang belum dikenali (bukan Master data dan belum ada di tabel Convert), dengan saran terdekat.
+  // Hanya membaca dan menyiapkan baris untuk ditempel ke tabel Convert. Data LH tidak diubah.
+  function PadananTab({ ctx, showToast }) {
+    const { lhs, masterDatabase } = ctx;
+    const GRUP = ['materialMdu', 'materialKonstruksi', 'uraianPasang', 'uraianBongkar', 'returBaru', 'returBekas'];
+    const tok = (s) => String(s || '').toLowerCase().split(/[^a-z0-9]+/).filter((x) => x.length > 1);
+    const hasil = React.useMemo(() => {
+      const db = masterDatabase || []; if (!db.length) return { siap: false, baris: [], nLh: 0 };
+      const peta = {}; const lhHit = {};
+      (lhs || []).forEach((l) => GRUP.forEach((g) => ((l.data && l.data[g]) || []).forEach((it) => {
+        const nm = String((it && it.nama) || '').trim(); if (!nm) return;
+        const st = window.masterStatus(db, nm); if (st.s !== 'tidak') return;
+        const k = window.Convert.nk(nm); const e = peta[k] || (peta[k] = { nama: nm, lh: {}, terdaftar: false }); e.lh[l.id] = true; e.terdaftar = e.terdaftar || !!st.terdaftar; lhHit[l.id] = true;
+      })));
+      const M = db.map((x) => { const nama = String(x.Nama_Item || (x._raw && x._raw[2]) || '').trim(); return { id: String(x.ID_Item || (x._raw && x._raw[0]) || '').trim(), nama, t: tok(nama) }; }).filter((x) => x.nama);
+      const baris = Object.keys(peta).map((k) => { const e = peta[k], t = tok(e.nama); let best = null, sk = 0;
+        if (t.length) M.forEach((m) => { if (!m.t.length) return; let s = 0; t.forEach((w) => { if (m.t.indexOf(w) >= 0) s++; }); const r = s / Math.max(t.length, m.t.length); if (r > sk) { sk = r; best = m; } });
+        const ids = Object.keys(e.lh); return { nama: e.nama, n: ids.length, contoh: ids.slice(0, 3).join(', '), terdaftar: e.terdaftar, saran: sk >= 0.5 ? best : null, mirip: Math.round(sk * 100) }; })
+        .sort((a, b) => b.n - a.n || a.nama.localeCompare(b.nama));
+      return { siap: true, baris, nLh: Object.keys(lhHit).length };
+    }, [lhs, masterDatabase, window.Convert.rows()]);
+    const salin = async (b) => {
+      const teks = [b.saran ? b.saran.id : '', b.saran ? b.saran.nama : '', '', b.nama].join('\t');
+      try { await navigator.clipboard.writeText(teks); showToast('Baris disalin', 'Tempel di tabel Convert: kolom ID, Nama_master, Nama Pokok, mungkin 1.', 'success'); } catch (e) { showToast('Tidak bisa menyalin', teks.replace(/\t/g, ' | '), 'warning'); }
+    };
+    if (!hasil.siap) return <UI.Empty>Master data belum termuat. Klik Sinkronkan data lalu buka tab ini lagi.</UI.Empty>;
+    return (
+      <div className="space-y-3" data-testid="tab-padanan">
+        <p className="text-[#6B665E] max-w-[760px]">Nama material di LH yang belum dikenali, baik oleh Master data maupun oleh tabel Convert. Cocokkan dengan menambahkan barisnya di tabel Convert (kolom ID dan Nama_master dari Master data, nama di LH di kolom mungkin). Data LH tidak berubah. Setelah tabel diperbarui, klik Sinkronkan data.</p>
+        <div data-testid="padanan-ringkas"><UI.Status tone={hasil.baris.length ? 'warn' : 'ok'}>{hasil.baris.length ? hasil.baris.length + ' nama belum dikenali, dipakai ' + hasil.nLh + ' LH' : 'Semua nama di LH sudah dikenali'}</UI.Status></div>
+        {hasil.baris.length > 0 && (
+          <div className="border border-[#E6E9F2] rounded-xl overflow-hidden">
+            <div className="grid gap-3 px-3 h-8 items-center text-[11px] bg-[#F4F6FB] text-[#6B665E]" style={{ gridTemplateColumns: 'minmax(0,2fr) 60px minmax(0,1.2fr) minmax(0,2fr) 80px' }}><span>Nama di LH</span><span className="text-right">LH</span><span>Contoh LH</span><span>Saran Master data</span><span></span></div>
+            {hasil.baris.slice(0, 300).map((b, i) => (
+              <div key={i} data-testid="padanan-baris" className="grid gap-3 px-3 py-1.5 items-start border-t border-[#EEF0F7]" style={{ gridTemplateColumns: 'minmax(0,2fr) 60px minmax(0,1.2fr) minmax(0,2fr) 80px' }}>
+                <span className="break-words">{b.nama}{b.terdaftar && <span className="block text-[12px] text-[#C77700]">ada di tabel Convert, tetapi ID atau Nama_master belum terisi atau tidak ada di Master data</span>}</span>
+                <span className="text-right num">{b.n}</span><span className="text-[#6B665E] break-words">{b.contoh}</span>
+                <span className="break-words">{b.saran ? <>{b.saran.nama} <span className="text-[#6B665E]">({b.saran.id}, {b.mirip}% mirip)</span></> : <span className="text-[#8A857C]">tidak ada saran</span>}</span>
+                <span className="text-right"><button className="text-[#3A62B0] hover:underline" onClick={() => salin(b)} data-testid="padanan-salin">Salin baris</button></span>
+              </div>))}
+          </div>)}
+        {hasil.baris.length > 300 && <p className="text-[12px] text-[#6B665E]">Menampilkan 300 nama terbanyak dari {hasil.baris.length}.</p>}
+      </div>);
+  }
+
+  function PengelolaanDesk({ ctx }) {
+    const { currentUser, showToast } = ctx;
+    const [tab, setTab] = useState('akun');
+    const auth = { t: (currentUser && currentUser.token) || '', as: (currentUser && currentUser.asUser) || '' };
+    if (!currentUser || currentUser.role !== 'Super Admin') return <UI.Empty>Menu ini hanya untuk Super Admin (dan tidak tersedia saat memakai Masuk sebagai akun lain).</UI.Empty>;
+    return (
+      <div className="max-w-[1100px] text-[13px] space-y-4 pt-2" data-testid="menu-pengelolaan">
+        <h1 className="text-[22px] leading-8 font-medium text-[#23211E]">Pengelolaan</h1>
+        <UI.Tabs tabs={[{ key: 'akun', label: 'Akun pengguna' }, { key: 'pulih', label: 'Pemulihan data' }, { key: 'padanan', label: 'Padanan nama' }, { key: 'rentang', label: 'Arsip data' }, { key: 'cadang', label: 'Cadangan' }]} active={tab} onChange={setTab} />
+        {tab === 'akun' && <AkunTab auth={auth} showToast={showToast} />}
+        {tab === 'padanan' && <PadananTab ctx={ctx} showToast={showToast} />}
+        {tab === 'pulih' && <PemulihanTab auth={auth} showToast={showToast} />}
+        {tab === 'rentang' && <ArsipRentangTab auth={auth} showToast={showToast} />}
+        {tab === 'cadang' && <CadanganTab auth={auth} showToast={showToast} />}
+      </div>);
+  }
+  window.Views.Pengelolaan = (ctx) => <UI.Guard nama="Pengelolaan"><PengelolaanDesk ctx={ctx} /></UI.Guard>;
+})();
+</script>

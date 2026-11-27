@@ -1,0 +1,384 @@
+<script type="text/babel">
+// Penyambung identitas: fungsi tulis lama (LH, PK, SPK, RAB, log harian) tidak mengirim siapa pelakunya. Di sini token sesi
+// ditambahkan otomatis di belakang argumen, supaya server mencatat ID pengguna yang bekerja. Jawaban berkode SESI (sesi habis)
+// memicu peristiwa 'sesi-habis' yang ditangani aplikasi (keluar paksa, bukan gagal diam-diam).
+(() => {
+  const POS = { saveLhToSheet: 3, updateLhInSheet: 4, deleteLhFromSheet: 1, moveLhsToNewPk: 2, updateLhRabStatus: 1, savePkToSheet: 1, updatePkInSheet: 1, deletePkFromSheet: 1, allocatePkToSpk: 2, removePkFromSpk: 2, updateStatusCetakPK: 1, saveSpkToSheet: 1, updateSpkInSheet: 1, deleteSpkFromSheet: 1, saveRabToSheet: 1, toggleLockRab: 2, updateUpahRab: 2, logLinkPk: 3, logSetujuiUsulan: 2, logTolakUsulan: 2, logAjukanSpk: 2, logSetujuiSpk: 3, logSaveConfig: 2,
+    getAppData: 0, adminDaftarAkun: 0, logInfo: 1, logRead: 3, logBundle: 1, logSpkSaran: 1, logGetConfig: 1 };
+  window.JEJAK_POS = POS;
+  window.__auth = window.__auth || null;
+  const g = window.google; if (!g || !g.script || !g.script.run || g.script.run.__jejak) return;
+  const cek = (r) => { if (r && typeof r === 'object' && r.kode === 'SESI') { try { window.dispatchEvent(new CustomEvent('sesi-habis', { detail: r })); } catch (e) { /* abaikan */ } } };
+  // PENGUNCI OTOMATIS: setiap panggilan server yang MENGUBAH data menampilkan jendela "sedang diproses" dan mengunci layar
+  // (pindah menu ditolak, tutup jendela ditanya) sampai server menjawab, gagal, atau batas waktu habis.
+  // Hanya panggilan yang murni MEMBACA data atau pencatatan latar belakang yang dikecualikan (daftar di bawah).
+  // Panggilan lewat window.safeRun mengatur kuncinya sendiri (penanda __safeRunAktif), jadi tidak dihitung dua kali.
+  const BACA = { getAppData: 1, adminDaftarAkun: 1, verifyUserLogin: 1, jejakKeluar: 1, logRead: 1, logInfo: 1, logBundle: 1, logSpkSaran: 1, logGetConfig: 1, ktkList: 1, ktkTemplates: 1, ktkLoad: 1, ktkConvert: 1, lhPrioritasKtk: 1, jejakRiwayat: 1, jejakVerifikasi: 1, akunDaftar: 1, arsipDaftar: 1, auditKtkProgres: 1, code37Periksa: 1, arsipRentangFileDaftar: 1, arsipRentangPeriksa: 1, code37Penanda: 1, code37NormDaftar: 1, code37ManualDaftar: 1, code37ManualMuat: 1, sinkronPeriksa: 1, sinkronPeriksaCode3: 1, sinkronPeriksaCode7: 1 };
+  const LABEL = { saveLhToSheet: 'Menyimpan LH', updateLhInSheet: 'Menyimpan perubahan LH', deleteLhFromSheet: 'Menghapus LH', moveLhsToNewPk: 'Memindahkan LH ke PK', updateLhRabStatus: 'Memperbarui status LH', savePkToSheet: 'Menyimpan PK', updatePkInSheet: 'Menyimpan perubahan PK', deletePkFromSheet: 'Menghapus PK', updatePkStatus: 'Memperbarui status PK', allocatePkToSpk: 'Mengalokasikan PK ke SPK', removePkFromSpk: 'Melepas PK dari SPK', updateStatusCetakPK: 'Memperbarui status cetak PK', saveSpkToSheet: 'Menyimpan SPK', updateSpkInSheet: 'Menyimpan perubahan SPK', deleteSpkFromSheet: 'Menghapus SPK', saveRabToSheet: 'Menyimpan RAB', toggleLockRab: 'Mengubah kunci RAB', updateUpahRab: 'Menyimpan upah RAB', terbitkanRAB: 'Menerbitkan RAB', uploadCodeVerification: 'Mengunggah dokumen verifikasi', logLinkPk: 'Menautkan PK', logSetujuiUsulan: 'Menyetujui usulan', logTolakUsulan: 'Menolak usulan', logAjukanSpk: 'Mengajukan SPK', logSetujuiSpk: 'Menyetujui SPK', logSaveConfig: 'Menyimpan pengaturan', ktkCreate: 'Membuat KTK', ktkSave: 'Menyimpan KTK', ktkMove: 'Memindahkan KTK', ktkKembalikan: 'Mengembalikan KTK', ktkFolderRename: 'Mengganti nama folder', ktkFolderPemilik: 'Mengubah pemilik folder', ktkTemplateOp: 'Memproses templat KTK' };
+  const bungkus = (b, st0) => {
+    return new Proxy({}, { get(_, nama) {
+    const st = st0 || { fh: false, selesai: null };   // akar (google.script.run) dipakai bersama: tiap rantai panggilan mendapat keadaan sendiri
+    if (nama === '__jejak') return true;
+    if (nama === 'withSuccessHandler') return (fn) => bungkus(b.withSuccessHandler(function (r, u) { if (st.selesai) st.selesai(); cek(r); return typeof fn === 'function' ? fn(r, u) : undefined; }), st);
+    if (nama === 'withFailureHandler') return (fn) => { st.fh = true; return bungkus(b.withFailureHandler(function (e, u) { if (st.selesai) st.selesai(); return typeof fn === 'function' ? fn(e, u) : undefined; }), st); };
+    if (nama === 'withUserObject') return (x) => bungkus(b[nama](x), st);
+    return (...args) => {
+      const n = POS[nama];
+      if (n !== undefined) {
+        const a = window.__auth; args = args.slice(0, n); while (args.length < n) args.push(null);
+        args.push({ t: a && a.t ? a.t : '', as: a && a.as ? a.as : '' });
+      }
+      let bb = b;
+      const kunci = !BACA[nama] && !window.__safeRunAktif && window.Proses;
+      if (kunci) {
+        let lepas = window.Proses.mulai(LABEL[nama] || 'Memproses data'), tm = null;
+        st.selesai = () => { if (lepas) { const f = lepas; lepas = null; clearTimeout(tm); f(); } };
+        // pengaman: kunci dilepas bila server tak menjawab (batas Apps Script sekitar 6 menit), supaya layar tidak terkunci selamanya
+        tm = setTimeout(() => st.selesai && st.selesai(), 330000 * (window.Proses.skalaWaktu || 1));
+        // tanpa penangan gagal, kegagalan koneksi tidak melepas kunci; pasang penangan bawaan yang mencatat galat
+        if (!st.fh) bb = bb.withFailureHandler(function (e) { st.selesai(); try { console.warn('Panggilan server gagal: ' + String(nama), e); } catch (x) { /* abaikan */ } });
+        try { return bb[nama].apply(bb, args); } catch (e) { st.selesai(); throw e; }
+      }
+      return bb[nama].apply(bb, args);
+    };
+  } }); };
+  try { g.script.run = bungkus(g.script.run); } catch (e) { try { Object.defineProperty(g.script, 'run', { value: bungkus(g.script.run), configurable: true }); } catch (x) { window.__jejakShimGagal = true; } }
+})();
+// Indeks Master_Data: dibuat sekali per data, supaya mencari harga atau sugesti nama tidak menelusuri seluruh daftar tiap ketukan.
+(() => {
+  const cache = new WeakMap();
+  const idx = (db) => {
+    let c = db && typeof db === 'object' ? cache.get(db) : null; if (c) return c;
+    const byName = new Map(), list = [];
+    (db || []).forEach((x) => {
+      const nm = String(x.Nama_Item || (x._raw && x._raw[2]) || '').trim(); if (!nm) return;
+      const k = nm.toLowerCase(); if (!byName.has(k)) byName.set(k, x);
+      list.push({ nama: nm, low: k, tipe: String(x.Tipe || (x._raw && x._raw[1]) || '').toUpperCase(), id: x.ID_Item || '', sat: x.Satuan || (x._raw && x._raw[3]) || '' });
+    });
+    c = { byName, list }; if (db && typeof db === 'object') cache.set(db, c); return c;
+  };
+  window.masterFind = (db, name) => idx(db).byName.get(String(name == null ? '' : name).trim().toLowerCase()) || null;
+  // sugesti: semua kata harus ada di nama, yang diawali kata pertama di atas, maksimal `max` hasil
+  window.masterSearch = (db, term, kinds, max) => {
+    const s = String(term || '').trim().toLowerCase(); if (s.length < 2) return [];
+    const ws = s.split(/\s+/), L = idx(db).list, a = [], b = [], cap = max || 8;
+    for (let i = 0; i < L.length && a.length < cap; i++) {
+      const e = L[i]; if (kinds && kinds.length && kinds.indexOf(e.tipe) < 0) continue;
+      let ok = true; for (let j = 0; j < ws.length; j++) if (e.low.indexOf(ws[j]) < 0) { ok = false; break; }
+      if (ok) (e.low.indexOf(ws[0]) === 0 ? a : b).push(e);
+    }
+    return a.concat(b).slice(0, cap);
+  };
+})();
+// ---------- TABEL CONVERT = JEMBATAN NAMA UNTUK SEMUA MENU ----------
+// Satu baris Convert = satu kelompok nama setara: [pokok, mungkin 1-3, ID Master_Data, Nama_master]. Nama apa pun di kelompok itu
+// (di LH, KTK, atau Cetak) dikenali dan ditunjukkan ke baris Master_Data yang sama. Penyesuaian cukup dilakukan di tabel Convert, bukan di kode.
+// Dimuat bersama data utama (getAppData); KTK menyegarkannya lewat tombol baca ulang.
+window.Convert = (() => {
+  const nk = (s) => String(s == null ? '' : s).toLowerCase().replace(/[^a-z0-9]/g, '');
+  let rows = [], ver = 0, byName = null; const cacheDb = new WeakMap();
+  const bangun = () => { byName = {}; rows.forEach((r) => { [r[0], r[1], r[2], r[3], r[5]].forEach((x) => { const k = nk(x); if (k) (byName[k] || (byName[k] = [])).push(r); }); }); };
+  const idxId = (db) => { let m = db && typeof db === 'object' ? cacheDb.get(db) : null; if (m) return m; m = {}; (db || []).forEach((x) => { const id = String(x.ID_Item || (x._raw && x._raw[0]) || '').trim(); if (id && !m[id]) m[id] = x; }); if (db && typeof db === 'object') cacheDb.set(db, m); return m; };
+  // baris Master_Data yang ditunjuk satu baris Convert: lewat ID, lalu Nama_master, lalu nama lain di baris itu
+  const targetRow = (db, r) => { const id = String(r[4] || '').trim(); if (id && idxId(db)[id]) { const x = idxId(db)[id]; return window.masterFind(db, String(x.Nama_Item || (x._raw && x._raw[2]) || '')); }
+    for (const n of [r[5], r[0], r[1], r[2], r[3]]) { const f = n && window.masterFind(db, n); if (f) return f; } return null; };
+  return {
+    nk, set(r) { if (Array.isArray(r)) { rows = r; ver++; bangun(); } },
+    rows: () => rows, ada: () => rows.length > 0,
+    // 'master' = nama persis di Master_Data; 'convert' = dikenali lewat tabel Convert (target ada); 'tidak' = belum dikenal
+    status(db, name) {
+      const s = String(name == null ? '' : name).trim(); if (!s) return { s: 'master' };
+      const f = window.masterFind(db, s); if (f) return { s: 'master', target: f };
+      if (!byName) bangun(); const g = byName[nk(s)] || [];
+      for (const r of g) { const t = targetRow(db, r); if (t) return { s: 'convert', target: t, nama: String(t.Nama_Item || (t._raw && t._raw[2]) || ''), pokok: r[0] }; }
+      return { s: 'tidak', terdaftar: g.length > 0 };   // terdaftar = ada di tabel Convert tetapi baris itu belum menunjuk Master_Data
+    }
+  };
+})();
+// Nama material/jasa di LH sah bila ada di Master_Data (persis, tanpa peduli huruf besar-kecil dan spasi di ujung) ATAU dikenali lewat tabel Convert.
+// Bila Master_Data belum termuat, tidak ada yang dihukum merah (tidak bisa dinilai).
+window.masterStatus = (db, name) => { const s = String(name == null ? '' : name).trim(); if (!s || !db || !db.length) return { s: 'master' }; return window.Convert.status(db, s); };
+window.masterHas = (db, name) => window.masterStatus(db, name).s === 'master';   // persis di Master_Data (untuk memberi saran memakai nama Master_Data)
+window.masterOk = (db, name) => window.masterStatus(db, name).s !== 'tidak';    // sah: Master_Data atau Convert
+window.lhBadNames = (db, data) => {
+  const out = [], d = data || {};
+  [['materialMdu', 'Material MDU'], ['materialKonstruksi', 'Material konstruksi'], ['uraianPasang', 'Uraian pasang'], ['uraianBongkar', 'Uraian bongkar'], ['returBaru', 'Retur baru'], ['returBekas', 'Retur bekas']].forEach(([g, lab]) => (d[g] || []).forEach((it) => {
+    if (it && String(it.nama || '').trim() && !window.masterOk(db, it.nama)) out.push({ grup: lab, nama: String(it.nama).trim() });
+  }));
+  return out;
+};
+// ---------- ALUR LH: dibuat -> audit -> (revisi) -> dokumen Code 3 / Code 7 / AGO -> selesai ----------
+// Satu sumber kebenaran untuk Radar audit, Pusat verifikasi, dan lencana menu.
+//  tahap 'audit'   : LH baru, belum diperiksa Admin audit.
+//  tahap 'revisi'  : Admin audit menulis temuan (audit_note). LH menunggu direvisi Admin LH. Saat LH disimpan ulang, catatan terhapus
+//                    otomatis dan server memberi status "Revisi": LH lanjut ke Admin Code tanpa audit ulang.
+//  tahap 'lolos'   : status "Sudah" (lolos audit) atau "Revisi" (revisi selesai). Sejak ini LH masuk antrean Admin Code.
+window.lhTahap = (lh) => {
+  if (String((lh && lh.audit_note) || '').trim()) return 'revisi';
+  const s = String((lh && lh.audit_status) || '').trim();
+  return (s === 'Sudah' || s === 'Revisi') ? 'lolos' : 'audit';
+};
+// Dokumen yang diperlukan LH (aturan yang sama dengan Pusat verifikasi dan pembuatan LH):
+//  Code 3 bila ada Retur Bekas bernama; Code 7 bila catatan material MDU memuat "bekas" atau "ex"; AGO bila Code 3 atau Code 7 diperlukan.
+//  Dianggap ada bila statusnya sudah ter-upload (code3 / code7 / ago) atau ada file tersimpan.
+window.lhDokumen = (lh) => {
+  const d = (lh && lh.data) || {}; const T = (v) => v === true || String(v).toLowerCase() === 'true';
+  const need = { c3: (d.returBekas || []).some((m) => m && String(m.nama || '').trim() !== ''), c7: (d.materialMdu || []).some((m) => m && /bekas|ex/i.test(m.catatan || '')) };
+  need.ago = need.c3 || need.c7;
+  const url = { c3: (lh && lh.File_Code3) || '', c7: (lh && lh.File_Code7) || '', ago: (lh && lh.File_AGO) || '' };
+  const has = { c3: T(lh && lh.code3) || T(d.code3) || !!url.c3, c7: T(lh && lh.code7) || T(d.code7) || !!url.c7, ago: T(lh && lh.ago) || T(d.ago) || !!url.ago };
+  const st = {}; ['c3', 'c7', 'ago'].forEach((k) => { st[k] = !need[k] ? 'tidak' : (has[k] ? 'ada' : 'kurang'); });
+  // AGO baru bisa dibuat setelah Code 3 dan Code 7 yang diperlukan selesai (sama dengan gerbang AGO di Pusat verifikasi)
+  const agoSiap = (!need.c3 || has.c3) && (!need.c7 || has.c7);
+  return { need, has, url, st, agoSiap, kurang: ['c3', 'c7', 'ago'].filter((k) => st[k] === 'kurang') };
+};
+// Posisi LH di alur dan siapa yang harus bertindak: { key: 'audit' | 'revisi' | 'dokumen' | 'selesai', admin, label }
+window.lhAlur = (lh) => {
+  const t = window.lhTahap(lh);
+  if (t === 'audit') return { key: 'audit', admin: 'Admin audit', label: 'Menunggu audit' };
+  if (t === 'revisi') return { key: 'revisi', admin: 'Admin LH', label: 'Perlu revisi' };
+  return window.lhDokumen(lh).kurang.length ? { key: 'dokumen', admin: 'Admin Code', label: 'Menunggu dokumen' } : { key: 'selesai', admin: '', label: 'Selesai' };
+};
+// Pencarian LH yang seragam (Antrean PK dan Kelola PK): kelompok bidang per LH, disimpan sekali per objek LH.
+// lhMatch(lh, teks) -> null bila ada kata yang tidak ditemukan di LH itu; bila cocok -> daftar bidang tempat kata ditemukan.
+(() => {
+  const cache = new WeakMap();
+  const MAT = ['materialMdu', 'uraianPasang', 'uraianBongkar', 'returBaru', 'returBekas'];
+  const groups = (lh) => {
+    let g = cache.get(lh); if (g) return g;
+    const d = lh.data || {};
+    const mat = []; MAT.forEach((k) => (d[k] || []).forEach((m) => { if (m && m.nama) mat.push(m.nama); }));
+    const pel = [d.pelanggan, d.pelanggan_lh, d.customer, d.nama_pelanggan].filter(Boolean).join(' ');
+    g = [
+      ['Pekerjaan', [d.nama_pekerjaan_lh, lh.uraian].filter(Boolean).join(' ').toLowerCase()],
+      ['Pelanggan', pel.toLowerCase()],
+      ['Lokasi', String(d.lokasi_lh || d.alamat_lh || '').toLowerCase()],
+      ['Pengawas', String(d.pengawas_lh || lh.pengawas || '').toLowerCase()],
+      ['Team', String(d.team_lh || '').toLowerCase()],
+      ['ID', String(lh.id || '').toLowerCase()],
+      ['Material', mat.join(' | ').toLowerCase()]
+    ].filter((x) => x[1]);
+    cache.set(lh, g); return g;
+  };
+  window.lhMatch = (lh, q) => {
+    const ws = String(q || '').toLowerCase().trim().split(/\s+/).filter(Boolean); if (!ws.length) return [];
+    const g = groups(lh), hit = [];
+    for (const w of ws) {
+      const f = g.find((x) => x[1].indexOf(w) >= 0); if (!f) return null;
+      if (hit.indexOf(f[0]) < 0) hit.push(f[0]);
+    }
+    return hit;
+  };
+})();
+// ---------- PERIODE TAMPILAN (Radar audit dan Pusat verifikasi) ----------
+// Agar daftar kerja tidak menumpuk, kedua menu itu secara bawaan hanya menampilkan LH SEJAK 1 NOVEMBER 2026. Menu lain tetap menampilkan data lengkap.
+// Data di periode lain TIDAK hilang: jumlahnya selalu ditampilkan (terutama yang belum diaudit) dan bisa dibuka lewat pilihan periode.
+// Ubah MULAI bila batas awal bergeser. LH tanpa tanggal yang terbaca selalu ikut tampil (supaya tidak terlupakan).
+window.Periode = (() => {
+  const MULAI = new Date(2026, 10, 1).getTime();   // 1 November 2026
+  const BULAN = ['Januari', 'Februari', 'Maret', 'April', 'Mei', 'Juni', 'Juli', 'Agustus', 'September', 'Oktober', 'November', 'Desember'];
+  const waktu = (l) => {
+    const s = String((l && l.tanggal) || '').trim(); let m;
+    if ((m = s.match(/^(\d{4})-(\d{1,2})-(\d{1,2})/))) return new Date(+m[1], +m[2] - 1, +m[3]).getTime();
+    if ((m = s.match(/^(\d{1,2})[\/.-](\d{1,2})[\/.-](\d{4})/))) return new Date(+m[3], +m[2] - 1, +m[1]).getTime();
+    // "16 Nov 2026" / "16 Agustus 2026" (format tanggal yang dibuat formulir LH bila tanggal dikosongkan)
+    if ((m = s.match(/^(\d{1,2})\s+([A-Za-z]+)\.?,?\s+(\d{4})/))) { const b = { jan: 0, feb: 1, mar: 2, apr: 3, mei: 4, may: 4, jun: 5, jul: 6, agu: 7, ags: 7, aug: 7, sep: 8, okt: 9, oct: 9, nov: 10, des: 11, dec: 11 }[m[2].slice(0, 3).toLowerCase()]; if (b !== undefined) return new Date(+m[3], b, +m[1]).getTime(); }
+    return 0;
+  };
+  // nilai: 'sejak' (bawaan) | 'semua' | 'YYYY-MM'
+  const cocok = (nilai, t) => {
+    if (nilai === 'semua' || !t) return true;
+    if (nilai === 'sejak') return t >= MULAI;
+    const d = new Date(t); return d.getFullYear() + '-' + String(d.getMonth() + 1).padStart(2, '0') === nilai;
+  };
+  const baca = (kunci) => { try { const v = window.localStorage.getItem('periode_' + kunci); return v && (v === 'sejak' || v === 'semua' || /^\d{4}-\d{2}$/.test(v)) ? v : 'sejak'; } catch (e) { return 'sejak'; } };
+  const simpan = (kunci, v) => { try { window.localStorage.setItem('periode_' + kunci, v); } catch (e) { /* penyimpanan peramban tidak tersedia: pilihan hanya berlaku sesi ini */ } };
+  const nama = (nilai) => nilai === 'semua' ? 'semua data' : nilai === 'sejak' ? 'sejak 1 November 2026' : BULAN[+nilai.slice(5) - 1] + ' ' + nilai.slice(0, 4);
+  const opsi = (lhs) => {
+    const bln = {}; let sejak = 0; (lhs || []).forEach((l) => { const t = waktu(l); if (!t || t >= MULAI) sejak++; if (t) { const d = new Date(t); const k = d.getFullYear() + '-' + String(d.getMonth() + 1).padStart(2, '0'); bln[k] = (bln[k] || 0) + 1; } });
+    return [{ v: 'sejak', label: 'Sejak 1 November 2026 (' + sejak + ' LH)' }]
+      .concat(Object.keys(bln).sort().reverse().map((k) => ({ v: k, label: nama(k) + ' (' + bln[k] + ' LH)' })))
+      .concat([{ v: 'semua', label: 'Semua data (' + (lhs || []).length + ' LH)' }]);
+  };
+  return { MULAI, waktu, cocok, baca, simpan, nama, opsi };
+})();
+
+// ---------- KEAMANAN PROSES: tidak ada pindah halaman atau tutup jendela saat data sedang diproses ----------
+// Proses.mulai() dipanggil sebelum setiap penyimpanan/unggah ke server dan hasilnya dipanggil saat selesai.
+// Selama ada proses: lapisan UI.Blocker menutup layar, pindah menu ditolak (App), dan peramban menanyakan konfirmasi bila jendela ditutup.
+window.Proses = (() => {
+  let n = 0, label = ''; const subs = new Set();
+  const emit = () => subs.forEach((f) => { try { f(); } catch (e) { /* pelanggan yang sudah dilepas */ } });
+  const api = {
+    mulai(t) { n++; label = t || label || 'Memproses data'; emit(); let selesai = false; return () => { if (selesai) return; selesai = true; n = Math.max(0, n - 1); if (!n) label = ''; emit(); }; },
+    sibuk: () => n > 0, label: () => label,
+    skalaWaktu: 1,   // pengali batas waktu (diperkecil hanya oleh pengujian)
+    subscribe(f) { subs.add(f); return () => subs.delete(f); }
+  };
+  try { window.addEventListener('beforeunload', (e) => { if (n > 0) { e.preventDefault(); e.returnValue = 'Masih ada data yang sedang diproses.'; return e.returnValue; } }); } catch (e) { /* lingkungan tanpa window */ }
+  return api;
+})();
+// Panggil fungsi server dengan aman. Selalu mengembalikan { ok, res, message, timeout } dan TIDAK PERNAH melempar.
+//  ok = true hanya bila server menjawab status "success". Bila server tidak menjawab dalam batas waktu, ok = false dan timeout = true:
+//  hasilnya belum diketahui, jadi pemanggil harus menyegarkan data dari server sebelum mengulang.
+window.safeRun = (fn, args, opt) => {
+  opt = opt || {}; const batas = (opt.timeout || 90000) * (window.Proses.skalaWaktu || 1);
+  const selesai = opt.tanpaBlokir ? () => {} : window.Proses.mulai(opt.label);   // tanpaBlokir: hanya membaca data, layar tidak perlu dikunci
+  return new Promise((resolve) => {
+    let fin = false; let tm = null;
+    const end = (r) => { if (fin) return; fin = true; clearTimeout(tm); selesai(); resolve(r); };
+    tm = setTimeout(() => end({ ok: false, timeout: true, message: 'Server tidak menjawab dalam ' + Math.max(1, Math.round(batas / 1000)) + ' detik, jadi hasilnya belum diketahui.' }), batas);
+    try {
+      if (typeof google === 'undefined' || !google.script || !google.script.run) return end({ ok: false, message: 'Aplikasi tidak terhubung ke server. Muat ulang halaman.' });
+      window.__safeRunAktif = true;   // penanda: kunci layar sudah diatur di sini, penjaga otomatis tidak menghitung dua kali
+      try {
+        google.script.run
+          .withSuccessHandler((res) => { if (res && res.status === 'success') end({ ok: true, res }); else end({ ok: false, res, message: (res && res.message) || 'Server menolak permintaan.' }); })
+          .withFailureHandler((err) => end({ ok: false, message: String((err && err.message) || err || 'Koneksi ke server gagal.') }))[fn](...(args || []));
+      } finally { window.__safeRunAktif = false; }
+    } catch (e) { end({ ok: false, message: String((e && e.message) || e) }); }
+  });
+};
+
+// Komponen bersama sesuai standar desain (DESIGN.md). Dipakai semua menu baru: window.UI.*
+// Font Source Sans 3, bobot 400/500, tanpa kapital semua, warna dari palet DESIGN.md.
+window.UI = (() => {
+  const INK = '#3A62B0';
+  const TONE = { ok: '#1B7A3E', warn: '#C77700', bad: '#B42318', info: '#3A62B0', mute: '#8A857C' };
+
+  // Titik status + kata, bukan pil berhuruf kapital: <UI.Status tone="warn">Draf</UI.Status>
+  const Status = ({ tone = 'mute', children }) => (
+    <span className="inline-flex items-center gap-[7px] text-[13px]">
+      <span className="w-[7px] h-[7px] rounded-full shrink-0" style={{ background: TONE[tone] || TONE.mute }}></span>{children}
+    </span>
+  );
+
+  // kind: primary (biru tinta) | secondary (garis) | link (teks biru) | danger (garis merah)
+  const Btn = ({ kind = 'secondary', className = '', children, ...p }) => {
+    const base = 'inline-flex items-center justify-center gap-2 text-[13px] transition-colors disabled:opacity-40 disabled:cursor-not-allowed ';
+    const k = {
+      primary: 'h-8 px-4 rounded-lg bg-[#3A62B0] text-white font-medium hover:bg-[#2F5399]',
+      secondary: 'h-8 px-3.5 rounded-lg border border-[#D9DDE9] bg-white text-[#23211E] hover:border-[#9C968A]',
+      danger: 'h-8 px-3.5 rounded-lg border border-[#F0C4BF] bg-white text-[#B42318] hover:bg-[#FDF3F2]',
+      link: 'text-[#3A62B0] hover:underline'
+    }[kind];
+    return <button className={base + k + ' ' + className} {...p}>{children}</button>;
+  };
+
+  // Tab teks biasa, aktif bergaris bawah biru tinta. tabs: [{key,label,badge?,disabled?}]
+  const Tabs = ({ tabs, active, onChange }) => (
+    <nav className="flex gap-7 border-b border-[#E6E9F2]">
+      {tabs.map((t) => (
+        <button key={t.key} disabled={t.disabled} onClick={() => onChange(t.key)}
+          className={`h-9 -mb-px border-b-2 text-[13px] flex items-center ${active === t.key ? 'border-[#3A62B0] text-[#23211E] font-medium' : 'border-transparent text-[#6B665E] hover:text-[#23211E]'} ${t.disabled ? 'opacity-40 cursor-not-allowed' : ''}`}>
+          {t.label}{t.badge ? <span className="ml-[7px] text-[#B42318]">{t.badge}</span> : null}
+        </button>
+      ))}
+    </nav>
+  );
+
+  // Panel geser dari kanan (detail/edit tanpa pindah halaman)
+  const Drawer = ({ open, title, onClose, footer, children, width = 420 }) => open ? (
+    <div className="fixed inset-0 z-[85]">
+      <div className="absolute inset-0 bg-[#23211E]/30" onClick={onClose}></div>
+      <aside className="absolute right-0 top-0 bottom-0 max-w-full bg-white shadow-xl flex flex-col page-in" style={{ width }}>
+        <div className="h-[52px] px-5 flex items-center justify-between border-b border-[#E6E9F2] shrink-0">
+          <span className="text-[15px] font-medium">{title}</span>
+          <button onClick={onClose} aria-label="Tutup" className="w-8 h-8 rounded-md text-[#6B665E] hover:bg-[#EEF0F7]"><i className="fa-solid fa-xmark"></i></button>
+        </div>
+        <div className="flex-1 overflow-y-auto p-5">{children}</div>
+        {footer && <div className="px-5 py-3 border-t border-[#E6E9F2] shrink-0">{footer}</div>}
+      </aside>
+    </div>
+  ) : null;
+
+  const Empty = ({ children }) => <div className="py-10 text-center text-[#6B665E]">{children}</div>;
+
+  // Lapisan penghalang layar selama ada proses (dipasang sekali di App). Menutup seluruh layar termasuk menu samping.
+  const Blocker = () => {
+    const [, tick] = React.useState(0);
+    React.useEffect(() => window.Proses.subscribe(() => tick((x) => x + 1)), []);
+    if (!window.Proses.sibuk()) return null;
+    return (
+      <div className="fixed inset-0 z-[300] flex items-center justify-center bg-[#23211E]/40" role="alertdialog" aria-live="assertive" aria-busy="true" data-testid="proses-berjalan">
+        <div className="bg-white rounded-xl shadow-xl px-6 py-5 w-[360px] max-w-[90vw] text-center">
+          <i className="fa-solid fa-circle-notch fa-spin text-[22px] text-[#3A62B0]"></i>
+          <div className="text-[14px] font-medium mt-2">{window.Proses.label()}</div>
+          <p className="text-[12px] text-[#6B665E] mt-1">Mohon tunggu. Jangan tutup atau pindah halaman sampai selesai.</p>
+        </div>
+      </div>);
+  };
+  // Penangkap galat tampilan: bila satu menu gagal digambar, hanya menu itu yang diganti pesan ramah. Data tidak tersentuh.
+  class Guard extends React.Component {
+    constructor(p) { super(p); this.state = { err: null }; }
+    static getDerivedStateFromError(e) { return { err: e }; }
+    componentDidCatch(e) { try { console.error('Galat tampilan ' + (this.props.nama || ''), e); } catch (x) { /* abaikan */ } }
+    render() {
+      if (!this.state.err) return this.props.children;
+      return (
+        <div className="bg-white border border-[#F0C4BF] rounded-xl px-6 py-8 text-center max-w-[560px] mx-auto mt-10" role="alert">
+          <div className="text-[16px] font-medium text-[#B42318]">Menu {this.props.nama || 'ini'} sedang bermasalah</div>
+          <p className="text-[13px] text-[#6B665E] mt-1">Tampilan gagal dimuat. Data di database tidak berubah. Coba muat ulang menu ini; bila masih sama, muat ulang halaman (Ctrl+F5).</p>
+          <div className="mt-4 flex justify-center gap-2">
+            <button className="h-8 px-4 rounded-lg bg-[#3A62B0] text-white hover:bg-[#2F5399]" onClick={() => this.setState({ err: null })}>Coba lagi</button>
+            <button className="h-8 px-4 rounded-lg border border-[#D9DDE9] bg-white" onClick={() => { try { window.location.reload(); } catch (e) { /* abaikan */ } }}>Muat ulang halaman</button>
+          </div>
+        </div>);
+    }
+  }
+
+  // Nama aksi yang mudah dibaca (kode di server -> kalimat)
+  const JEJAK_LABEL = {
+    'akses.masuk': 'Masuk aplikasi', 'akses.gagal': 'Gagal masuk', 'akses.keluar': 'Keluar aplikasi',
+    'lh.buat': 'Membuat LH', 'lh.ubah': 'Mengubah LH', 'lh.revisi': 'Merevisi LH', 'lh.hapus': 'Menghapus LH', 'lh.pindah': 'Memindahkan LH', 'lh.rab': 'Status RAB LH',
+    'audit.tandai': 'Menandai sudah diaudit', 'audit.batal': 'Membatalkan tanda audit', 'audit.temuan': 'Menulis temuan audit', 'audit.hapus_temuan': 'Menghapus temuan audit',
+    'dokumen.unggah': 'Mengunggah dokumen', 'dokumen.cetak': 'Mencetak Code 3 atau Code 7', 'dokumen.cetak_manual': 'Mencetak Code 3/7 manual', 'code.penanda_simpan': 'Menyimpan penandatangan Code', 'code.penanda_hapus': 'Menghapus penandatangan Code', 'code.norm_simpan': 'Menyimpan nomor normalisasi', 'code.norm_hapus': 'Menghapus nomor normalisasi', 'code.norm_impor': 'Mengimpor nomor normalisasi', 'arsip.file_tambah': 'Menambah file arsip', 'arsip.file_hapus': 'Menghapus tautan file arsip', 'arsip.pindah': 'Memindahkan LH ke file arsip', 'arsip.pulih_rentang': 'Memulihkan LH dari file arsip',
+    'pk.buat': 'Membuat PK', 'pk.ubah': 'Mengubah PK', 'pk.hapus': 'Menghapus PK', 'pk.alokasi': 'Memasukkan PK ke SPK', 'pk.keluarkan': 'Mengeluarkan PK dari SPK', 'pk.cetak': 'Status cetak PK',
+    'spk.buat': 'Membuat SPK', 'spk.ubah': 'Mengubah SPK', 'spk.hapus': 'Menghapus SPK',
+    'rab.buat': 'Menyimpan RAB', 'rab.kunci': 'Mengunci/membuka RAB', 'rab.upah': 'Mengubah upah RAB',
+    'ktk.buat': 'Membuat KTK', 'ktk.simpan': 'Menyimpan KTK', 'ktk.pindah': 'Memindahkan KTK', 'ktk.folder': 'Mengubah folder KTK', 'ktk.template': 'Mengubah template KTK', 'ktk.kembalikan': 'Mengembalikan KTK ke Perlu dibuat KTK', 'ktk.hakfolder': 'Memindahkan hak akses folder KTK'
+  };
+  const jejakNama = (a) => JEJAK_LABEL[a] || (a && a.indexOf('logharian.') === 0 ? 'Log harian: ' + a.slice(10) : a) || '-';
+
+  // Riwayat satu objek (mis. satu LH): siapa membuat, mengubah, mengaudit, mengunggah dokumen, dan kapan. Dimuat dari server.
+  const RiwayatLh = ({ id, objek = 'LH', auth, ringkasLokal }) => {
+    const [st, setSt] = React.useState({ s: 'muat', data: [], ringkas: null, msg: '' });
+    React.useEffect(() => {
+      let batal = false; setSt({ s: 'muat', data: [], ringkas: null, msg: '' });
+      if (!id) return undefined;
+      window.safeRun('jejakRiwayat', [{ t: (auth && auth.t) || '', as: (auth && auth.as) || '' }, { objek, id: String(id), batas: 100 }], { label: 'Memuat riwayat ' + id, tanpaBlokir: true }).then((o) => {
+        if (batal) return;
+        if (o.ok && o.res && o.res.status === 'success') setSt({ s: 'ok', data: o.res.data || [], ringkas: o.res.ringkas || null, msg: '' });
+        else setSt({ s: 'galat', data: [], ringkas: null, msg: (o.res && o.res.message) || o.message || 'Riwayat tidak bisa dimuat.' });
+      });
+      return () => { batal = true; };
+    }, [id, auth && auth.t]);
+    const r = st.ringkas || ringkasLokal || null;
+    return (
+      <div data-testid="riwayat-lh" className="text-[13px]">
+        <div className="text-[12px] text-[#6B665E] mb-1.5">Riwayat pengerjaan</div>
+        {r && (
+          <div className="mb-2 text-[#23211E]" data-testid="riwayat-ringkas">
+            <div>Dibuat oleh {r.dibuatOleh ? <span>ID <b className="font-medium">{r.dibuatOleh}</b>{r.dibuatTgl ? ' pada ' + r.dibuatTgl : ''}</span> : <span className="text-[#8A857C]">tidak tercatat (dibuat sebelum pencatatan aktif)</span>}</div>
+            {r.diubahOleh ? <div>Terakhir diubah oleh ID <b className="font-medium">{r.diubahOleh}</b>{r.diubahTgl ? ' pada ' + r.diubahTgl : ''}</div> : null}
+            {r.auditOleh ? <div>Diaudit oleh ID <b className="font-medium">{r.auditOleh}</b>{r.auditTgl ? ' pada ' + r.auditTgl : ''}</div> : null}
+          </div>)}
+        {st.s === 'muat' && <div className="text-[#6B665E]"><i className="fa-solid fa-circle-notch fa-spin mr-2"></i>Memuat riwayat...</div>}
+        {st.s === 'galat' && <div className="text-[#B42318]" role="alert">{st.msg}</div>}
+        {st.s === 'ok' && !st.data.length && <div className="text-[#8A857C]">Belum ada kejadian tercatat untuk {objek} ini.</div>}
+        {st.s === 'ok' && st.data.length > 0 && (
+          <ol className="border-l border-[#E6E9F2] ml-1.5">
+            {st.data.map((e) => (
+              <li key={e.id} className="pl-3 pb-2.5 relative">
+                <span className="absolute -left-[4px] top-[6px] w-[7px] h-[7px] rounded-full" style={{ background: e.hasil === 'gagal' ? TONE.bad : TONE.ok }}></span>
+                <div className="text-[#23211E]">{jejakNama(e.aksi)}{e.hasil === 'gagal' ? <span className="text-[#B42318]"> (ditolak)</span> : null}</div>
+                <div className="text-[12px] text-[#6B665E]">ID {e.user}{e.nama ? ' · ' + e.nama : ''}{e.peran ? ' · ' + e.peran : ''}{e.loginAsli && e.loginAsli !== e.user ? ' · login ' + e.loginAsli : ''} · {e.waktu}</div>
+                {e.ket ? <div className="text-[12px] text-[#8A857C]">{e.ket}</div> : null}
+              </li>))}
+          </ol>)}
+      </div>);
+  };
+
+  return { INK, Status, Btn, Tabs, Drawer, Empty, Blocker, Guard, RiwayatLh, jejakNama, JEJAK_LABEL };
+})();
+</script>

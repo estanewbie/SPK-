@@ -1,0 +1,118 @@
+<script type="text/babel">
+// Menu: Riwayat aktivitas (Super Admin dan Admin Audit). Satu tempat untuk memastikan siapa (ID akun) melakukan apa, kapan, dan hasilnya,
+// dari masuk aplikasi sampai LH selesai. Isi diambil dari sheet Log_Aktivitas yang hanya bertambah (rantai hash), tombol "Periksa keutuhan"
+// membuktikan tidak ada baris yang diubah atau dihapus. CATATAN BERKAS: simpan sebagai UTF-8.
+(() => {
+  const { useState, useEffect, useCallback } = React;
+  const UI = window.UI;
+  const inp = 'h-9 px-3 rounded-[10px] border border-[#D9DDE9] bg-white outline-none focus:border-[#3A62B0] text-[13px]';
+  const GRUP = [
+    ['', 'Semua aksi'], ['akses.', 'Akses (masuk, gagal, keluar)'], ['lh.', 'LH'], ['audit.', 'Audit'], ['dokumen.', 'Dokumen Code 3, 7, AGO'],
+    ['pk.', 'PK'], ['spk.', 'SPK'], ['rab.', 'RAB'], ['ktk.', 'KTK'], ['logharian.', 'Log harian']
+  ];
+  const csv = (rows) => {
+    const esc = (v) => '"' + String(v == null ? '' : v).replace(/"/g, '""') + '"';
+    const kepala = ['Waktu', 'ID_User', 'Nama', 'Peran', 'ID_Login_Asli', 'Aksi', 'Objek', 'ID_Objek', 'Keterangan', 'Hasil'];
+    return '﻿' + [kepala.map(esc).join(',')].concat(rows.map((e) => [e.waktu, e.user, e.nama, e.peran, e.loginAsli, e.aksi, e.objek, e.idObjek, e.ket, e.hasil].map(esc).join(','))).join('\r\n');
+  };
+
+  function RiwayatDesk({ ctx }) {
+    const { currentUser, showToast } = ctx;
+    const role = currentUser && currentUser.role;
+    const boleh = role === 'Super Admin' || role === 'Admin Audit';
+    const auth = { t: (currentUser && currentUser.token) || '', as: (currentUser && currentUser.asUser) || '' };
+    const [f, setF] = useState({ dari: '', sampai: '', user: '', aksi: '', hasil: '', q: '', id: '' });
+    const [st, setSt] = useState({ s: 'muat', data: [], total: 0, terpotong: false, msg: '' });
+    const [utuh, setUtuh] = useState(null);
+    const [cek, setCek] = useState(false);
+    const set = (k, v) => setF((x) => ({ ...x, [k]: v }));
+
+    const muat = useCallback(async () => {
+      if (!boleh) return;
+      setSt((x) => ({ ...x, s: 'muat' }));
+      const q = { batas: 300 }; Object.keys(f).forEach((k) => { if (f[k]) q[k] = f[k]; });
+      if (q.id) { q.objek = 'LH'; }   // mencari satu nomor: pakai riwayat objek (nomor LH)
+      const o = await window.safeRun('jejakRiwayat', [auth, q], { label: 'Memuat riwayat', tanpaBlokir: true });
+      if (o.ok) setSt({ s: 'ok', data: o.res.data || [], total: o.res.total || 0, terpotong: !!o.res.terpotong, msg: '' });
+      else setSt({ s: 'galat', data: [], total: 0, terpotong: false, msg: o.message || 'Riwayat tidak bisa dimuat.' });
+    }, [f, boleh, auth.t, auth.as]);
+    useEffect(() => { muat(); }, []);   // muat awal; selanjutnya lewat tombol Terapkan
+
+    const periksa = async () => {
+      setCek(true);
+      const o = await window.safeRun('jejakVerifikasi', [{ t: auth.t, as: auth.as }], { label: 'Memeriksa keutuhan riwayat' });
+      setCek(false);
+      if (o.ok) setUtuh({ utuh: !!o.res.utuh, pesan: o.res.pesan, jumlah: o.res.jumlah });
+      else setUtuh({ utuh: null, pesan: o.message || 'Pemeriksaan gagal.' });
+    };
+    const unduh = () => {
+      try {
+        const b = new Blob([csv(st.data)], { type: 'text/csv;charset=utf-8' }); const u = URL.createObjectURL(b);
+        const a = document.createElement('a'); a.href = u; a.download = 'riwayat-aktivitas.csv'; document.body.appendChild(a); a.click(); a.remove(); setTimeout(() => URL.revokeObjectURL(u), 2000);
+      } catch (e) { showToast('Gagal mengunduh', String((e && e.message) || e), 'error'); }
+    };
+
+    if (!boleh) return <UI.Empty>Menu ini hanya untuk Super Admin dan Admin Audit.</UI.Empty>;
+    return (
+      <div className="max-w-[1180px] text-[13px]" data-testid="menu-riwayat">
+        <div className="flex items-end justify-between flex-wrap gap-3 mt-3 mb-3">
+          <div>
+            <h1 className="text-[20px] font-medium text-[#23211E]">Riwayat aktivitas</h1>
+            <p className="text-[#6B665E] mt-0.5">Siapa (ID akun) melakukan apa dan kapan, dari masuk aplikasi sampai LH selesai. Catatan hanya bertambah dan tidak bisa diubah dari aplikasi.</p>
+          </div>
+          <div className="flex items-center gap-2">
+            <UI.Btn onClick={periksa} disabled={cek} data-testid="periksa-keutuhan">{cek ? 'Memeriksa...' : 'Periksa keutuhan'}</UI.Btn>
+            <UI.Btn onClick={unduh} disabled={!st.data.length} data-testid="unduh-csv">Unduh CSV</UI.Btn>
+          </div>
+        </div>
+
+        {utuh && (
+          <div data-testid="hasil-keutuhan" role="status" className={'mb-3 px-4 py-2.5 rounded-lg border ' + (utuh.utuh === true ? 'border-[#CFE6D8] bg-[#F4FAF6]' : 'border-[#F0C4BF] bg-[#FDF6F5]')}>
+            <UI.Status tone={utuh.utuh === true ? 'ok' : 'bad'}>{utuh.utuh === true ? 'Riwayat utuh' : utuh.utuh === false ? 'Riwayat tidak utuh' : 'Belum terperiksa'}</UI.Status>
+            <span className="ml-3 text-[#23211E]">{utuh.pesan}</span>
+          </div>)}
+
+        <div className="grid grid-cols-2 md:grid-cols-4 gap-2 mb-3 bg-white border border-[#E6E9F2] rounded-xl p-3">
+          <label className="flex flex-col gap-1"><span className="text-[12px] text-[#6B665E]">Dari tanggal</span><input type="date" className={inp} value={f.dari} onChange={(e) => set('dari', e.target.value)} /></label>
+          <label className="flex flex-col gap-1"><span className="text-[12px] text-[#6B665E]">Sampai tanggal</span><input type="date" className={inp} value={f.sampai} onChange={(e) => set('sampai', e.target.value)} /></label>
+          <label className="flex flex-col gap-1"><span className="text-[12px] text-[#6B665E]">ID pengguna</span><input className={inp} placeholder="mis. adm.a" value={f.user} onChange={(e) => set('user', e.target.value.trim())} /></label>
+          <label className="flex flex-col gap-1"><span className="text-[12px] text-[#6B665E]">Nomor LH</span><input className={inp} placeholder="mis. LH-202611-0001" value={f.id} onChange={(e) => set('id', e.target.value.trim())} /></label>
+          <label className="flex flex-col gap-1"><span className="text-[12px] text-[#6B665E]">Jenis aksi</span><select className={inp} value={f.aksi} onChange={(e) => set('aksi', e.target.value)}>{GRUP.map((g) => <option key={g[0]} value={g[0]}>{g[1]}</option>)}</select></label>
+          <label className="flex flex-col gap-1"><span className="text-[12px] text-[#6B665E]">Hasil</span><select className={inp} value={f.hasil} onChange={(e) => set('hasil', e.target.value)}><option value="">Semua</option><option value="sukses">Berhasil</option><option value="gagal">Ditolak atau gagal</option></select></label>
+          <label className="flex flex-col gap-1 col-span-2"><span className="text-[12px] text-[#6B665E]">Cari kata</span><input className={inp} placeholder="nama, nomor, keterangan" value={f.q} onChange={(e) => set('q', e.target.value)} onKeyDown={(e) => { if (e.key === 'Enter') muat(); }} /></label>
+          <div className="col-span-2 md:col-span-4 flex gap-2 justify-end">
+            <UI.Btn onClick={() => { setF({ dari: '', sampai: '', user: '', aksi: '', hasil: '', q: '', id: '' }); }} >Kosongkan</UI.Btn>
+            <UI.Btn kind="primary" onClick={muat} disabled={st.s === 'muat'} data-testid="terapkan">{st.s === 'muat' ? 'Memuat...' : 'Terapkan'}</UI.Btn>
+          </div>
+        </div>
+
+        {st.s === 'galat' && <div role="alert" className="px-4 py-3 rounded-lg border border-[#F0C4BF] bg-[#FDF6F5] text-[#B42318] mb-3">{st.msg} <button className="underline ml-2" onClick={muat}>Coba lagi</button></div>}
+        {st.s === 'ok' && (
+          <div className="text-[12px] text-[#6B665E] mb-1.5" data-testid="jumlah-riwayat">{st.total} kejadian cocok{st.terpotong ? ', ditampilkan ' + st.data.length + ' yang terbaru. Persempit saringan untuk melihat sisanya.' : '.'}</div>)}
+        <div className="bg-white border border-[#E6E9F2] rounded-xl overflow-x-auto">
+          <table className="w-full min-w-[820px]">
+            <thead><tr className="text-left text-[12px] text-[#6B665E] border-b border-[#E6E9F2]">
+              <th className="px-3 py-2 font-normal">Waktu</th><th className="px-3 py-2 font-normal">ID pengguna</th><th className="px-3 py-2 font-normal">Peran</th>
+              <th className="px-3 py-2 font-normal">Aksi</th><th className="px-3 py-2 font-normal">Objek</th><th className="px-3 py-2 font-normal">Keterangan</th><th className="px-3 py-2 font-normal">Hasil</th>
+            </tr></thead>
+            <tbody>
+              {st.s === 'muat' && <tr><td colSpan={7} className="px-3 py-8 text-center text-[#6B665E]"><i className="fa-solid fa-circle-notch fa-spin mr-2"></i>Memuat riwayat...</td></tr>}
+              {st.s === 'ok' && !st.data.length && <tr><td colSpan={7} className="px-3 py-8 text-center text-[#6B665E]">Tidak ada kejadian yang cocok.</td></tr>}
+              {st.s === 'ok' && st.data.map((e) => (
+                <tr key={e.id} className="border-b border-[#F0F2F8] last:border-0 align-top" data-testid="baris-riwayat">
+                  <td className="px-3 py-2 whitespace-nowrap text-[#23211E]">{e.waktu}</td>
+                  <td className="px-3 py-2"><div className="text-[#23211E]">{e.user}</div><div className="text-[12px] text-[#6B665E]">{e.nama}{e.loginAsli && e.loginAsli !== e.user ? ' · login ' + e.loginAsli : ''}</div></td>
+                  <td className="px-3 py-2 text-[#6B665E]">{e.peran}</td>
+                  <td className="px-3 py-2 text-[#23211E]">{UI.jejakNama(e.aksi)}</td>
+                  <td className="px-3 py-2 text-[#6B665E]">{e.objek}{e.idObjek ? ' ' + e.idObjek : ''}</td>
+                  <td className="px-3 py-2 text-[#6B665E] max-w-[320px]">{e.ket}</td>
+                  <td className="px-3 py-2 whitespace-nowrap"><UI.Status tone={e.hasil === 'gagal' ? 'bad' : 'ok'}>{e.hasil === 'gagal' ? 'Ditolak' : 'Berhasil'}</UI.Status></td>
+                </tr>))}
+            </tbody>
+          </table>
+        </div>
+      </div>);
+  }
+  window.Views.Riwayat = (ctx) => <UI.Guard nama="Riwayat aktivitas"><RiwayatDesk ctx={ctx} /></UI.Guard>;
+})();
+</script>

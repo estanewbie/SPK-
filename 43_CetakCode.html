@@ -1,0 +1,114 @@
+<script>
+// Cetak Bon Code 3 (pengembalian barang) dan Code 7 (pemakaian). Tata letak meniru contoh PDF dari Admin Code:
+// Code 3 = kertas 14 x 8,5 inci mendatar, 18 baris; Code 7 = A4 mendatar, 22 baris. Data berasal dari server (code37Cetak),
+// jadi yang tercetak sama persis dengan yang baru ditulis ke spreadsheet. Dicetak lewat iframe tersembunyi (tidak diblokir pop-up).
+// CATATAN BERKAS: simpan sebagai UTF-8; jangan baca/tulis lewat PowerShell Get-Content/Set-Content.
+window.CetakCode = (() => {
+  const esc = (s) => String(s == null ? '' : s).replace(/[&<>"]/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
+  // lebar kolom (satuan bebas, hanya perbandingannya yang dipakai) dan jumlah sel kecil per kolom, diukur dari PDF contoh
+  const SPEC = {
+    code3: { judul: '3', kertas: '14in 8.5in', baris: 18, tinggi: 15.2, huruf: 8.5,
+      kol: [['no', 44], ['nama', 470], ['norm', 140, 7], ['sat', 39], ['jml', 105], ['des', 13], ['hrf', 174], ['tAng', 163, 8], ['tHrf', 113], ['kode', 50], ['harga', 167, 9], ['uang', 125]],
+      atas: [448, 1031], pejabat: [['Pengembali', 'pengembali'], ['Setuju', 'setuju'], ['Kepala Gudang', 'kepalaGudang'], ['Pemeriksa', 'pemeriksa']] },
+    code7: { judul: '7', kertas: 'A4 landscape', baris: 22, tinggi: 12.6, huruf: 8,
+      kol: [['no', 34], ['nama', 350], ['norm', 142, 7], ['sat', 32], ['jml', 93], ['des', 21], ['hrf', 158], ['tAng', 134, 8], ['tHrf', 100], ['kode', 28], ['harga', 158, 9], ['uang', 108]],
+      atas: [351, 916], pejabat: [['Setuju', 'setuju'], ['Kepala Gudang', 'kepalaGudang'], ['Pemeriksa', 'pemeriksa'], ['Pemeriksa', 'pengembali']] }
+  };
+  const kotak = (n, isi) => '<table class="bx"><tr>' + Array.from({ length: n }, (_, i) => '<td>' + esc(isi && isi[i] != null ? isi[i] : '') + '</td>').join('') + '</tr></table>';
+  const angkaTeks = (v) => String(v).replace('.', ',');
+
+  function bangun(jenis, h) {
+    const S = SPEC[jenis]; if (!S) return '';
+    const total = S.kol.reduce((a, k) => a + k[1], 0);
+    const kolHtml = S.kol.map((k) => { const n = k[2] || 1; return Array.from({ length: n }, () => '<col style="width:' + (k[1] / n / total * 100).toFixed(4) + '%">').join(''); }).join('');
+    const span = (nama) => { const k = S.kol.find((x) => x[0] === nama); return k[2] || 1; };
+    const pct = (px) => (px / total * 100).toFixed(3) + '%';
+    const barisData = (h.rows || []);
+    const nBaris = Math.max(S.baris, barisData.length);
+    const digits = (kode) => String(kode || '').padEnd(7, ' ').slice(0, 7).split('');
+    let body = '';
+    for (let i = 0; i < nBaris; i++) {
+      const r = barisData[i];
+      body += '<tr class="isi">'
+        + '<td class="c b">' + (r ? r.no : '') + '</td>'
+        + '<td class="b nm' + (r && String(r.nama).length > (jenis === 'code3' ? 62 : 46) ? ' kcl' : '') + '">' + esc(r ? r.nama : '') + '</td>'
+        + digits(r && r.kode).map((d) => '<td class="c b">' + esc(d.trim()) + '</td>').join('')
+        + '<td class="c b">' + esc(r ? r.satuan : '') + '</td>'
+        + '<td class="c b">' + (r ? esc(angkaTeks(r.jumlah)) : '') + '</td><td></td>'
+        + '<td class="c b">' + esc(r ? r.terbilang : '') + '</td>'
+        + '<td></td>'.repeat(span('tAng')) + '<td></td><td></td>' + '<td></td>'.repeat(span('harga')) + '<td></td></tr>';
+    }
+    const kepala = '<tr><th rowspan="3">No.<br>Urut</th><th rowspan="3">NAMA BARANG<br><span class="k">( ditulis selengkap - lengkapnya )</span></th>'
+      + '<th rowspan="2" colspan="' + span('norm') + '">Nomor<br>Normalisasi</th><th rowspan="3">Sa-<br>tuan</th>'
+      + '<th colspan="3">Banyaknya yang dikembalikan</th><th colspan="' + (span('tAng') + 1) + '">Banyaknya yang diterima</th>'
+      + '<th rowspan="3">Kode<br>51</th><th rowspan="2" colspan="' + span('harga') + '">Harga<br>Satuan</th><th rowspan="3">Jumlah Uang<br>Rp.</th></tr>'
+      + '<tr><th colspan="2" rowspan="2">dengan angka</th><th rowspan="2">dengan huruf</th><th colspan="' + span('tAng') + '" rowspan="2">dengan angka</th><th rowspan="2">dengan huruf</th></tr>'
+      + '<tr><th class="k" colspan="' + span('norm') + '"></th><th class="k" colspan="' + span('harga') + '"></th></tr>';
+
+    const kondisi = {};
+    if (Array.isArray(h.kodeCetak) && h.kodeCetak.length) h.kodeCetak.forEach((n) => { kondisi[n] = 1; });   // dipilih admin sebelum cetak
+    else barisData.forEach((r) => { if (r.kondisi) kondisi[r.kondisi] = 1; });
+    const lingkar = (n) => kondisi[n] ? '<span class="lg">' + n + '</span>.' : n + '.';
+    const nomor = String(h.noBon || '').replace(/\D/g, '');
+    const p6 = nomor.padStart(6, '0');   // contoh PDF: 000198 tampil "0 0 0 198"
+    const nomorTampil = nomor ? p6.slice(0, 3).split('').join(' ') + ' ' + p6.slice(3) : '';
+    const w1 = pct(S.atas[0]), w2 = pct(S.atas[1] - S.atas[0]);
+    const pd = h.pejabat || {};
+    const pejabat = S.pejabat.map((p) => '<td><div class="pj-t">' + esc(p[0]) + ' :</div><div class="pj-n">' + esc(String(pd[p[1]] || '').toUpperCase()) + '</div></td>').join('');
+    const cetakDilingkar = jenis === 'code3';
+
+    return '<!doctype html><html><head><meta charset="utf-8"><title>Code ' + S.judul + ' - LH ' + esc(h.lhId) + '</title><style>'
+      + '@page{size:' + S.kertas + ';margin:6mm 9mm}'
+      + '*{box-sizing:border-box}body{margin:0;font-family:Arial,Helvetica,sans-serif;font-size:' + S.huruf + 'pt;color:#000}'
+      + 'table{border-collapse:collapse;width:100%;table-layout:fixed}td,th{padding:0 2px;overflow:hidden}'
+      + '.t{border-top:2.2pt solid #000;border-bottom:1.2pt solid #000}.t td{vertical-align:middle}'
+      + '.kd{font-size:22pt;letter-spacing:2pt;word-spacing:4pt;font-weight:900;text-align:center;font-family:Verdana,Arial,sans-serif}'
+      + '.bx{width:auto;table-layout:auto;margin:0}.bx td{border:.6pt solid #000;width:11pt;height:11pt;font-size:7pt;text-align:center;padding:0}'
+      + '.grid{border:.7pt solid #000}.grid th,.grid td{border:.6pt solid #000}.grid th{font-weight:400;overflow:visible;white-space:nowrap;text-align:center;font-size:' + (S.huruf - .5) + 'pt;line-height:1.15;padding:2pt}'
+      + '.grid tr.isi td{height:' + S.tinggi + 'pt;border-top:0;border-bottom:.6pt solid #000;vertical-align:middle;white-space:nowrap}'
+      + '.grid .nm{text-align:left;padding-left:3pt}.grid .kcl{font-size:' + (S.huruf - 1.3) + 'pt}.c{text-align:center}.b{font-weight:700}.k{font-size:' + (S.huruf - 1) + 'pt}'
+      + '.ft{border:.7pt solid #000;border-top:0}.ft td{vertical-align:top;padding:3pt 5pt}'
+      + '.pj{border:.7pt solid #000;border-top:0;border-bottom:2.2pt solid #000}.pj td{border-left:.6pt solid #000;height:' + (jenis === 'code3' ? 40 : 38) + 'pt;vertical-align:top;padding:2pt 4pt}.pj td:first-child{border-left:0}'
+      + '.pj-t{font-size:' + (S.huruf - .5) + 'pt}.pj-n{font-weight:700;text-align:center;margin-top:' + (jenis === 'code3' ? 18 : 16) + 'pt;font-size:' + (S.huruf - .5) + 'pt}'
+      + '.lg{display:inline-block;border:.8pt solid #000;border-radius:50%;width:11pt;height:11pt;line-height:10pt;text-align:center}'
+      + '.warn{color:#000}.no{font-family:"Times New Roman",serif;font-size:10pt}.no b{font-family:Arial,sans-serif;font-size:13pt;font-weight:400;letter-spacing:1pt;margin-left:5pt}'
+      + '</style></head><body>'
+      // atas: kode, PLN, judul, nomor
+      + '<table class="t"><colgroup><col style="width:' + w1 + '"><col style="width:' + w2 + '"><col></colgroup><tr>'
+      + '<td style="border-right:.6pt solid #000;height:46pt;vertical-align:top;padding:0"><div class="kd" style="border-bottom:.6pt solid #000;height:28pt;line-height:28pt">K O D E &nbsp;' + S.judul + '</div>'
+      + '<table><tr><td class="c" style="width:45%;border-right:.6pt solid #000">Tanggal<br>Dikembalikan</td><td class="c" style="padding-top:2pt">Tgl.&nbsp;&nbsp;&nbsp;&nbsp;Bln.&nbsp;&nbsp;&nbsp;&nbsp;Thn.</td></tr></table></td>'
+      + '<td colspan="2" style="vertical-align:top;padding:0"><div style="display:flex;justify-content:space-between;padding:2pt 3pt"><div><b>PT. PLN (PERSERO) DISTRIBUSI BALI</b><br><b>AREA BALI SELATAN</b></div><div class="k" style="width:26%;display:flex;justify-content:space-between;align-self:flex-start"><span>6</span><span>10</span></div></div>'
+      + '<div style="display:flex;justify-content:space-between;align-items:center;padding:4pt 4pt 0 24%"><b style="font-size:' + (S.huruf + 4) + 'pt">' + (jenis === 'code3' ? 'BON PENGEMBALIAN BARANG' : 'BON PEMAKAIAN') + '</b><span class="no">No <b>' + nomorTampil + '</b></span></div></td></tr></table>'
+      // nama, alamat, kode
+      + '<table class="t" style="border-top:0"><colgroup><col style="width:' + w1 + '"><col style="width:' + pct((S.atas[1] - S.atas[0]) * 0.97) + '"><col></colgroup><tr>'
+      + '<td style="border-right:.6pt solid #000;height:34pt;vertical-align:middle"><div style="display:flex;align-items:center;gap:14pt;padding-left:10%"><span>Tanggal<br>Diterima</span>' + kotak(6) + '</div></td>'
+      + '<td style="vertical-align:top;padding:4pt 6pt;border-right:.6pt solid #000"><div style="display:flex"><span style="width:44pt">Nama</span><span style="width:10pt">:</span><b>' + esc(h.nama) + '</b></div>'
+      + '<div style="display:flex;margin-top:6pt"><span style="width:44pt">Alamat</span><span style="width:10pt">:</span><b>' + esc(h.alamat) + '</b></div></td>'
+      + '<td style="vertical-align:top;padding:4pt 6pt"><div style="display:flex;justify-content:space-between">' + (jenis === 'code7' ? '<span>Gudang :</span>' : '<span></span>') + '<span>Kode</span><span></span></div>'
+      + '<div style="display:flex;justify-content:space-between;align-items:flex-end;margin-top:6pt"><b>AREA BALI SELATAN</b><span style="display:flex;gap:6pt">' + kotak(4) + kotak(9) + '</span></div></td></tr></table>'
+      // tabel utama
+      + '<table class="grid"><colgroup>' + kolHtml + '</colgroup>' + kepala + body + '</table>'
+      // kaki
+      + '<table class="ft"><colgroup><col style="width:48%"><col></colgroup><tr>'
+      + '<td style="border-right:.6pt solid #000"><div style="display:flex;gap:28pt"><div>Banyaknya jenis barang :<div style="text-align:center;font-weight:700;margin-top:6pt;font-size:' + (S.huruf + 3) + 'pt">' + barisData.length + '</div></div>'
+      + '<div>Sifat pekerjaan<div class="k" style="margin-top:6pt">Pas.Baru/Perluasan/Perbaikan/Perub./Pemel./Pemb.</div></div></div>'
+      + (cetakDilingkar ? '<div style="margin-top:6pt;line-height:1.5">Kode &nbsp;:&nbsp; ' + lingkar(1) + ' Barang dikembalikan dalam keadaan Rusak<br><span style="margin-left:36pt">' + lingkar(2) + ' Barang dikembalikan dalam keadaan Masih dapat dipergunakan</span><br><span style="margin-left:36pt">' + lingkar(3) + ' Barang dikembalikan dalam keadaan Baru</span></div>' : '')
+      + '</td><td><div style="display:flex;justify-content:space-between;align-items:flex-start;gap:10pt"><div class="c k">No. Urut<br>SKI/SKP/PKP/PFK<br>' + kotak(5) + '</div><div class="c k">NO.P.K.<br>' + kotak(5) + '</div><div class="c k">Kode perkiraan<br>' + kotak(6) + '</div></div>'
+      + '<div style="margin-top:8pt" class="k">No. SPK &nbsp;&nbsp;&nbsp;<b></b><br>No. PK &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<b></b></div></td></tr></table>'
+      + '<table class="pj"><tr>' + pejabat + '</tr></table>'
+      + '</body></html>';
+  }
+
+  function cetak(jenis, hasil) {
+    const html = bangun(jenis, hasil); if (!html) return false;
+    const f = document.createElement('iframe');
+    f.setAttribute('aria-hidden', 'true'); f.style.cssText = 'position:fixed;right:0;bottom:0;width:0;height:0;border:0';
+    document.body.appendChild(f);
+    const d = f.contentWindow.document; d.open(); d.write(html); d.close();
+    const jalan = () => { try { f.contentWindow.focus(); f.contentWindow.print(); } catch (e) { /* dialog dibatalkan */ } setTimeout(() => { try { f.remove(); } catch (e) { /* abaikan */ } }, 60000); };
+    setTimeout(jalan, 250);
+    return true;
+  }
+  return { bangun, cetak };
+})();
+</script>

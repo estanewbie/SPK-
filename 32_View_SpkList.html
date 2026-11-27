@@ -1,0 +1,238 @@
+<script type="text/babel">
+// Menu: Ruangan SPK (spk_list). Pola sama dengan Antrean PK: tab status, baris bisa diklik, kolom terpisah,
+// status berlatar terang, terbaru di atas. Logika status, kapasitas, dan hak akses sama dengan versi lama.
+window.Views.SpkList = (ctx) => <SpkListPage ctx={ctx} />;
+
+function SpkListPage({ ctx }) {
+  const { useState, useEffect } = React;
+  const {
+    activeSpkFilter, currentUser, endDate, formatRupiah, getNominalPKAkurat, handleDeleteSpk, handleRemovePkFromSpk,
+    openEditSpk, openNewSpk, pks, safeSpkData, searchSpk, setActiveSpkFilter, setCurrentView, setEndDate,
+    setIsSpkPrintOpen, setSearchSpk, setSelectedPksCetak, setSelectedSpk, setSpkDetailStep, setSpkToPrint,
+    setStartDate, spks, startDate, setSpks, showToast
+  } = ctx;
+  const runSrv = (fn, ...args) => new Promise((resolve, reject) => { google.script.run.withSuccessHandler(resolve).withFailureHandler(reject)[fn](...args); });
+  // rekomendasi SPK dari tabel log harian yang belum ada di Ruangan SPK (diajukan, lalu disetujui Admin SPK)
+  const canSug = ['Super Admin', 'Admin PK', 'Admin SPK'].includes(currentUser?.role);
+  const nk = (s) => String(s == null ? '' : s).toLowerCase().replace(/[^a-z0-9]/g, '');
+  const [sug, setSug] = useState(null);       // null = belum dimuat
+  const [sugErr, setSugErr] = useState('');
+  const [sugOpen, setSugOpen] = useState(true);
+  const loadSug = () => { setSugErr(''); runSrv('logSpkSaran', currentUser?.role).then((r) => { if (r.status === 'success') setSug(r.list || []); else { setSug([]); setSugErr(r.message); } }).catch((e) => { setSug([]); setSugErr(String((e && e.message) || e)); }); };
+  useEffect(() => { if (canSug && typeof google !== 'undefined') loadSug(); }, []);
+  // SPK dari tabel log langsung tampil sebagai "Menunggu persetujuan" (belum ditulis ke Data_SPK sampai disetujui)
+  const sugShown = (sug || []).filter((x) => !(spks || []).some((s) => nk(s.id) === nk(x.id)));
+  const virtualSpks = canSug ? sugShown.map((x) => ({ id: x.id, nama: x.nama || x.id, pos_anggaran: '', nominal_total: Number(x.nominal) || 0, nominal_terpakai: 0, status: 'Menunggu persetujuan', tanggal: x.tgl || '', exp: '', vendor: 'PT. NANDA NIRWANA ELEKTRIK', ulp_wilayah: x.ulp || '', _virtual: true })) : [];
+  const putuskan = (x, setuju) => {
+    if (x.spk && x.spk._virtual) {
+      const it = (sug || []).find((s) => nk(s.id) === nk(x.id));
+      const call = setuju ? runSrv('logSetujuiUsulan', currentUser?.role, it) : runSrv('logTolakUsulan', currentUser?.role, x.id);
+      return call.then((r) => {
+        if (r.status !== 'success') return showToast('Gagal', r.message, 'error');
+        if (setuju) setSpks([{ ...x.spk, _virtual: undefined, status: 'Aktif' }, ...(spks || [])]); else setSug((sug || []).filter((s) => nk(s.id) !== nk(x.id)));
+        showToast(setuju ? 'SPK disetujui' : 'Usulan ditolak', setuju ? x.id + ' masuk ke Ruangan SPK.' : x.id + ' tidak akan muncul lagi.', 'success');
+      }).catch((e) => showToast('Gagal', String((e && e.message) || e), 'error'));
+    }
+    runSrv('logSetujuiSpk', currentUser?.role, x.id, setuju).then((r) => {
+      if (r.status !== 'success') return showToast('Gagal', r.message, 'error');
+      setSpks((spks || []).filter((s) => setuju || String(s.id) !== String(x.id)).map((s) => (setuju && String(s.id) === String(x.id)) ? { ...s, status: 'Aktif' } : s));
+      showToast(setuju ? 'SPK disetujui' : 'Usulan ditolak', setuju ? x.id + ' sekarang berstatus berjalan.' : x.id + ' dihapus dari daftar.', 'success');
+    }).catch((e) => showToast('Gagal', String((e && e.message) || e), 'error'));
+  };
+
+  const PAGE = 12;
+  const GRID = '110px minmax(200px,1.6fr) 96px minmax(110px,.9fr) 150px 220px 112px 96px';
+  const [page, setPage] = useState(1);
+  const [showFilter, setShowFilter] = useState(false);
+  const [open, setOpen] = useState({});
+
+  const role = currentUser?.role;
+  const canEdit = ['Super Admin', 'Admin SPK'].includes(role);
+  const rp = (n) => 'Rp ' + new Intl.NumberFormat('id-ID').format(Math.round(n || 0));
+  const C = { blue: '#3A62B0', purple: '#7E57C2', ink: '#2B2F3A', mute: '#7A8190', line: '#E6E9F2' };
+  const CHIP = { ok: ['#E6F5EC', '#2D7A4E'], info: ['#E9EEFA', '#3A62B0'], warn: ['#FFF3D6', '#94620F'], bad: ['#FCE8EA', '#AE4850'], mute: ['#EEF0F5', '#6B7180'] };
+  const VEN = ['#3A62B0', '#2F8F9D', '#7E57C2', '#B45F8A', '#5E8B3E', '#B7791F'];
+  const venCol = (s) => { let h = 0; String(s || '').split('').forEach(c => { h = (h * 31 + c.charCodeAt(0)) >>> 0; }); return VEN[h % VEN.length]; };
+
+  const parseTgl = (s) => {
+    s = String(s || '').trim(); let m;
+    if ((m = s.match(/^(\d{4})-(\d{1,2})-(\d{1,2})/))) return new Date(+m[1], +m[2] - 1, +m[3]);
+    if ((m = s.match(/^(\d{1,2})[\/.-](\d{1,2})[\/.-](\d{4})/))) return new Date(+m[3], +m[2] - 1, +m[1]);
+    const d = new Date(s); return isNaN(d) ? null : d;
+  };
+  const today = new Date(); today.setHours(0, 0, 0, 0);
+
+  // satu SPK: semua turunan (nilai, status, sisa hari) dihitung di sini, rumusnya sama dengan versi lama
+  const info = (spk) => {
+    const id = spk.id || spk.ID_SPK || '-';
+    const total = Number(spk.nominal_total || spk.Nominal_Total) || 0;
+    const linked = (pks || []).filter(pk => String(pk.spk_id).trim() === String(id).trim());
+    const used = linked.reduce((s, pk) => s + (Number(getNominalPKAkurat(pk)) || 0), 0);
+    const pct = total ? Math.round(used / total * 100) : 0;
+    const tglBuka = spk.tanggal || spk.Tgl_Terbit || '';
+    const tglExp = spk.exp || spk.Tgl_Berakhir || '';
+    const e = parseTgl(tglExp);
+    const diff = e ? Math.ceil((e - today) / 86400000) : 999;
+    let status = String(spk.status || spk.Status || 'Aktif').toUpperCase();
+    let key = 'progress';
+    // usulan dari tabel log harian: tampil di sini, tapi harus disetujui Admin SPK dulu
+    if (status.indexOf('MENUNGGU') === 0) key = 'usulan';
+    else if (pct >= 100) { status = 'COMPLETED'; key = 'selesai'; }
+    else if (diff < 0) { status = 'TUNDA'; key = 'tunda'; }
+    else if (status === 'TUNDA' || status === 'PENDING') { status = 'TUNDA'; key = 'tunda'; }
+    const done = key === 'selesai', tunda = key === 'tunda';
+    const kritis = diff >= 0 && diff <= 3 && !done && !tunda;
+    const waspada = diff > 3 && diff <= 14 && !done && !tunda;
+    const label = { progress: 'Berjalan', selesai: 'Selesai', tunda: diff < 0 ? 'Kedaluwarsa' : 'Tunda', usulan: 'Menunggu persetujuan' }[key];
+    const tone = { progress: 'info', selesai: 'ok', tunda: 'bad', usulan: 'warn' }[key];
+    return {
+      spk, id, total, linked, used, pct, tglBuka, tglExp, diff, key, label, tone, done, tunda, kritis, waspada,
+      sisa: total > 0 ? total - used : 0, nama: spk.nama || spk.Nama_SPK || 'Tanpa uraian',
+      vendor: spk.vendor || spk.Nama_Vendor || '', ulp: spk.ulp_wilayah || spk.ULP_Wilayah || '', pos: spk.pos_anggaran || spk.Pos_Anggaran || ''
+    };
+  };
+
+  const all = [...(safeSpkData || spks || []), ...virtualSpks].map(info);
+  const expiring = (x) => x.diff >= 0 && x.diff <= 14 && !x.done && !x.tunda;
+  const TABS = [
+    ['ALL', 'Semua', all.length, C.ink],
+    ['USULAN', 'Menunggu persetujuan', all.filter(x => x.key === 'usulan').length, '#94620F'],
+    ['IN_PROGRESS', 'Berjalan', all.filter(x => x.key === 'progress').length, C.blue],
+    ['PENDING', 'Tunda', all.filter(x => x.key === 'tunda').length, '#AE4850'],
+    ['EXPIRING', 'Segera berakhir', all.filter(expiring).length, '#94620F']
+  ];
+  const f = activeSpkFilter || 'ALL';
+  let list = all.filter(x => f === 'ALL' || (f === 'USULAN' && x.key === 'usulan') || (f === 'IN_PROGRESS' && x.key === 'progress') || (f === 'PENDING' && x.key === 'tunda') || (f === 'EXPIRING' && expiring(x)));
+  // terbaru di atas: tanggal buka terakhir dulu
+  const tb = (x) => { const d = parseTgl(x.tglBuka); return d ? d.getTime() : 0; };
+  list = [...list].sort((a, b) => tb(b) - tb(a) || String(b.id).localeCompare(String(a.id)));
+  const totalPages = Math.max(1, Math.ceil(list.length / PAGE));
+  const cur = Math.min(page, totalPages);
+  const rows = list.slice((cur - 1) * PAGE, cur * PAGE);
+  useEffect(() => { setPage(1); }, [f, searchSpk, startDate, endDate]);
+
+  const sumTotal = all.reduce((a, x) => a + x.total, 0), sumUsed = all.reduce((a, x) => a + x.used, 0);
+  const barCol = (pct) => pct > 100 ? '#C25560' : pct >= 100 ? '#3C8A5E' : pct >= 75 ? C.purple : C.blue;
+  const expTxt = (x) => x.done ? ['', C.mute] : x.diff < 0 ? ['kedaluwarsa', '#AE4850'] : x.kritis ? ['H-' + x.diff, '#AE4850'] : x.waspada ? ['H-' + x.diff, '#94620F'] : ['', C.mute];
+
+  const openDetail = (spk) => {
+    if (spk && spk._virtual) return; // usulan belum jadi SPK, setujui dulu
+    setSelectedSpk(spk);
+    if (typeof setSpkDetailStep === 'function') setSpkDetailStep('checklist');
+    if (typeof setSelectedPksCetak === 'function') setSelectedPksCetak([]);
+    setCurrentView('spk_detail');
+  };
+
+  return (
+    <div className="space-y-3 pt-1">
+      <div className="flex flex-wrap items-center justify-between gap-3">
+        <div className="flex items-baseline gap-3">
+          <h2 className="text-[22px] leading-8 font-medium" style={{ color: C.ink }}>Ruangan SPK</h2>
+          <span style={{ color: C.mute }}>{all.length} kontrak · terpakai {rp(sumUsed)} dari {rp(sumTotal)}</span>
+        </div>
+        <div className="flex items-center gap-2">
+          <input type="text" value={searchSpk} onChange={(e) => setSearchSpk(e.target.value)} placeholder="Cari nomor, uraian kontrak, atau PK di dalamnya" className="w-[320px] max-w-full h-9 px-3 rounded-[10px] border bg-white outline-none focus:border-[#3A62B0]" style={{ borderColor: '#D9DDE9' }} />
+          <button onClick={() => setShowFilter(!showFilter)} className="h-9 px-3 rounded-[10px] border bg-white hover:border-[#9FB0D2]" style={{ borderColor: '#D9DDE9', color: (showFilter || startDate || endDate) ? C.blue : C.ink }}>Filter{(startDate || endDate) ? ' •' : ''}</button>
+          {canEdit && <button onClick={openNewSpk} className="btn-grad h-9 px-4 rounded-[10px] font-medium">+ Kontrak baru</button>}
+        </div>
+      </div>
+
+      {showFilter && (
+        <section className="bg-white border rounded-xl px-4 py-2.5 flex flex-wrap items-end gap-x-6 gap-y-2" style={{ borderColor: C.line }}>
+          <label className="block"><span className="block text-[11px] mb-0.5" style={{ color: C.mute }}>Buka dari tanggal</span>
+            <input type="date" value={startDate} onChange={e => setStartDate(e.target.value)} className="h-8 px-2 border rounded-lg bg-white outline-none focus:border-[#3A62B0]" style={{ borderColor: '#D9DDE9' }} /></label>
+          <label className="block"><span className="block text-[11px] mb-0.5" style={{ color: C.mute }}>Berakhir sampai tanggal</span>
+            <input type="date" value={endDate} onChange={e => setEndDate(e.target.value)} className="h-8 px-2 border rounded-lg bg-white outline-none focus:border-[#3A62B0]" style={{ borderColor: '#D9DDE9' }} /></label>
+          <button onClick={() => { setStartDate(''); setEndDate(''); }} className="h-8 px-3 rounded-lg border bg-white" style={{ borderColor: '#D9DDE9' }}>Atur ulang</button>
+        </section>
+      )}
+
+      {canSug && sugErr && <div className="px-4 py-2 rounded-xl text-[11px]" style={{ background: '#FFF3D6', color: '#94620F' }}>Rekomendasi dari tabel log belum bisa dimuat: {sugErr}</div>}
+      <nav className="flex flex-wrap gap-x-7 border-b" style={{ borderColor: C.line }}>
+        {TABS.map(([k, label, n, col]) => (
+          <button key={k} onClick={() => setActiveSpkFilter(k)} className="h-9 -mb-px border-b-2 flex items-center gap-1.5"
+            style={{ borderColor: f === k ? C.blue : 'transparent', color: f === k ? C.ink : col, fontWeight: f === k ? 500 : 400 }}>
+            {label}<span className="num" style={{ color: f === k ? C.blue : col, opacity: f === k ? 1 : .8 }}>{n}</span>
+          </button>))}
+      </nav>
+
+      <section className="bg-white border rounded-[14px] overflow-hidden" style={{ borderColor: C.line }}>
+        <div className="grid items-center gap-4 px-5 h-9 text-[11px]" style={{ gridTemplateColumns: GRID, background: '#F4F6FB', color: C.mute }}>
+          <span>Nomor</span><span>Uraian kontrak</span><span>Lokasi</span><span>Vendor</span><span>Masa berlaku</span><span>Kapasitas</span><span>Status</span><span></span>
+        </div>
+
+        {rows.map((x) => {
+          const ch = CHIP[x.tone], et = expTxt(x), isOpen = !!open[x.id];
+          return (
+            <React.Fragment key={x.id}>
+              <div onClick={() => openDetail(x.spk)} role="button" tabIndex={0} onKeyDown={(e) => { if (e.key === 'Enter') openDetail(x.spk); }}
+                title="Klik untuk membuka detail SPK"
+                className="grid items-center gap-4 px-5 py-2.5 border-t cursor-pointer border-l-[3px] border-l-transparent hover:bg-[#F4F2FB] hover:border-l-[#7E57C2] transition-colors"
+                style={{ gridTemplateColumns: GRID, borderTopColor: '#EEF0F7' }}>
+                <div className="min-w-0">
+                  <div className="font-medium truncate" style={{ color: C.blue }} title={x.id}>{x.id}</div>
+                  {x.pos && <div className="text-[11px] truncate" style={{ color: '#2F8F9D' }}>{x.pos}</div>}
+                </div>
+                <div className="min-w-0">
+                  <div className="text-[14px] leading-5 font-medium truncate" style={{ color: C.ink }} title={x.nama}>{x.nama}</div>
+                  {x.linked.length > 0
+                    ? <button onClick={(e) => { e.stopPropagation(); setOpen({ ...open, [x.id]: !isOpen }); }} className="text-[11px] hover:underline" style={{ color: C.purple }}>{isOpen ? 'Sembunyikan' : 'Lihat'} {x.linked.length} PK di dalamnya</button>
+                    : <span className="text-[11px]" style={{ color: '#A3A9B8' }}>Belum ada PK</span>}
+                </div>
+                <span className="truncate" style={{ color: '#5B6275' }} title={x.ulp}>{x.ulp}</span>
+                <span className="truncate font-medium" style={{ color: venCol(x.vendor) }} title={x.vendor}>{x.vendor || <span style={{ color: '#A3A9B8' }}>belum ditunjuk</span>}</span>
+                <div className="leading-5">
+                  <div><span style={{ color: C.mute }}>Buka </span><span className="num font-medium" style={{ color: '#2F8F9D' }}>{x.tglBuka || '-'}</span></div>
+                  <div><span style={{ color: C.mute }}>Exp </span><span className="num font-medium" style={{ color: et[1] === C.mute ? C.ink : et[1] }}>{x.tglExp || '-'}</span>{et[0] && <span className="ml-1.5 text-[11px]" style={{ color: et[1] }}>{et[0]}</span>}</div>
+                </div>
+                <div>
+                  <div className="flex justify-between"><span className="num font-medium" style={{ color: barCol(x.pct) }}>{rp(x.used)}</span><span className="num" style={{ color: barCol(x.pct) }}>{x.pct}%</span></div>
+                  <div className="h-[6px] rounded-full my-1 overflow-hidden" style={{ background: '#E9ECF4' }}><div className="h-full rounded-full" style={{ width: Math.min(x.pct, 100) + '%', background: barCol(x.pct) }}></div></div>
+                  <div className="flex justify-between text-[11px]" style={{ color: C.mute }}><span>Total {rp(x.total)}</span><span>Sisa <span style={{ color: '#2D7A4E' }}>{rp(x.sisa)}</span></span></div>
+                </div>
+                <span className="inline-flex items-center gap-1.5 h-6 px-2.5 rounded-full w-fit" style={{ background: ch[0], color: ch[1] }}>
+                  <span className="w-[6px] h-[6px] rounded-full" style={{ background: ch[1] }}></span>{x.label}
+                </span>
+                {x.key === 'usulan' ? (
+                  <div className="flex items-center justify-end gap-1" onClick={(e) => e.stopPropagation()}>
+                    {canEdit ? <>
+                      <button onClick={() => putuskan(x, true)} className="btn-grad h-7 px-2.5 rounded-md font-medium">Setujui</button>
+                      <button onClick={() => putuskan(x, false)} title="Tolak dan hapus usulan" className="w-7 h-7 rounded-md hover:bg-[#FBEFEE]" style={{ color: '#B5524F' }}><i className="fa-solid fa-xmark text-[11px]"></i></button>
+                    </> : <span className="text-[11px]" style={{ color: C.mute }}>menunggu Admin SPK</span>}
+                  </div>
+                ) : (
+                <div className="flex items-center justify-end gap-0.5" onClick={(e) => e.stopPropagation()}>
+                  <button onClick={() => { setSpkToPrint(x.spk); setIsSpkPrintOpen(true); }} title="Pratinjau dan cetak SPK" className="w-7 h-7 rounded-md hover:bg-[#E9EEFA]" style={{ color: C.mute }}><i className="fa-solid fa-print text-[11px]"></i></button>
+                  {canEdit && <button onClick={() => openEditSpk(x.spk)} title="Ubah kontrak" className="w-7 h-7 rounded-md hover:bg-[#E9EEFA]" style={{ color: C.mute }}><i className="fa-solid fa-pen text-[11px]"></i></button>}
+                  {canEdit && <button onClick={() => handleDeleteSpk(x.id)} title="Hapus kontrak" className="w-7 h-7 rounded-md hover:bg-[#FBEFEE]" style={{ color: '#B5524F' }}><i className="fa-solid fa-trash-can text-[11px]"></i></button>}
+                </div>)}
+              </div>
+
+              {isOpen && (
+                <div className="px-5 pb-3 pt-1 border-t" style={{ borderTopColor: '#EEF0F7', background: '#FAFBFE' }}>
+                  <div className="grid gap-x-6" style={{ gridTemplateColumns: 'repeat(auto-fill, minmax(340px, 1fr))' }}>
+                    {x.linked.map((pk) => (
+                      <div key={pk.id} className="flex items-center gap-3 py-1.5 border-b" style={{ borderColor: '#EEF0F7' }}>
+                        <span className="text-[11px] w-[96px] shrink-0" style={{ color: C.blue }}>{pk.id}</span>
+                        <span className="flex-1 truncate" style={{ color: C.ink }} title={pk.nama}>{pk.nama}</span>
+                        <span className="num shrink-0" style={{ color: C.mute }}>{rp(getNominalPKAkurat(pk))}</span>
+                        {['Super Admin', 'Admin SPK'].includes(role) && <button onClick={() => handleRemovePkFromSpk(pk, x.id)} title="Keluarkan PK dari kontrak ini" className="text-[11px] hover:underline" style={{ color: '#B5524F' }}>Keluarkan</button>}
+                      </div>))}
+                  </div>
+                </div>
+              )}
+            </React.Fragment>
+          );
+        })}
+        {list.length === 0 && <div className="py-12 text-center border-t" style={{ borderColor: C.line, color: C.mute }}>{all.length === 0 ? 'Belum ada kontrak. Tarik data atau sinkronkan dengan server.' : 'Tidak ada kontrak pada pilihan ini.'}</div>}
+      </section>
+
+      <div className="flex justify-between items-center">
+        <button onClick={() => setPage(Math.max(cur - 1, 1))} disabled={cur === 1} className="h-8 px-3.5 rounded-lg border bg-white disabled:opacity-40 disabled:cursor-not-allowed" style={{ borderColor: '#D9DDE9' }}>Sebelumnya</button>
+        <span style={{ color: C.mute }}>Halaman {cur} dari {totalPages} · {list.length} kontrak</span>
+        <button onClick={() => setPage(Math.min(cur + 1, totalPages))} disabled={cur === totalPages} className="h-8 px-3.5 rounded-lg border bg-white disabled:opacity-40 disabled:cursor-not-allowed" style={{ borderColor: '#D9DDE9' }}>Berikutnya</button>
+      </div>
+    </div>
+  );
+}
+</script>

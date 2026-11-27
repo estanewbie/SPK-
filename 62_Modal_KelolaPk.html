@@ -1,0 +1,504 @@
+<script type="text/babel">
+// Modal: Kelola Berkas PK/LH (verifikasi & alokasi)
+window.Modals.KelolaPk = (ctx) => {
+  const {
+    allocatingSpkId, checkedLhs, currentUser, executeMoveLhs, filterLhNama, filterLhPengawas,
+    filterLhTanggal, filterLhTeam, formatRupiah, handleDeleteLh, isLhInputOpen, isLhPrintOpen,
+    managePkLhs, managePkOpen, masterDatabase, openEditLh, openLhInput, openPrintPreview,
+    pks, processAllocation, setAllocatingSpkId, setCheckedLhs, setFilterLhNama, setFilterLhPengawas,
+    setFilterLhTanggal, setFilterLhTeam, setIsRabPrintOpen, setManagePkOpen, setShowConfirmMove, setTargetPkId,
+    showConfirmMove, showToast, spks, targetPkId, toggleLhCheckbox, triggerMoveLhs, lhLimit, setLhLimit
+  } = ctx;
+  return (
+managePkOpen && !isLhInputOpen && !isLhPrintOpen && (() => {
+              
+              // ==========================================================
+              // 1. RUMUS & LOGIKA (DISIMPAN DI SINI SEBELUM TAMPILAN)
+              // ==========================================================
+              
+              // Filter LH (Bawaan Asli )
+              const filteredLhs = managePkLhs.filter(lh => {
+                  const matchNama = !String(filterLhNama || '').trim() || !!window.lhMatch(lh, filterLhNama);
+                  const matchTeam = (lh.data?.team_lh || '').toLowerCase().includes(filterLhTeam.toLowerCase());
+                  const matchPengawas = filterLhPengawas === '' || 
+                    String(lh.data?.pengawas_lh || lh.pengawas || '').toLowerCase().includes(filterLhPengawas.toLowerCase());
+                  const matchTanggal = filterLhTanggal ? (lh.data?.tanggal_lh === filterLhTanggal || lh.tanggal === filterLhTanggal) : true;
+                  
+                  
+                  return matchNama && matchTeam && matchTanggal && matchPengawas; 
+              });
+
+              const checkedSet = new Set(checkedLhs);
+              // Logika Centang Semua
+              const isAllChecked = filteredLhs.length > 0 && checkedLhs.length === filteredLhs.length;
+              const handleCheckAll = (e) => {
+                  if (e.target.checked) {
+                      setCheckedLhs(filteredLhs.map(lh => lh.id));
+                  } else {
+                      setCheckedLhs([]);
+                  }
+              };
+
+              // Logika Validasi SPK
+              // Logika Validasi SPK (ANTI-JEBOL & ANTI-KUTU BUKU)
+              const handleValidasiPindahSPK = () => {
+                  // 1. Cek Hak Akses Role
+                  if (currentUser?.role !== 'Admin SPK' && currentUser?.role !== 'Super Admin') {
+                      showToast('Akses Ditolak', 'Hanya Admin SPK / Super Admin yang berhak memindahkan ke SPK.', 'error');
+                      return;
+                  }
+
+                  // 2. Cek apakah Ruangan SPK sudah dipilih
+                  if (!allocatingSpkId) {
+                      showToast('Pilih Ruangan', 'Silakan pilih ruangan SPK terlebih dahulu.', 'error');
+                      return;
+                  }
+                  
+                  // 🔥 3. RADAR SAPU JAGAT: CEK SELURUH LH DI PK INI 🔥
+                  // Kalau ada 1 saja yang cacat, SELURUH PK DITAHAN!
+                  const lhBermasalah = [];
+                  managePkLhs.forEach(lh => {
+                      const d = lh.data || {};
+                      const isBypass = d.is_bypass === true || lh.is_bypass === true || managePkOpen.is_bypassed === true || managePkOpen.bypass === true;
+                      const isC3Req = d.butuh_c3 === true;
+                      const isC7Req = d.butuh_c7 === true;
+                      
+                      const isC3Uploaded = lh.code3 === true || d.code3 === true || d.status_c3 === 'OK' || d.file_c3;
+                      const isC7Uploaded = lh.code7 === true || d.code7 === true || d.status_c7 === 'OK' || d.file_c7;
+                      const isAgoUploaded = lh.ago === true || d.ago === true || d.status_ago === 'OK' || d.file_ago;
+
+                      if (!isBypass) {
+                          if (isC3Req && !isC3Uploaded) lhBermasalah.push(`[C3 Kurang] ${d.nama_pekerjaan_lh || lh.uraian || lh.id}`);
+                          if (isC7Req && !isC7Uploaded) lhBermasalah.push(`[C7 Kurang] ${d.nama_pekerjaan_lh || lh.uraian || lh.id}`);
+                          if ((isC3Req || isC7Req) && !isAgoUploaded) lhBermasalah.push(`[AGO Kurang] ${d.nama_pekerjaan_lh || lh.uraian || lh.id}`);
+                      }
+                  });
+
+                  // Jika Radar mendeteksi ada yang kurang, BLOKIR TOTAL!
+                  if (lhBermasalah.length > 0) {
+                      Swal.fire({
+                          icon: 'error',
+                          title: 'ALOKASI PK DIBLOKIR!',
+                          html: `Sistem mendeteksi ada dokumen yang <b>belum tuntas di dalam PK ini</b> (Meskipun tidak dicentang):<br/><br/>
+                                 <div style="text-align:left; font-size:12px; background:#fff1f2; padding:10px; border-radius:8px; border:1px solid #fecdd3; max-height: 150px; overflow-y:auto; color:#be123c; font-weight:bold;">
+                                 ${lhBermasalah.map(nama => `❌ ${nama}`).join("<br/>")}
+                                 </div><br/><span style="font-size:12px;">Selesaikan semua LH di PK ini terlebih dahulu agar PK aman dialokasikan ke SPK.</span>`,
+                          confirmButtonColor: '#e11d48'
+                      });
+                      return;
+                  }
+
+                  // 4. Cek apakah ada LH yang dicentang untuk dipindah
+                  if (checkedLhs.length === 0) {
+                      showToast('Pilih LH', 'Centang minimal 1 LH yang akan dipindah ke SPK.', 'error');
+                      return;
+                  }
+
+                  // ✅ 5. JIKA SEMUA LH DALAM PK AMAN 100%, JALANKAN PEMINDAHAN ASLI
+                  processAllocation(); 
+              };
+
+              // ==========================================================
+              // 2. TAMPILAN LAYAR (UI) DIMULAI DARI SINI
+              // ==========================================================
+              return (
+                <div className="fixed inset-0 z-[50] flex items-center justify-center p-4 bg-slate-900/40 backdrop-blur-sm">
+                    <div className="bg-white rounded-2xl shadow-2xl w-[99vw] max-w-[1900px] h-[97vh] overflow-hidden border border-slate-100 flex flex-col">
+                        
+                        <div className="px-4 py-2 border-b border-[#E6E9F2] flex justify-between items-center bg-[#F9FAFD]">
+                            <div>
+                                <h3 className="font-medium text-[#2B2F3A] text-[15px] leading-5"><i className="fa-solid fa-folder-open text-[#3A62B0] mr-2 text-[13px]"></i>Kelola berkas pekerjaan</h3>
+                                <p className="text-[11px] text-[#7A8190] leading-4">ID: <span className="font-semibold text-slate-700">{managePkOpen.id}</span> | {managePkOpen.nama}</p>
+                            </div>
+                            <button onClick={() => setManagePkOpen(null)} className="w-7 h-7 rounded-full border border-[#D9DDE9] hover:bg-rose-50 hover:text-rose-600 transition-colors"><i className="fa-solid fa-xmark"></i></button>
+                        </div>
+
+                        {/* BUNGKUSAN FLEX DISET RELATIVE AGAR STICKY BERFUNGSI */}
+                        <div className="flex-1 overflow-y-auto p-3 bg-[#F7F8FC] custom-scrollbar grid grid-cols-1 lg:grid-cols-[minmax(0,1fr)_264px] gap-3 relative items-start">
+                            
+                            {/* ========================================================== */}
+                            {/* RUANGAN KIRI: Dokumen LH */}
+                            {/* ========================================================== */}
+                            <div className="flex flex-col h-full w-full relative bg-white rounded-xl border border-[#E6E9F2] overflow-hidden">
+                                
+                                {/* 🔥 HEADER FILTER DIBUAT STICKY DI ATAS 🔥 */}
+                                <div className="sticky top-0 z-20 bg-white py-2 px-4 border-b border-[#EEF0F7] flex justify-between items-center shrink-0 flex-wrap gap-2">
+                                    <div className="flex items-center gap-3">
+                                        <h4 className="text-[13px] font-bold text-slate-800 uppercase tracking-wider hidden xl:block">(LH)</h4>
+                                        
+                                        {/* TOMBOL CENTANG SEMUA */}
+                                        <label className="flex items-center gap-2 bg-slate-50 px-2.5 py-1.5 rounded-lg border border-slate-200 cursor-pointer hover:bg-slate-100 transition-all">
+                                            <input 
+                                                type="checkbox" 
+                                                checked={isAllChecked}
+                                                onChange={handleCheckAll}
+                                                className="w-4 h-4 rounded border-slate-300 text-indigo-600 focus:ring-indigo-500 cursor-pointer"
+                                            />
+                                            <span className="text-[11px] font-bold text-slate-700 uppercase">All</span>
+                                        </label>
+                                    </div>
+                                    
+                                    <div className="flex items-center gap-2 flex-1 xl:flex-none justify-end flex-wrap">
+                                    {/* KELOMPOK FILTER ASLI */}
+                                      <div className="flex items-center gap-2 bg-slate-50 p-1.5 rounded-lg border border-slate-200 shadow-sm">
+                                      </div>
+                                        {/* KELOMPOK FILTER ASLI*/}
+                                        <div className="flex items-center gap-2 bg-slate-50 p-1.5 rounded-lg border border-slate-200 shadow-sm">
+                                            
+                                            <input type="date" value={filterLhTanggal} onChange={(e) => setFilterLhTanggal(e.target.value)} className="px-2 py-1 text-[11px] bg-white border border-slate-200 rounded focus:border-indigo-400 outline-none text-slate-600 font-medium" title="Filter Tanggal" />
+                                            <LazyInput type="text" placeholder="Cari Pengawas..." value={filterLhPengawas} onChange={setFilterLhPengawas} className="w-28 px-2 py-1 text-[11px] bg-white border border-slate-200 rounded focus:border-indigo-400 outline-none font-medium" />
+                                            <LazyInput type="text" placeholder="Cari pekerjaan, lokasi, material, ID..." value={filterLhNama} onChange={setFilterLhNama} className="w-56 px-2 py-1 text-[11px] bg-white border border-slate-200 rounded focus:border-indigo-400 outline-none font-medium" />
+                                            <LazyInput type="text" placeholder="Cari Team..." value={filterLhTeam} onChange={setFilterLhTeam} className="w-24 px-2 py-1 text-[11px] bg-white border border-slate-200 rounded focus:border-indigo-400 outline-none font-medium" />
+                                        </div>
+
+                                        {(currentUser?.role === 'Admin PK' || currentUser?.role === 'Super Admin'|| currentUser?.role === 'Admin Audit') && (
+                                            <button onClick={openLhInput} className="text-[11px] font-semibold bg-indigo-50 text-indigo-600 hover:bg-indigo-600 hover:text-white border border-indigo-100 px-3 py-1.5 rounded transition-colors shadow-sm">
+                                                <i className="fa-solid fa-plus mr-1"></i> Buat LH Baru
+                                            </button>
+                                        )}
+                                        {['Super Admin', 'Admin PK', 'Admin SPK'].includes(currentUser?.role) && (
+                                            <button onClick={() => {
+                                                if (managePkLhs.length === 0) { showToast('Kosong', 'Belum ada LH untuk dibuatkan RAB.', 'error'); return; }
+                                                setIsRabPrintOpen(true);
+                                            }} className="text-[11px] font-semibold bg-emerald-50 text-emerald-600 hover:bg-emerald-600 hover:text-white border border-emerald-100 px-3 py-1.5 rounded transition-colors shadow-sm">
+                                                <i className="fa-solid fa-file-invoice-dollar mr-1"></i> RAB PK
+                                            </button>
+                                        )}
+                                    </div>
+                                </div>
+
+                                {/* AREA LIST LH */}
+                                <div className="space-y-2 overflow-y-auto custom-scrollbar flex-1 p-3 pb-6">
+                                
+                                    {managePkLhs.length === 0 && <div className="text-center py-8 bg-slate-50/50 rounded-xl border border-dashed border-slate-200"><p className="text-[12px] text-slate-500">Belum ada LH.</p></div>}
+                                    {managePkLhs.length > 0 && filteredLhs.length === 0 && <div className="text-center py-8 bg-rose-50/50 rounded-xl border border-dashed border-rose-200"><p className="text-[12px] text-rose-500 font-bold"><i className="fa-solid fa-face-frown-open mr-2"></i>Tidak ada LH yang cocok dengan filter pencarian.</p></div>}
+                                  
+                                   {(() => {
+                                        const lhBermasalah = managePkLhs.filter(l => {
+                                            const catatan = l.audit_note || l.Audit_Note || l['Audit Note'] || l.auditNote || (l.data && l.data.audit_note);
+                                            return !!(catatan && String(catatan).trim() !== '');
+                                        });
+                                        
+                                        if (lhBermasalah.length > 0) {
+                                            return (
+                                                <div className="mb-4 bg-gradient-to-r from-purple-50 to-white border border-purple-300 shadow-sm rounded-xl p-3 flex items-start gap-3 relative overflow-hidden">
+                                                    <div className="absolute left-0 top-0 bottom-0 w-1.5 bg-purple-500"></div>
+                                                    
+                                                    <div className="w-8 h-8 rounded-full bg-purple-100 text-purple-600 flex items-center justify-center shrink-0 shadow-sm mt-0.5 ml-1">
+                                                        <i className="fa-solid fa-triangle-exclamation animate-pulse text-[15px]"></i>
+                                                    </div>
+                                                    <div className="flex-1">
+                                                        <div className="text-[12px] font-black text-purple-800 uppercase tracking-wide flex items-center justify-between">
+                                                            <span>Peringatan: {lhBermasalah.length} LH Terkena Audit!</span>
+                                                        </div>
+                                                        <div className="text-[10px] text-purple-600 font-medium mt-0.5 mb-2.5">
+                                                            Pindahkan LH ini ke daftar terpisah atau perbaiki catatan di bawah sebelum menarik PK ke SPK.
+                                                        </div>
+                                                        <div className="space-y-1.5 max-h-[150px] overflow-y-auto pr-2 custom-scrollbar">
+                                                            {lhBermasalah.map((errLh, idx) => {
+                                                                const textCatatan = errLh.audit_note || errLh.Audit_Note || errLh['Audit Note'] || errLh.auditNote || (errLh.data && errLh.data.audit_note);
+                                                                return (
+                                                                    <div key={idx} className="bg-white px-2.5 py-2 rounded-lg border border-purple-100 shadow-sm flex flex-col gap-1 hover:border-purple-300 transition-colors">
+                                                                        <div className="flex items-center justify-between">
+                                                                            <span className="font-bold text-slate-700 bg-slate-100 px-1.5 py-0.5 rounded text-[10px] border border-slate-200 inline-flex items-center gap-1">
+                                                                                <i className="fa-solid fa-file-pdf text-rose-400"></i>
+                                                                                {errLh.id || errLh.ID_LH}
+                                                                            </span>
+                                                                            
+                                                                            <button 
+                                                                                onClick={() => typeof openEditLh === 'function' ? openEditLh(errLh) : alert('Fitur edit untuk LH: ' + (errLh.id || errLh.ID_LH))} 
+                                                                                className="text-[9px] font-bold text-purple-600 hover:text-white hover:bg-purple-600 px-2 py-0.5 rounded transition-colors border border-purple-200"
+                                                                            >
+                                                                                <i className="fa-solid fa-pen mr-1"></i> Perbaiki
+                                                                            </button>
+                                                                        </div>
+                                                                        <div className="text-[11px] text-purple-800 font-medium italic border-l-2 border-purple-300 pl-2 ml-0.5">
+                                                                            "{textCatatan}"
+                                                                        </div>
+                                                                    </div>
+                                                                );
+                                                            })}
+                                                        </div>
+                                                    </div>
+                                                </div>
+                                            );
+                                        }
+                                        return null;
+                                    })()}
+                                   
+
+                                    {/* MAPPING DATA DARI FILTER YANG SUDAH DITARIK KE ATAS */}
+                                    {filteredLhs.slice(0, lhLimit).map(lh => {
+                                        const isC3Req = lh.data?.butuh_c3 === true;
+                                        const isC7Req = lh.data?.butuh_c7 === true;
+                                        const isC3Uploaded = lh.code3 === true || lh.data?.code3 === true;
+                                        const isC7Uploaded = lh.code7 === true || lh.data?.code7 === true;
+                                        const isAgoUploaded = lh.ago === true || lh.data?.ago === true;
+                                        
+                                        return (
+                                            <div key={lh.id} className="flex flex-wrap xl:flex-nowrap items-center justify-between px-4 py-2.5 bg-white border border-[#E6E9F2] rounded-xl hover:border-[#9FB0D2] hover:bg-[#FAFBFE] transition-colors gap-4 overflow-hidden">
+                                                
+                                                {/* IDENTITAS LENGKAP LH */}
+                                                <div className="flex items-start gap-3 flex-1 min-w-0 pr-2">
+                                                    <div className="pt-1.5">
+                                                        <input type="checkbox" checked={checkedSet.has(lh.id)} onChange={() => toggleLhCheckbox(lh.id)} className="w-4 h-4 rounded border-slate-300 text-emerald-600 focus:ring-emerald-500 cursor-pointer" title="Centang untuk gabung ke RAB" />
+                                                    </div>
+                                                    <div className="w-9 h-9 rounded-xl bg-rose-50 text-rose-500 flex items-center justify-center shrink-0 mt-1 border border-rose-100 shadow-sm">
+                                                        <i className="fa-solid fa-file-pdf text-[15px]"></i>
+                                                    </div>
+                                                    <div className="min-w-0 flex-1">
+                                                        <div className="text-[13px] font-black text-slate-800 truncate mb-1.5 hover:text-indigo-600 transition-colors cursor-default" title={lh.data?.nama_pekerjaan_lh || lh.uraian || 'Pekerjaan Harian'}>
+                                                            {lh.data?.nama_pekerjaan_lh || lh.uraian || 'Pekerjaan Harian'}
+                                                        </div>
+                                                        <div className="flex flex-wrap items-center gap-1.5 mb-2">
+                                                            <span className="font-mono text-[10px] font-bold text-slate-500 bg-slate-100 px-1.5 py-0.5 rounded border border-slate-200 shadow-sm">{lh.id}</span>
+                                                            <span className="bg-indigo-50 text-indigo-600 px-1.5 py-0.5 rounded text-[9px] font-bold border border-indigo-100 shadow-sm flex items-center"><i className="fa-regular fa-calendar mr-1"></i> {lh.data?.tanggal_lh || lh.tanggal || '-'}</span>
+                                                            
+                                                            {(() => {
+                                                                const jns = (lh.data?.jenis_pekerjaan_lh || '').toLowerCase();
+                                                                let colorClass = 'bg-slate-50 text-slate-600 border-slate-200';
+                                                                if (jns.includes('pemeliharaan')) colorClass = 'bg-amber-50 text-amber-600 border-amber-200';
+                                                                else if (jns.includes('pasang') || jns.includes('baru')) colorClass = 'bg-emerald-50 text-emerald-600 border-emerald-200';
+                                                                else if (jns.includes('pfk')) colorClass = 'bg-purple-50 text-purple-600 border-purple-200';
+                                                                return (
+                                                                    <span className={`px-1.5 py-0.5 rounded text-[9px] font-bold border shadow-sm ${colorClass}`}>
+                                                                        {lh.data?.jenis_pekerjaan_lh || 'Non-Spesifik'}
+                                                                    </span>
+                                                                );
+                                                            })()}
+                                                            <span className="bg-sky-50 text-sky-600 px-1.5 py-0.5 rounded text-[9px] font-bold border border-sky-200 shadow-sm flex items-center"><i className="fa-solid fa-network-wired mr-1"></i> {lh.data?.jenis_jaringan_lh || 'SUTM/SUTR'}</span>
+                                                        
+                                                        {/* Badge Nominal RAB (Sinkron 100% dengan Master Database & Cetakan RAB) */}
+                                                        {(() => {
+                                                            let finalMaterial = 0;
+                                                            let finalJasa = 0;
+                                                            const d = lh.data || {};
+
+                                                            // 1. MESIN ANGKA AKURAT (SAMA PERSIS DENGAN CETAKAN RAB)
+                                                            const parseAkurat = (val) => {
+                                                                if (!val) return 0;
+                                                                if (typeof val === 'number') return val;
+                                                                let s = String(val).trim().replace(/[^0-9.,-]/g, '');
+                                                                if (s.includes('.') && s.includes(',')) {
+                                                                    s = s.replace(/\./g, '').replace(',', '.');
+                                                                } else if (s.includes(',')) {
+                                                                    s = s.replace(/\,/g, '.'); 
+                                                                } else if (s.includes('.')) {
+                                                                    if (s.startsWith('0.')) return parseFloat(s) || 0; 
+                                                                    const parts = s.split('.');
+                                                                    if (parts.length > 2 || parts[parts.length - 1].length === 3) s = s.replace(/\./g, '');
+                                                                }
+                                                                return parseFloat(s) || 0;
+                                                            };
+
+                                                            // 2. RADAR DATABASE
+                                                            const getPrices = (itemName) => {
+                                                                if (!itemName) return { mat: 0, jas: 0, bongkar: 0 };
+                                                                const found = window.masterFind(typeof masterDatabase !== 'undefined' ? masterDatabase : [], itemName);
+                                                                if (!found) return { mat: 0, jas: 0, bongkar: 0 };
+                                                                return { 
+                                                                    mat: parseAkurat(found.Harga_Material || (found._raw && found._raw[4]) || 0), 
+                                                                    jas: parseAkurat(found.Harga_Jasa || (found._raw && found._raw[5]) || 0), 
+                                                                    bongkar: parseAkurat(found.Harga_Bongkar || (found._raw && found._raw[6]) || 0) 
+                                                                };
+                                                            };
+
+                                                            // 3. HITUNG MATERIAL MDU 
+                                                            (d.materialMdu || []).forEach(m => {
+                                                                if (!m.nama) return;
+                                                                const vol = parseAkurat(m.jumlah);
+                                                                const p = getPrices(m.nama);
+                                                                const satMat = p.mat > 0 ? p.mat : parseAkurat(m.harga);
+                                                                const satJas = p.jas > 0 ? p.jas : 0; 
+                                                                finalMaterial += (satMat * vol);
+                                                                finalJasa += (satJas * vol);          
+                                                            });
+
+                                                            // 4. HITUNG JASA PASANG
+                                                            (d.uraianPasang || []).forEach(m => {
+                                                                if (!m.nama) return;
+                                                                const vP = parseAkurat(m.pln);
+                                                                const vB = parseAkurat(m.pemb);
+                                                                const vol = (vP + vB) || parseAkurat(m.jumlah); 
+                                                                const p = getPrices(m.nama);
+                                                                const satMat = p.mat > 0 ? p.mat : 0;
+                                                                const satJas = p.jas > 0 ? p.jas : parseAkurat(m.harga);
+                                                                finalMaterial += (satMat * vol);
+                                                                finalJasa += (satJas * vol);
+                                                            });
+
+                                                            // 5. HITUNG JASA BONGKAR
+                                                            (d.uraianBongkar || []).forEach(m => {
+                                                                if (!m.nama) return;
+                                                                const vol = parseAkurat(m.jumlah);
+                                                                const p = getPrices(m.nama);
+                                                                const satJas = p.bongkar > 0 ? p.bongkar : parseAkurat(m.harga);
+                                                                finalJasa += (satJas * vol);
+                                                            });
+
+                                                            // 6. FINAL: HANYA TOTAL KOTOR (TANPA PPN & TANPA PEMBULATAN)
+                                                            const totalAll = finalMaterial + finalJasa;
+                                                            const displayNominal = totalAll > 0 ? totalAll : (parseAkurat(d.nominal_rab) || 0);
+
+                                                            const formatUang = `Rp ${new Intl.NumberFormat('id-ID').format(Math.round(displayNominal))}`;
+
+                                                            return (
+                                                                <span className="bg-green-50 text-green-700 px-1.5 py-0.5 rounded text-[9px] font-bold border border-green-200 shadow-sm flex items-center" title="Total Sebelum PPN">
+                                                                    <i className="fa-solid fa-coins mr-1"></i> {formatUang}
+                                                                </span>
+                                                            );
+                                                        })()}
+                                                        </div>
+                                                        
+                                                        <div className="flex flex-wrap items-center gap-x-3 gap-y-1.5 text-[10px] text-slate-500 font-medium bg-slate-50/50 p-1.5 rounded-lg border border-slate-100">
+                                                            <span className="flex items-center gap-1" title={`Lokasi: ${lh.data?.lokasi_lh || '-'}`}><i className="fa-solid fa-map-pin text-rose-400"></i> {lh.data?.lokasi_lh || '-'}</span>
+                                                            <span className="flex items-center gap-1" title={`ULP: ${lh.data?.ulp_lh || '-'}`}><i className="fa-solid fa-building text-slate-400"></i> {lh.data?.ulp_lh || '-'}</span>
+                                                            <span className="flex items-center gap-1" title={`Pengawas: ${lh.data?.pengawas_lh || '-'}`}><i className="fa-solid fa-user-shield text-indigo-400"></i> {lh.data?.pengawas_lh || '-'}</span>
+                                                            <span className="flex items-center gap-1" title={`Team: ${lh.data?.team_lh || '-'}`}><i className="fa-solid fa-users text-blue-400"></i> {lh.data?.team_lh || '-'}</span>
+                                                            <span className="flex items-center gap-1" title={`Jumlah Pekerja: ${lh.data?.jumlah_tenaga_lh || '0'}`}><i className="fa-solid fa-helmet-safety text-amber-500"></i> {lh.data?.jumlah_tenaga_lh || '0'} Orang</span>
+                                                        </div>
+                                                    </div>
+                                                </div>
+
+                                                {/* BAGIAN TENGAH: ICONS STATUS */}
+                                                <div className="flex items-center justify-center gap-2 px-3 border-x border-slate-100 shrink-0">
+                                                    {(!isC3Req && !isC7Req) ? (
+                                                        <div className="flex items-center gap-1.5 px-2 py-1 bg-emerald-50 border border-emerald-100 rounded-lg text-emerald-600">
+                                                            <i className="fa-solid fa-bolt text-[10px]"></i>
+                                                            <span className="text-[9px] font-bold uppercase tracking-wider">Bypass C3/C7</span>
+                                                        </div>
+                                                    ) : (
+                                                        <>
+                                                            <div className="flex flex-col items-center gap-1">
+                                                                {(!isC3Req || isC3Uploaded) ? <span className="bg-emerald-50 text-emerald-500 border-emerald-200 w-5 h-5 rounded border flex items-center justify-center shadow-sm"><i className="fa-solid fa-check text-[9px]"></i></span> : <span className="bg-rose-50 text-rose-500 border-rose-200 w-5 h-5 rounded border flex items-center justify-center"><i className="fa-solid fa-xmark text-[9px]"></i></span>}
+                                                                <span className="text-[8px] text-slate-400 font-bold">C3</span>
+                                                            </div>
+                                                            <div className="w-1.5 h-px bg-slate-200 mb-3"></div>
+                                                            <div className="flex flex-col items-center gap-1">
+                                                                {(!isC7Req || isC7Uploaded) ? <span className="bg-emerald-50 text-emerald-500 border-emerald-200 w-5 h-5 rounded border flex items-center justify-center shadow-sm"><i className="fa-solid fa-check text-[9px]"></i></span> : <span className="bg-rose-50 text-rose-500 border-rose-200 w-5 h-5 rounded border flex items-center justify-center"><i className="fa-solid fa-xmark text-[9px]"></i></span>}
+                                                                <span className="text-[8px] text-slate-400 font-bold">C7</span>
+                                                            </div>
+                                                            <div className="w-1.5 h-px bg-slate-200 mb-3"></div>
+                                                            <div className="flex flex-col items-center gap-1">
+                                                                {isAgoUploaded ? <span className="bg-emerald-50 text-emerald-500 border-emerald-200 w-5 h-5 rounded border flex items-center justify-center shadow-sm"><i className="fa-solid fa-check text-[9px]"></i></span> : <span className="bg-amber-50 text-amber-500 border-amber-200 w-5 h-5 rounded border flex items-center justify-center"><i className="fa-solid fa-clock text-[9px]"></i></span>}
+                                                                <span className="text-[8px] text-slate-400 font-bold">AGO</span>
+                                                            </div>
+                                                        </>
+                                                    )}
+                                                </div>
+
+                                                {/* BAGIAN KANAN: Tombol Aksi */}
+                                                <div className="flex items-center gap-1.5 shrink-0 pl-1">
+                                                    <button onClick={() => openPrintPreview(lh, managePkOpen)} className="text-[10px] bg-blue-50 text-blue-600 px-2 py-1.5 rounded-lg font-bold hover:bg-blue-600 hover:text-white transition-colors flex items-center gap-1 whitespace-nowrap"><i className="fa-solid fa-print"></i> Cetak</button>
+                                                    {!lh.is_rab_created && (currentUser?.role === 'Admin PK' || currentUser?.role === 'Super Admin') && (
+                                                        <>
+                                                            <button onClick={() => openEditLh(lh)} className="w-7 h-7 flex items-center justify-center bg-amber-50 text-amber-600 rounded-lg font-bold hover:bg-amber-500 hover:text-white transition-colors shrink-0" title="Edit Dokumen LH"><i className="fa-solid fa-pen text-[10px]"></i></button>
+                                                            <button onClick={() => handleDeleteLh(lh.id)} className="w-7 h-7 flex items-center justify-center bg-rose-50 text-rose-600 rounded-lg font-bold hover:bg-rose-600 hover:text-white transition-colors shrink-0" title="Hapus Dokumen LH"><i className="fa-solid fa-trash-can text-[10px]"></i></button>
+                                                        </>
+                                                    )}
+                                                </div>
+
+                                            </div>
+                                        );
+                                    })}
+                                    {filteredLhs.length > lhLimit && (
+                                        <div className="flex items-center justify-center gap-3 py-3">
+                                            <span className="text-[12px] text-[#7A8190]">Tampil {lhLimit} dari {filteredLhs.length} LH</span>
+                                            <button onClick={() => setLhLimit(lhLimit + 40)} className="h-8 px-3.5 rounded-lg border border-[#D9DDE9] bg-white text-[12px] hover:border-[#3A62B0]">Tampilkan 40 lagi</button>
+                                            <button onClick={() => setLhLimit(filteredLhs.length)} className="h-8 px-3.5 rounded-lg border border-[#D9DDE9] bg-white text-[12px] hover:border-[#3A62B0]">Tampilkan semua</button>
+                                        </div>)}
+                                </div>
+                            </div>
+
+                            {/* ============================================================================== */}
+                            {/* RUANGAN KANAN: Alokasi & Pindah SPK */}
+                            {/* 🔥 DIBUAT STICKY TOP-0 AGAR DIAM SAAT KIRI DI SCROLL 🔥 */}
+                            {/* ============================================================================== */}
+                            <div className="space-y-2 h-fit sticky top-0 self-start z-10">
+
+                                {/* RATAKANAN V2: Alokasi ke SPK (Validasi Aktif) */}
+                                <div className="p-3 rounded-xl border bg-white border-[#E6E9F2]">
+                                    <h4 className="text-[12px] font-medium text-[#2B2F3A] mb-1">Masukkan ke SPK</h4>
+                                    
+                                    <div className="space-y-2 mt-1">
+                                        <select value={allocatingSpkId} onChange={(e) => setAllocatingSpkId(e.target.value)} className="w-full h-8 px-2 rounded-lg border border-[#D9DDE9] text-[12px] outline-none focus:border-[#3A62B0] bg-white">
+                                            <option value="">-- Pilih Ruangan SPK Aktif --</option>
+                                            {spks.filter(s => s.status === 'Aktif').map(s => (<option key={s.id} value={s.id}>{s.id} - Sisa: {formatRupiah(s.nominal_total - s.nominal_terpakai)}</option>))}
+                                        </select>
+
+                                        {/* 🔥 TOMBOL PINDAH MEMANGGIL VALIDASI C3/C7 YANG BARU 🔥 */}
+                                        {['Super Admin', 'Admin PK', 'Admin SPK'].includes(currentUser?.role) && (
+                                        <button 
+                                            onClick={handleValidasiPindahSPK} 
+                                            className="btn-grad w-full h-8 rounded-lg text-[12px] font-medium flex items-center justify-center gap-2"
+                                        >
+                                            <i className="fa-solid fa-arrow-right-to-bracket mr-1"></i> Pindahkan ke SPK
+                                        </button>
+                                        )}
+                                    </div>
+                                </div>
+                                
+                                {/* MODAL UNGU KONFIRMASI (ASLI BOS) */}
+                                {showConfirmMove && (
+                                    <div className="fixed inset-0 z-[999999] flex items-center justify-center p-4 bg-slate-900/80 backdrop-blur-sm">
+                                        <div className="bg-white rounded-2xl shadow-2xl w-full max-w-md overflow-hidden text-center p-8 border border-slate-100 transform transition-all scale-100">
+                                            <div className="w-20 h-20 rounded-full border-4 border-indigo-400 bg-indigo-50 flex items-center justify-center mx-auto mb-5 shadow-inner">
+                                                <i className="fa-solid fa-right-left text-3xl text-indigo-500"></i>
+                                            </div>
+                                            <h3 className="text-xl font-bold text-slate-800 mb-3">Konfirmasi Pemindahan</h3>
+                                            <p className="text-[13px] text-slate-600 mb-8 leading-relaxed px-2">
+                                                Anda akan memindahkan <b>{checkedLhs.length} LH</b> ke kamar PK:<br/>
+                                                <span className="font-mono text-indigo-600 font-bold bg-indigo-50 border border-indigo-100 px-2 py-1 rounded mt-2 inline-block">{targetPkId}</span><br/><br/>
+                                                Apakah Anda yakin data ini sudah benar?
+                                            </p>
+                                            <div className="flex items-center justify-center gap-3">
+                                                <button onClick={executeMoveLhs} className="px-5 py-2.5 bg-indigo-600 hover:bg-indigo-700 text-white font-bold rounded-lg transition-colors text-[13px] shadow-sm">
+                                                    Ya, Pindahkan Sekarang
+                                                </button>
+                                                <button onClick={() => setShowConfirmMove(false)} className="px-5 py-2.5 bg-white hover:bg-slate-50 text-slate-700 font-bold rounded-lg transition-colors text-[13px] border border-slate-200 shadow-sm">
+                                                    Batal
+                                                </button>
+                                            </div>
+                                        </div>
+                                    </div>
+                                )}
+
+                                {/* 🔥 FITUR BARU: PINDAH LH KE PK LAIN */}
+                                <div className="p-3 rounded-xl border bg-white border-[#E6E9F2]">
+                                    <h4 className="text-[12px] font-medium text-[#2B2F3A] mb-1">Pindah ke PK lain</h4>
+                                    <p className="text-[11px] text-[#7A8190] mb-2 leading-snug">Centang LH di sebelah kiri, lalu pilih PK tujuan untuk memindahkan LH yang salah kamar.</p>
+                                    
+                                    <div className="space-y-3">
+                                        <select 
+                                            value={targetPkId} 
+                                            onChange={(e) => setTargetPkId(e.target.value)} 
+                                            className="w-full h-8 px-2 rounded-lg border border-[#D9DDE9] text-[12px] focus:border-[#3A62B0] outline-none bg-white"
+                                        >
+                                            <option value="">-- Pilih PK Tujuan --</option>
+                                            {pks.filter(p => p.id !== managePkOpen.id).map(p => (
+                                                <option key={p.id} value={p.id}>{p.id} - {p.nama}</option>
+                                            ))}
+                                        </select>
+
+                                        <button 
+                                            onClick={() => (currentUser?.role === 'Admin PK' || currentUser?.role === 'Super Admin') ? triggerMoveLhs() : showToast('Akses Ditolak', 'Hanya Admin PK / Super Admin yang berhak memindahkan LH.', 'error')} 
+                                            className={`w-full h-8 text-white rounded-lg text-[12px] font-medium transition-all flex items-center justify-center gap-2 ${
+                                                (currentUser?.role === 'Admin SPK' || currentUser?.role === 'Admin PK' || currentUser?.role === 'Super Admin') 
+                                                    ? (checkedLhs.length > 0 ? 'btn-grad' : 'bg-slate-300 cursor-not-allowed') 
+                                                    : 'bg-slate-400 cursor-not-allowed opacity-80'
+                                            }`}
+                                        >
+                                            <i className="fa-solid fa-right-left"></i> Pindahkan {checkedLhs.length > 0 ? `${checkedLhs.length} LH` : 'ke PK Lain'}
+                                        </button>
+                                    </div>
+                                </div>
+
+                            </div>
+                        </div>
+                    </div>
+                </div>
+              );
+          })()
+  );
+};
+</script>

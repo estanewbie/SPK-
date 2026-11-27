@@ -1,0 +1,113 @@
+<script type="text/babel">
+// Modal: Daftar / Edit PK
+window.Modals.Pk = (ctx) => {
+  const {
+    currentUser, editingPkId, handleCreatePk, isPkModalOpen, newPkForm, setIsPkModalOpen,
+    setNewPkForm
+  } = ctx;
+  return (
+isPkModalOpen && (
+            <div className="fixed inset-0 z-[60] flex items-center justify-center p-4 bg-slate-900/40 backdrop-blur-sm">
+              <div className="bg-white rounded-2xl shadow-xl w-full max-w-3xl overflow-hidden border border-slate-100">
+                <div className="p-5 border-b border-slate-100 flex justify-between items-center bg-white">
+                  <div>
+                    <h3 className="font-semibold text-slate-800 text-base">{editingPkId ? 'Edit Data Pekerjaan' : 'Pendaftaran Pekerjaan (PK) Baru'}</h3>
+                    <p className="text-[12px] text-slate-500 mt-0.5">{editingPkId ? `Memperbarui data untuk ${editingPkId}` : 'Input data detail proyek untuk diantrekan.'}</p>
+                  </div>
+                  <button onClick={() => setIsPkModalOpen(false)} className="w-8 h-8 rounded-full bg-slate-50 text-slate-500 hover:bg-slate-100 transition-colors"><i className="fa-solid fa-xmark"></i></button>
+                </div>
+                
+                <form onSubmit={handleCreatePk} className="p-5 bg-slate-50/50 max-h-[75vh] overflow-y-auto custom-scrollbar">
+                  <div className="space-y-4">
+                    
+                    {/* BARIS 1: ID PK (tampil saja; dibuat sistem, atau nomor PK dari log harian sumber) */}
+                    <div>
+                        <label className="block text-[11px] font-semibold text-slate-500 uppercase tracking-wide mb-1.5 ml-1">
+                          ID Pekerjaan <span className="text-slate-400 normal-case tracking-normal font-normal ml-1">(otomatis, tidak bisa diubah)</span>
+                        </label>
+                        <div className="block w-full px-3 py-2.5 bg-slate-100 border border-slate-200 rounded-lg text-slate-600 text-[13px] font-bold select-all truncate" title="ID dibuat sistem agar tidak pernah kembar. Dipakai sebagai rujukan LH, RAB, dan KTK.">
+                          {editingPkId ? editingPkId : (newPkForm.id ? newPkForm.id + '  (nomor PK dari log harian)' : 'Dibuat otomatis saat disimpan')}
+                        </div>
+                    </div>
+                    {/* BARIS 2: URAIAN & LOKASI */}
+                    <div>
+                      <label className="block text-[11px] font-semibold text-slate-500 uppercase tracking-wide mb-1.5 ml-1">Nama Pekerjaan (Uraian) <span className="text-rose-500">*</span></label>
+                      <input type="text" required placeholder="Cth: Perluasan Jaringan..." value={newPkForm.nama} onChange={(e) => setNewPkForm({...newPkForm, nama: e.target.value})} className="block w-full px-3 py-2.5 bg-white border border-slate-200 rounded-lg text-slate-800 outline-none focus:border-indigo-400 text-[13px]" />
+                    </div>
+
+                    <div>
+                          <label className="block text-[11px] font-semibold text-slate-500 uppercase tracking-wide mb-1.5 ml-1">Lokasi Pekerjaan / Alamat <span className="text-rose-500">*</span></label>
+                          <input type="text" required placeholder="Cth: Jl. Raya Mengwi No. 10" value={newPkForm.lokasi} onChange={(e) => setNewPkForm({...newPkForm, lokasi: e.target.value})} className="block w-full px-3 py-2.5 bg-white border border-slate-200 rounded-lg text-slate-800 outline-none focus:border-indigo-400 text-[13px]" />
+                    </div>
+
+                    {/* BARIS 3: JENIS & TANGGAL */}
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                        <div>
+                          <label className="block text-[11px] font-semibold text-slate-500 uppercase tracking-wide mb-1.5 ml-1">Jenis Pekerjaan <span className="text-rose-500">*</span></label>
+                          <select required value={newPkForm.jenis_pekerjaan} onChange={(e) => setNewPkForm({...newPkForm, jenis_pekerjaan: e.target.value})} className="block w-full px-3 py-2.5 bg-white border border-slate-200 rounded-lg text-slate-800 outline-none focus:border-indigo-400 text-[13px]">
+                              <option value="">-- Pilih Jenis --</option>
+                              <option value="Pemeliharaan">Pemeliharaan</option>
+                              <option value="Pemasangan Baru">Pemasangan Baru</option>
+                              <option value="PFK">PFK</option>
+                          </select>
+                        </div>
+                        <div>
+                          <label className="block text-[11px] font-semibold text-slate-500 uppercase tracking-wide mb-1.5 ml-1">Tanggal Pekerjaan <span className="text-rose-500">*</span></label>
+                          <input type="date" required value={newPkForm.tanggal} onChange={(e) => setNewPkForm({...newPkForm, tanggal: e.target.value})} className="block w-full px-3 py-2.5 bg-white border border-slate-200 rounded-lg text-slate-800 outline-none focus:border-indigo-400 text-[13px]" />
+                        </div>
+                    </div>
+
+                    {/* BARIS 4: VENDOR & ULP */}
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 border-t border-slate-100 pt-3">
+                        <div>
+                          <label className="block text-[11px] font-semibold text-slate-500 uppercase tracking-wide mb-1.5 ml-1">Vendor Pelaksana <span className="text-rose-500">*</span></label>
+                          <input type="text" required value={newPkForm.vendor} onChange={(e) => setNewPkForm({...newPkForm, vendor: e.target.value})} className="block w-full px-3 py-2.5 bg-white border border-slate-200 rounded-lg text-slate-800 outline-none focus:border-indigo-400 text-[13px] font-medium" />
+                        </div>
+                        <div>
+                          <label className="block text-[11px] font-semibold text-slate-500 uppercase tracking-wide mb-1.5 ml-1">ULP Wilayah Bali <span className="text-rose-500">*</span></label>
+                          <select required value={newPkForm.ulp} onChange={(e) => setNewPkForm({...newPkForm, ulp: e.target.value})} className="block w-full px-3 py-2.5 bg-white border border-slate-200 rounded-lg text-slate-800 outline-none focus:border-indigo-400 text-[13px]">
+                              <option value="">-- Pilih UP3 --</option>
+                              <option value="UP3 Bali Selatan">UP3 Bali Selatan</option>
+                              <option value="UP3 Bali Timur">UP3 Bali Timur</option>
+                              <option value="UP3 Bali Utara">UP3 Bali Utara</option>
+                              <option value="UID Bali (Pusat)">UID Bali (Pusat)</option>
+                          </select>
+                        </div>
+                    </div>
+                    
+                    {/* BARIS 5: NOMINAL */}
+                    <div className="border-t border-slate-100 pt-3">
+                          <label className="block text-[11px] font-semibold text-slate-500 uppercase tracking-wide mb-1.5 ml-1">Nilai Anggaran Estimasi <span className="text-rose-500">*</span></label>
+                          <div className="relative">
+                            <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none"><span className="text-slate-400 text-[13px] font-bold">Rp</span></div>
+                            <input 
+                                type="text" 
+                                required 
+                                placeholder="50.000.000" 
+                                value={newPkForm.nominalFormatted || ''} 
+                                onChange={(e) => {
+                                    const rawValue = e.target.value.replace(/[^0-9]/g, '');
+                                    const formattedValue = rawValue ? new Intl.NumberFormat('id-ID').format(rawValue) : '';
+                                    setNewPkForm({...newPkForm, nominal: rawValue, nominalFormatted: formattedValue});
+                                }} 
+                                className="block w-full pl-9 pr-3 py-2.5 bg-white border border-slate-200 rounded-lg text-slate-800 outline-none focus:border-indigo-400 text-[14px] font-mono font-semibold" 
+                            />
+                          </div>
+                    </div>
+                  </div>
+            
+                  <div className="mt-6">
+                  {!(currentUser?.role === 'Admin Code' && editingPkId) && (
+                    <button type="submit" className="w-full py-2.5 px-4 bg-indigo-600 text-white rounded-lg text-[13px] font-bold hover:bg-indigo-700 transition-all flex justify-center items-center gap-2 shadow-sm">
+                      {editingPkId ? <><i className="fa-solid fa-pen-to-square"></i> Simpan Perubahan</> : <><i className="fa-solid fa-save"></i> Daftarkan ke Antrean</>}
+                    </button>
+                    )}
+
+                  </div>
+                </form>
+              </div>
+            </div>
+          )
+  );
+};
+</script>

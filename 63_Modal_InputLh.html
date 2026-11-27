@@ -1,0 +1,469 @@
+<script type="text/babel">
+// Modal: Form Input / Edit LH
+window.Modals.InputLh = (ctx) => {
+  const {
+    addLhRow, editingLhId, handleArrayChange, handleItemChangeAndSelect, isLhInputOpen, lhFormData,
+    managePkOpen, removeLhRow, setIsLhInputOpen, setLhFormData, setShowConfirmBypass, showConfirmBypass,
+    simpanLaporanHarian
+  } = ctx;
+  return (
+isLhInputOpen && (<>
+              <LhRefPanel lhRef={ctx.lhRef} lhId={lhFormData && lhFormData.id_lh} />
+              <div className="fixed inset-0 z-[70] flex justify-center bg-slate-900/60 backdrop-blur-sm overflow-y-auto p-4 custom-scrollbar">
+                  <div className="bg-white w-full max-w-[95vw] 2xl:max-w-[1400px] h-fit min-h-full rounded-2xl shadow-xl flex flex-col">
+                      <div className="p-5 border-b border-slate-100 flex justify-between items-center sticky top-0 bg-white z-10 rounded-t-2xl">
+                          <div>
+                              <h3 className="font-bold text-slate-800 text-[18px]">
+                                  <i className="fa-solid fa-keyboard text-indigo-500 mr-2"></i> 
+                                  {editingLhId ? `Edit Laporan Harian (${editingLhId})` : 'Input Data Laporan Harian'}
+                              </h3>
+                              <p className="text-[12px] text-slate-500">Masukkan detail material dan jasa untuk {managePkOpen?.id}</p>
+                          </div>
+                          <div className="flex gap-2">
+                              <button 
+                                  type="button" 
+                                  onClick={() => setIsLhInputOpen(false)} 
+                                  className="px-4 py-2 border rounded-lg text-[13px] font-medium text-slate-600 hover:bg-slate-50"
+                              >
+                                  Batal
+                              </button>
+                              
+                                <button 
+                                  type="button"
+                                  onClick={(e) => {
+                                      e.preventDefault();
+                                      const bad = window.lhBadNames(ctx.masterDatabase, lhFormData);
+                                      if (bad.length) { ctx.showToast('Nama bukan dari Master data', bad.length + ' nama berwarna merah harus diganti dengan nama dari daftar sugesti: ' + bad.slice(0, 3).map(b => b.nama).join(', ') + (bad.length > 3 ? ', ...' : ''), 'error'); return; }
+                                      
+                                      // RADAR PENGECEKAN
+                                      console.log("1. Tombol ditekan!");
+                                      console.log("2. Status C3:", lhFormData.butuh_c3, " | Status C7:", lhFormData.butuh_c7);
+
+                                      if (!lhFormData.butuh_c3 && !lhFormData.butuh_c7) {
+                                          console.log("3. Keduanya kosong! Memicu Modal Kuning...");
+                                          setShowConfirmBypass(true);
+                                      } else {
+                                          console.log("3. Ada centangan! Langsung eksekusi simpan...");
+                                          simpanLaporanHarian();
+                                      }
+                                  }} 
+                                  className="px-4 py-2 bg-indigo-600 text-white rounded-lg text-[13px] font-bold hover:bg-indigo-700 shadow-md transition-colors"
+                              >
+                                  <i className="fa-solid fa-save mr-1"></i> Simpan LH
+                              </button>
+                          </div>
+                      </div>
+                      {/* 1. MODAL KUNING (CEGATAN LUPA CENTANG) */}
+                        {showConfirmBypass && (
+                            <div className="fixed inset-0 z-[999999] flex items-center justify-center p-4 bg-slate-900/80 backdrop-blur-sm">
+                                <div className="bg-white rounded-2xl shadow-2xl w-full max-w-md overflow-hidden text-center p-8 border border-slate-100 transform transition-all scale-100">
+                                    <div className="w-20 h-20 rounded-full border-4 border-amber-400 bg-amber-50 flex items-center justify-center mx-auto mb-5 shadow-inner">
+                                        <span className="text-4xl text-amber-500 font-black">!</span>
+                                    </div>
+                                    <h3 className="text-xl font-bold text-slate-800 mb-3">Konfirmasi Dokumen</h3>
+                                    <p className="text-[13px] text-slate-600 mb-8 leading-relaxed px-2">
+                                        Anda tidak mencentang <b>Code 3</b> maupun <b>Code 7</b>.<br/><br/>
+                                        Apakah pekerjaan ini benar-benar <b>TIDAK</b> membutuhkan dokumen Code & AGO?
+                                    </p>
+                                    <div className="flex items-center justify-center gap-3">
+                                        <button onClick={() => { setShowConfirmBypass(false); simpanLaporanHarian(); }} className="px-5 py-2.5 bg-indigo-600 hover:bg-indigo-700 text-white font-bold rounded-lg transition-colors text-[13px] shadow-sm">
+                                            Ya, Lanjut Simpan
+                                        </button>
+                                        <button onClick={() => setShowConfirmBypass(false)} className="px-5 py-2.5 bg-white hover:bg-slate-50 text-slate-700 font-bold rounded-lg transition-colors text-[13px] border border-slate-200 shadow-sm">
+                                            Batal, Saya Cek Lagi
+                                        </button>
+                                    </div>
+                                </div>
+                            </div>
+                        )}
+
+                      <div className="p-4 md:p-8 space-y-6 bg-slate-50/30">
+                          <div className="bg-white p-5 rounded-xl border border-slate-200 shadow-sm mb-6">
+                              <h4 className="font-bold text-[14px] text-slate-700 mb-4 flex justify-between items-center">
+                                  <span><i className="fa-solid fa-map-location-dot text-indigo-500 mr-1"></i> Detail Identitas Laporan Harian Ini</span>
+                                  <span className="text-[10px] font-bold text-indigo-500 bg-indigo-50 px-2 py-1 rounded italic font-normal">*Data independen per LH</span>
+                              </h4>
+                              
+                              {/* GRID 3 KOLOM SUPER RAPI & HEMAT TEMPAT */}
+                              <div className="grid grid-cols-1 md:grid-cols-3 gap-x-4 gap-y-3">
+                                  
+                                  {/* BARIS 1: ID, Tanggal, ULP */}
+                                  <div>
+                                      <label className="block text-[10px] font-bold text-slate-500 uppercase tracking-wide mb-1">ID Laporan <span className="normal-case tracking-normal font-normal text-slate-400">(otomatis, tidak bisa diubah)</span></label>
+                                      <div className="w-full pl-3 pr-3 py-1.5 border border-slate-200 rounded-lg text-[12px] font-bold bg-slate-100 text-slate-600 select-all truncate" title="ID dibuat sistem agar tidak pernah kembar. Dipakai sebagai rujukan di RAB dan KTK.">{editingLhId ? editingLhId : 'Dibuat otomatis saat disimpan'}</div>                                  </div>
+                                  <div>
+                                      <label className="block text-[10px] font-bold text-slate-500 uppercase tracking-wide mb-1">Tanggal Eksekusi <span className="text-rose-500">*</span></label>
+                                      <input type="date" value={lhFormData.tanggal_lh || ''} onChange={(e) => setLhFormData({...lhFormData, tanggal_lh: e.target.value})} className="w-full px-3 py-1.5 bg-white border border-slate-200 rounded-lg text-slate-800 text-[12px] focus:border-indigo-400 focus:ring-1 focus:ring-indigo-400 outline-none transition-all" />
+                                  </div>
+                                  <div>
+                                      <label className="block text-[10px] font-bold text-slate-500 uppercase tracking-wide mb-1">ULP Wilayah <span className="text-rose-500">*</span></label>
+                                      <select 
+                                        value={lhFormData.ulp_lh || ''} 
+                                        onChange={(e) => setLhFormData({...lhFormData, ulp_lh: e.target.value})} 
+                                        className="w-full px-3 py-1.5 bg-white border border-slate-200 rounded-lg text-slate-800 text-[12px] focus:border-indigo-400 focus:ring-1 focus:ring-indigo-400 outline-none transition-all"
+                                    >
+                                        <option value="">-- Pilih ULP --</option>
+                                        
+                                        {/* ⚡ LOGIKA FILTER OTOMATIS (MAPPING SESUAI INSTRUKSI BOS) */}
+                                        {(() => {
+                                            const up3Terpilih = managePkOpen?.ulp || ""; 
+
+                                            // 1. JIKA PK = UP3 BALI SELATAN (Termasuk kalau Admin pilih Pusat)
+                                            if (up3Terpilih === "UP3 Bali Selatan" || up3Terpilih === "UID Bali (Pusat)") {
+                                                return (
+                                                    <>
+                                                        <option value="ULP Denpasar">ULP Denpasar</option>
+                                                        <option value="ULP Sanur">ULP Sanur</option>
+                                                        <option value="ULP Kuta">ULP Kuta</option>
+                                                        <option value="ULP Mengwi">ULP Mengwi</option>
+                                                        <option value="ULP Tabanan">ULP Tabanan</option>
+                                                    </>
+                                                );
+                                            }
+                                            
+                                            // 2. JIKA PK = UP3 BALI TIMUR
+                                            if (up3Terpilih === "UP3 Bali Timur") {
+                                                return (
+                                                    <>
+                                                        <option value="ULP Gianyar">ULP Gianyar</option>
+                                                        <option value="ULP Klungkung">ULP Klungkung</option>
+                                                        <option value="ULP Bangli">ULP Bangli</option>
+                                                        <option value="ULP Karangasem">ULP Karangasem</option>
+                                                    </>
+                                                );
+                                            }
+
+                                            // 3. JIKA PK = UP3 BALI UTARA
+                                            if (up3Terpilih === "UP3 Bali Utara") {
+                                                return (
+                                                    <>
+                                                        <option value="ULP Singaraja">ULP Singaraja</option>
+                                                        <option value="ULP Tejakula">ULP Tejakula</option>
+                                                        <option value="ULP Seririt">ULP Seririt</option>
+                                                        <option value="ULP Negara">ULP Negara</option>
+                                                        <option value="ULP Gilimanuk">ULP Gilimanuk</option>
+                                                    </>
+                                                );
+                                            }
+
+                                            // JIKA TIDAK ADA UP3 TERPILIH (FALLBACK)
+                                            return <option disabled>Silakan tentukan UP3 di data PK dahulu</option>;
+                                        })()}
+                                    </select>
+                                  </div>
+
+                                  {/* BARIS 2: Penyulang, Jenis Pek, Jenis Jaringan */}
+                                  <div>
+                                      <label className="block text-[10px] font-bold text-slate-500 uppercase tracking-wide mb-1">Penyulang / Section <span className="text-rose-500">*</span></label>
+                                      <input type="text" placeholder="Cth: Penyulang Mengwi" value={lhFormData.penyulang_lh || ''} onChange={(e) => setLhFormData({...lhFormData, penyulang_lh: e.target.value})} className="w-full px-3 py-1.5 bg-white border border-slate-200 rounded-lg text-slate-800 text-[12px] focus:border-indigo-400 focus:ring-1 focus:ring-indigo-400 outline-none transition-all" />
+                                  </div>
+                                  <div>
+                                      <label className="block text-[10px] font-bold text-slate-500 uppercase tracking-wide mb-1">Jenis Pekerjaan</label>
+                                      <select value={lhFormData.jenis_pekerjaan_lh || ''} onChange={(e) => setLhFormData({...lhFormData, jenis_pekerjaan_lh: e.target.value})} className="w-full px-3 py-1.5 bg-white border border-slate-200 rounded-lg text-slate-800 text-[12px] focus:border-indigo-400 focus:ring-1 focus:ring-indigo-400 outline-none transition-all">
+                                          <option value="">-- Pilih --</option>
+                                          <option value="PFK">PFK</option>
+                                          <option value="Pemeliharaan">Pemeliharaan</option>
+                                          <option value="Pemasangan Baru">Pemasangan Baru</option>
+                                      </select>
+                                  </div>
+                                  <div>
+                                      <label className="block text-[10px] font-bold text-slate-500 uppercase tracking-wide mb-1">Jenis Jaringan</label>
+                                      <select value={lhFormData.jenis_jaringan_lh || ''} onChange={(e) => setLhFormData({...lhFormData, jenis_jaringan_lh: e.target.value})} className="w-full px-3 py-1.5 bg-white border border-slate-200 rounded-lg text-slate-800 text-[12px] focus:border-indigo-400 focus:ring-1 focus:ring-indigo-400 outline-none transition-all">
+                                          <option value="SUTR">SUTR</option>
+                                          <option value="SUTM">SUTM</option>
+                                      </select>
+                                  </div>
+
+                                  {/* BARIS 3: Uraian Pekerjaan & Lokasi */}
+                                  <div className="md:col-span-2">
+                                      <label className="block text-[10px] font-bold text-slate-500 uppercase tracking-wide mb-1">Uraian Pekerjaan LH Ini <span className="text-rose-500">*</span></label>
+                                      <input type="text" placeholder="Cth: Penarikan Jaringan SUTM..." value={lhFormData.nama_pekerjaan_lh || ''} onChange={(e) => setLhFormData({...lhFormData, nama_pekerjaan_lh: e.target.value})} className="w-full px-3 py-1.5 bg-white border border-slate-200 rounded-lg text-slate-800 text-[12px] font-bold focus:border-indigo-400 focus:ring-1 focus:ring-indigo-400 outline-none transition-all" />
+                                  </div>
+                                  <div className="md:col-span-1">
+                                      <label className="block text-[10px] font-bold text-slate-500 uppercase tracking-wide mb-1">Lokasi Titik Pekerjaan <span className="text-rose-500">*</span></label>
+                                      <input type="text" placeholder="Cth: Tiang JTR-01, Jl. Melati" value={lhFormData.lokasi_lh || ''} onChange={(e) => setLhFormData({...lhFormData, lokasi_lh: e.target.value})} className="w-full px-3 py-1.5 bg-white border border-slate-200 rounded-lg text-slate-800 text-[12px] focus:border-indigo-400 focus:ring-1 focus:ring-indigo-400 outline-none transition-all" />
+                                  </div>
+
+                                  {/* BARIS 4: Pengawas, Team, Jml Pekerja */}
+                                  <div>
+                                      <label className="block text-[10px] font-bold text-slate-500 uppercase tracking-wide mb-1">Pengawas Lapangan <span className="text-rose-500">*</span></label>
+                                      <input type="text" placeholder="Nama Pengawas" value={lhFormData.pengawas_lh || ''} onChange={(e) => setLhFormData({...lhFormData, pengawas_lh: e.target.value})} className="w-full px-3 py-1.5 bg-white border border-slate-200 rounded-lg text-slate-800 text-[12px] focus:border-indigo-400 focus:ring-1 focus:ring-indigo-400 outline-none transition-all" />
+                                  </div>
+                                  <div>
+                                      <label className="block text-[10px] font-bold text-slate-500 uppercase tracking-wide mb-1">Team Pelaksana</label>
+                                      <input type="text" placeholder="Cth: Team Yantek" value={lhFormData.team_lh || ''} onChange={(e) => setLhFormData({...lhFormData, team_lh: e.target.value})} className="w-full px-3 py-1.5 bg-white border border-slate-200 rounded-lg text-slate-800 text-[12px] focus:border-indigo-400 focus:ring-1 focus:ring-indigo-400 outline-none transition-all" />
+                                  </div>
+                                  <div>
+                                      <label className="block text-[10px] font-bold text-slate-500 uppercase tracking-wide mb-1">Jml Pekerja</label>
+                                      <input type="number" placeholder="Cth: 5" value={lhFormData.jumlah_tenaga_lh || ''} onChange={(e) => setLhFormData({...lhFormData, jumlah_tenaga_lh: e.target.value})} className="w-full px-3 py-1.5 bg-white border border-slate-200 rounded-lg text-slate-800 text-[12px] focus:border-indigo-400 focus:ring-1 focus:ring-indigo-400 outline-none transition-all" />
+                                  </div>
+
+                                  {/* BARIS 5: KOTAK CHECKBOX PERSYARATAN */}
+                                  <div className="md:col-span-3 p-3 border border-dashed border-slate-300 rounded-xl bg-slate-50 mt-1">
+                                      <label className="block text-[10px] font-bold text-slate-500 uppercase tracking-wide mb-2">Persyaratan Dokumen (Check Jika Dibutuhkan):</label>
+                                      <div className="flex gap-6 mb-1">
+                                          <label className="flex items-center gap-2 cursor-pointer">
+                                              <input 
+                                                type="checkbox" 
+                                                checked={lhFormData.butuh_c3 || false} 
+                                                onChange={(e) => setLhFormData({...lhFormData, butuh_c3: e.target.checked})} 
+                                                className="w-4 h-4 rounded border-slate-300 text-blue-600 focus:ring-blue-500 cursor-pointer" 
+                                              />
+                                              <span className="text-[12px] font-semibold text-slate-700">Membutuhkan Code 3</span>
+                                          </label>
+                                          <label className="flex items-center gap-2 cursor-pointer">
+                                              <input 
+                                                type="checkbox" 
+                                                checked={lhFormData.butuh_c7 || false} 
+                                                onChange={(e) => setLhFormData({...lhFormData, butuh_c7: e.target.checked})} 
+                                                className="w-4 h-4 rounded border-slate-300 text-blue-600 focus:ring-blue-500 cursor-pointer" 
+                                              />
+                                              <span className="text-[12px] font-semibold text-slate-700">Membutuhkan Code 7</span>
+                                          </label>
+                                      </div>
+                                      <p className="text-[10px] font-bold text-amber-600 flex items-center gap-1.5 mt-2">
+                                          <i className="fa-solid fa-circle-info"></i> Sistem akan mewajibkan upload AGO jika Code diaktifkan.
+                                      </p>
+                                  </div>
+
+                              </div>
+                          </div>
+                          
+
+                          {/* INPUT MATERIAL MDU */}
+                          <div className="bg-white p-5 rounded-xl border border-slate-200 shadow-sm overflow-hidden">
+                              <div className="flex justify-between items-center mb-4">
+                                  <h4 className="font-bold text-[14px] text-slate-700">Daftar Material MDU</h4>
+                                  <button onClick={() => addLhRow('materialMdu')} className="text-[11px] font-bold text-indigo-600 bg-indigo-50 px-3 py-1.5 rounded hover:bg-indigo-100 transition-colors">+ Tambah Baris</button>
+                              </div>
+                              <div className="overflow-x-auto custom-scrollbar pb-2">
+                                  <div className="min-w-[600px] space-y-3">
+                                      {lhFormData.materialMdu.map((item, idx) => (
+                                          <div key={item.id} className="flex gap-2 items-center">
+                                              <span className="text-[12px] font-bold text-slate-400 w-6 text-center">{idx + 1}.</span>
+                                              <MasterNameInput kind="list-material" 
+                                                  type="text" 
+                                                  placeholder="Cari Material..." 
+                                                  value={item.nama} 
+                                                  onChange={(v) => handleItemChangeAndSelect('materialMdu', idx, 'nama', v)} 
+                                                  className="w-[40%] px-3 py-2 border rounded text-[13px] border-slate-300 bg-indigo-50/20" 
+                                                  autoComplete="off" 
+                                              />
+                                              <LazyInput 
+                                                  type="text" 
+                                                  placeholder="Catatan / Serial Number (Wajib Trafo)" 
+                                                  value={item.catatan || ''} 
+                                                  onChange={(v) => handleItemChangeAndSelect('materialMdu', idx, 'catatan', v)} 
+                                                  className="flex-1 px-3 py-2 border rounded text-[13px] border-slate-300 italic" 
+                                              />
+                                              <LazyInput type="text" placeholder="Satuan" value={item.satuan} onChange={(v) => handleArrayChange('materialMdu', idx, 'satuan', v)} className="w-24 px-3 py-2 border rounded text-[13px] outline-none border-slate-300 focus:border-indigo-400 text-center" />
+
+                                              <LazyInput type="number" placeholder="Jml" value={item.jumlah} onChange={(v) => handleArrayChange('materialMdu', idx, 'jumlah', v)} className="w-20 px-3 py-2 border rounded text-[13px] outline-none border-slate-300 focus:border-indigo-400 text-center" />
+                                              <button onClick={() => removeLhRow('materialMdu', item.id)} className="w-8 h-8 rounded flex items-center justify-center text-rose-500 hover:bg-rose-50 shrink-0"><i className="fa-solid fa-trash-can text-[12px]"></i></button>
+                                          </div>
+                                      ))}
+                                  </div>
+                              </div>
+                          </div>
+
+                          {/* INPUT URAIAN PEKERJAAN PASANG & BONGKAR */}
+                          <div className="grid grid-cols-1 xl:grid-cols-2 gap-6">
+                              <div className="bg-white p-5 rounded-xl border border-slate-200 shadow-sm overflow-hidden">
+                                  <div className="flex justify-between items-center mb-4">
+                                      <h4 className="font-bold text-[14px] text-slate-700">Uraian Pekerjaan Pasang</h4>
+                                      <button onClick={() => addLhRow('uraianPasang')} className="text-[11px] font-bold text-indigo-600 bg-indigo-50 px-3 py-1.5 rounded hover:bg-indigo-100 transition-colors">+ Tambah Baris</button>
+                                  </div>
+                                  <div className="overflow-x-auto custom-scrollbar pb-2">
+                                      <div className="min-w-[550px] space-y-3">
+                                          {lhFormData.uraianPasang.map((item, idx) => (
+                                              <div key={item.id} className="flex gap-2 items-center">
+                                                  <span className="text-[12px] font-bold text-slate-400 w-5 text-center">{idx + 1}.</span>
+                                                  <MasterNameInput kind="list-jasa" type="text" placeholder="Ketik jasa..." value={item.nama} onChange={(v) => handleItemChangeAndSelect('uraianPasang', idx, 'nama', v)} className="w-[30%] px-2 py-2 border rounded text-[13px] outline-none border-slate-300 focus:border-indigo-400 min-w-[120px] focus:ring-1 focus:ring-indigo-400 bg-amber-50/20" autoComplete="off" />
+                                                  
+                                                  <LazyInput type="text" placeholder="Catatan..." value={item.catatan || ''} onChange={(v) => handleItemChangeAndSelect('uraianPasang', idx, 'catatan', v)} className="flex-1 px-2 py-2 border rounded text-[13px] outline-none border-slate-300 focus:border-indigo-400 italic text-slate-500" />
+                                                  
+                                                  <LazyInput type="text" placeholder="Sat" value={item.satuan} onChange={(v) => handleArrayChange('uraianPasang', idx, 'satuan', v)} className="w-14 px-1 py-2 border rounded text-[13px] outline-none border-slate-300 focus:border-indigo-400 text-center" />
+                                                 
+                                                  <LazyInput type="number" placeholder="PLN" value={item.pln} onChange={(v) => handleArrayChange('uraianPasang', idx, 'pln', v)} className="w-14 px-1 py-2 border rounded text-[13px] outline-none border-slate-300 focus:border-indigo-400 text-center" />
+                                                  <LazyInput type="number" placeholder="PEMB" value={item.pemb} onChange={(v) => handleArrayChange('uraianPasang', idx, 'pemb', v)} className="w-14 px-1 py-2 border rounded text-[13px] outline-none border-slate-300 focus:border-indigo-400 text-center" />
+                                                  
+                                                  {/* RATAKANAN V6.12: Kotak Jumlah Auto-Sum (Terkunci) */}
+                                                  <input 
+                                                      type="number" 
+                                                      placeholder="JML" 
+                                                      value={(Number(item.pln || 0) + Number(item.pemb || 0)) || ''} 
+                                                      readOnly 
+                                                      className="w-16 px-1 py-2 border border-indigo-200 bg-indigo-50/50 text-indigo-700 font-bold text-[13px] text-center outline-none cursor-not-allowed shadow-inner" 
+                                                      title="Otomatis menjumlahkan PLN + PEMB" 
+                                                  />
+                                                  <button onClick={() => removeLhRow('uraianPasang', item.id)} className="w-8 h-8 rounded flex items-center justify-center text-rose-500 hover:bg-rose-50 shrink-0"><i className="fa-solid fa-trash-can text-[12px]"></i></button>
+                                              </div>
+                                          ))}
+                                      </div>
+                                  </div>
+                              </div>
+
+                              <div className="bg-white p-5 rounded-xl border border-slate-200 shadow-sm overflow-hidden">
+                                  <div className="flex justify-between items-center mb-4">
+                                      <h4 className="font-bold text-[14px] text-slate-700">Uraian Pekerjaan Bongkar</h4>
+                                      <button onClick={() => addLhRow('uraianBongkar')} className="text-[11px] font-bold text-indigo-600 bg-indigo-50 px-3 py-1.5 rounded hover:bg-indigo-100 transition-colors">+ Tambah Baris</button>
+                                  </div>
+                                  <div className="overflow-x-auto custom-scrollbar pb-2">
+                                      <div className="min-w-[450px] space-y-3">
+                                          {lhFormData.uraianBongkar.map((item, idx) => (
+                                              <div key={item.id} className="flex gap-2 items-center">
+                                                  <span className="text-[12px] font-bold text-slate-400 w-5 text-center">{idx + 1}.</span>
+                                                  <MasterNameInput kind="list-jasa" type="text" placeholder="Ketik jasa..." value={item.nama} onChange={(v) => handleItemChangeAndSelect('uraianBongkar', idx, 'nama', v)} className="w-[30%] px-3 py-2 border rounded text-[13px] outline-none border-slate-300 focus:border-indigo-400 min-w-[120px] focus:ring-1 focus:ring-indigo-400 bg-amber-50/20" autoComplete="off" />
+                                                  
+                                                  <LazyInput type="text" placeholder="Catatan/SN..." value={item.catatan || ''} onChange={(v) => handleItemChangeAndSelect('uraianBongkar', idx, 'catatan', v)} className="flex-1 px-3 py-2 border rounded text-[13px] outline-none border-slate-300 focus:border-indigo-400 italic text-slate-500" />
+                                                  
+                                                  <LazyInput type="text" placeholder="Satuan" value={item.satuan} onChange={(v) => handleArrayChange('uraianBongkar', idx, 'satuan', v)} className="w-16 px-2 py-2 border rounded text-[13px] outline-none border-slate-300 focus:border-indigo-400 text-center" />
+                                                  
+                                                  <LazyInput type="number" placeholder="Jml" value={item.jumlah} onChange={(v) => handleArrayChange('uraianBongkar', idx, 'jumlah', v)} className="w-16 px-2 py-2 border rounded text-[13px] outline-none border-slate-300 focus:border-indigo-400 text-center bg-slate-50 font-bold" />
+                                                  <button onClick={() => removeLhRow('uraianBongkar', item.id)} className="w-8 h-8 rounded flex items-center justify-center text-rose-500 hover:bg-rose-50 shrink-0"><i className="fa-solid fa-trash-can text-[12px]"></i></button>
+                                              </div>
+                                          ))}
+                                      </div>
+                                  </div>
+                              </div>
+                          </div>
+
+                          {/* INPUT RETUR BARU & BEKAS */}
+                          <div className="grid grid-cols-1 xl:grid-cols-2 gap-6">
+                              <div className="bg-white p-5 rounded-xl border border-slate-200 shadow-sm overflow-hidden">
+                                  <div className="flex justify-between items-center mb-4">
+                                      <h4 className="font-bold text-[14px] text-slate-700">Retur Material Baru</h4>
+                                      <button onClick={() => addLhRow('returBaru')} className="text-[11px] font-bold text-indigo-600 bg-indigo-50 px-3 py-1.5 rounded hover:bg-indigo-100 transition-colors">+ Tambah Baris</button>
+                                  </div>
+                                  <div className="overflow-x-auto custom-scrollbar pb-2">
+                                      <div className="min-w-[450px] space-y-3">
+                                          {lhFormData.returBaru.map((item, idx) => (
+                                              <div key={item.id} className="flex gap-2 items-center">
+                                                  <span className="text-[12px] font-bold text-slate-400 w-5 text-center">{idx + 1}.</span>
+                                                  <MasterNameInput kind="list-material" type="text" placeholder="Ketik material..." value={item.nama} onChange={(v) => handleItemChangeAndSelect('returBaru', idx, 'nama', v)} className="w-[30%] px-3 py-2 border rounded text-[13px] outline-none border-slate-300 focus:border-indigo-400 min-w-[120px] focus:ring-1 focus:ring-indigo-400 bg-indigo-50/20" autoComplete="off" />
+
+                                                  <LazyInput type="text" placeholder="Catatan/SN..." value={item.catatan || ''} onChange={(v) => handleItemChangeAndSelect('returBaru', idx, 'catatan', v)} className="flex-1 px-3 py-2 border rounded text-[13px] outline-none border-slate-300 focus:border-indigo-400 italic text-slate-500" />
+
+                                                  <LazyInput type="text" placeholder="Satuan" value={item.satuan} onChange={(v) => handleArrayChange('returBaru', idx, 'satuan', v)} className="w-16 px-2 py-2 border rounded text-[13px] outline-none border-slate-300 focus:border-indigo-400 text-center" />
+                                                  
+                                                  <LazyInput type="number" placeholder="Jml" value={item.jumlah} onChange={(v) => handleArrayChange('returBaru', idx, 'jumlah', v)} className="w-16 px-2 py-2 border rounded text-[13px] outline-none border-slate-300 focus:border-indigo-400 text-center" />
+                                                  <button onClick={() => removeLhRow('returBaru', item.id)} className="w-8 h-8 rounded flex items-center justify-center text-rose-500 hover:bg-rose-50 shrink-0"><i className="fa-solid fa-trash-can text-[12px]"></i></button>
+                                              </div>
+                                          ))}
+                                      </div>
+                                  </div>
+                              </div>
+
+                              <div className="bg-white p-5 rounded-xl border border-slate-200 shadow-sm overflow-hidden">
+                                  <div className="flex justify-between items-center mb-4">
+                                      <h4 className="font-bold text-[14px] text-slate-700">Retur Material Bekas</h4>
+                                      <button onClick={() => addLhRow('returBekas')} className="text-[11px] font-bold text-indigo-600 bg-indigo-50 px-3 py-1.5 rounded hover:bg-indigo-100 transition-colors">+ Tambah Baris</button>
+                                  </div>
+                                  <div className="overflow-x-auto custom-scrollbar pb-2">
+                                      <div className="min-w-[450px] space-y-3">
+                                          {lhFormData.returBekas.map((item, idx) => (
+                                              <div key={item.id} className="flex gap-2 items-center">
+                                                  <span className="text-[12px] font-bold text-slate-400 w-5 text-center">{idx + 1}.</span>
+                                                  <MasterNameInput kind="list-material" type="text" placeholder="Ketik material..." value={item.nama} onChange={(v) => handleItemChangeAndSelect('returBekas', idx, 'nama', v)} className="w-[30%] px-3 py-2 border rounded text-[13px] outline-none border-slate-300 focus:border-indigo-400 min-w-[120px] focus:ring-1 focus:ring-indigo-400 bg-indigo-50/20" autoComplete="off" />
+
+                                                  <LazyInput type="text" placeholder="Catatan/SN..." value={item.catatan || ''} onChange={(v) => handleItemChangeAndSelect('returBekas', idx, 'catatan', v)} className="flex-1 px-3 py-2 border rounded text-[13px] outline-none border-slate-300 focus:border-indigo-400 italic text-slate-500" />
+
+                                                  <LazyInput type="text" placeholder="Satuan" value={item.satuan} onChange={(v) => handleArrayChange('returBekas', idx, 'satuan', v)} className="w-16 px-2 py-2 border rounded text-[13px] outline-none border-slate-300 focus:border-indigo-400 text-center" />
+                                                  
+                                                  <LazyInput type="number" placeholder="Jml" value={item.jumlah} onChange={(v) => handleArrayChange('returBekas', idx, 'jumlah', v)} className="w-16 px-2 py-2 border rounded text-[13px] outline-none border-slate-300 focus:border-indigo-400 text-center" />
+                                                  <button onClick={() => removeLhRow('returBekas', item.id)} className="w-8 h-8 rounded flex items-center justify-center text-rose-500 hover:bg-rose-50 shrink-0"><i className="fa-solid fa-trash-can text-[12px]"></i></button>
+                                              </div>
+                                          ))}
+                                      </div>
+                                  </div>
+                              </div>
+                          </div>
+                      </div>
+                  </div>
+              </div>
+          </>)
+  );
+};
+
+// Panel acuan: log harian sumber (dari tabel log) yang tetap terlihat di samping formulir, bisa diminimalkan.
+function LhRefPanel({ lhRef, lhId }) {
+  const { useState } = React;
+  const [open, setOpen] = useState(true);
+  const [tab, setTab] = useState('log');
+  if (!lhRef || lhRef.lhId !== lhId) return null;
+  const TABS = [['log', 'Log', lhRef.days.reduce((a, d) => a + d.logs.length, 0)], ['mdu', 'MDU', lhRef.mdu.length], ['utama', 'Utama', lhRef.utama.length], ['bong', 'Bongkaran', lhRef.bong.length]];
+  const Mat = ({ rows, col }) => rows.length === 0 ? <div style={{ color: '#A3A9B8' }}>Tidak ada.</div> : rows.map((r, i) => (
+    <div key={i} className="flex gap-2 py-1 border-b" style={{ borderColor: '#F0F1F6' }}><span className="flex-1 min-w-0" style={{ color: '#2B2F3A' }}>{r.nama}</span><span className="shrink-0 font-medium" style={{ color: col }}>{r.qty}{r.unit ? ' ' + r.unit : ''}</span></div>));
+  return (
+    <div className="fixed z-[80] right-4 bottom-4 bg-white border rounded-xl shadow-xl text-[12px]" style={{ width: open ? 400 : 230, borderColor: '#D9DDE9', maxWidth: 'calc(100vw - 32px)' }}>
+      <button type="button" onClick={() => setOpen(!open)} className="w-full flex items-center justify-between gap-3 px-4 h-9 rounded-xl text-left" style={{ background: '#F4F6FB', color: '#2B2F3A' }}>
+        <span className="font-medium truncate">Log harian sumber{lhRef.days.length > 1 ? ` (${lhRef.days.length} hari digabung)` : ''}</span>
+        <span style={{ color: '#3A62B0' }}>{open ? 'Kecilkan' : 'Buka'}</span>
+      </button>
+      {open && (<>
+        <div className="px-4 pt-2 text-[11px]" style={{ color: '#7A8190' }}>{lhRef.title}{lhRef.matNote ? ' · material: ' + lhRef.matNote : ''}</div>
+        <div className="flex gap-1 px-3 pt-2 border-b" style={{ borderColor: '#E6E9F2' }}>
+          {TABS.map(([k, l, n]) => <button type="button" key={k} onClick={() => setTab(k)} className="h-7 px-2.5 -mb-px border-b-2" style={{ borderColor: tab === k ? '#3A62B0' : 'transparent', color: tab === k ? '#3A62B0' : '#7A8190' }}>{l} {n}</button>)}
+        </div>
+        <div className="px-4 py-2 overflow-y-auto" style={{ maxHeight: '48vh' }}>
+          {tab === 'log' && (lhRef.days.every((d) => !d.logs.length) ? <div style={{ color: '#A3A9B8' }}>Tidak ada log.</div> : lhRef.days.map((d, i) => (
+            <div key={i} className="mb-2"><div className="font-medium mb-0.5" style={{ color: '#2F8F9D' }}>{d.label}</div>
+              {d.logs.map((l, j) => <div key={j} className="flex gap-2 py-0.5 leading-[17px]"><span className="w-[38px] shrink-0" style={{ color: '#7A8190' }}>{l.t}</span><span className="flex-1 whitespace-pre-wrap break-words" style={{ color: '#2B2F3A' }}>{l.text}</span></div>)}</div>)))}
+          {tab === 'mdu' && <Mat rows={lhRef.mdu} col="#7E57C2" />}
+          {tab === 'utama' && <Mat rows={lhRef.utama} col="#3A62B0" />}
+          {tab === 'bong' && <Mat rows={lhRef.bong} col="#B7791F" />}
+        </div>
+      </>)}
+    </div>
+  );
+}
+
+// Isian yang tidak menggambar ulang seluruh aplikasi tiap ketukan: teks disimpan lokal, diteruskan 250 ms setelah berhenti atau saat keluar kolom.
+function LazyInput({ value, onChange, delay, ...rest }) {
+  const { useState, useEffect, useRef } = React;
+  const [v, setV] = useState(value == null ? '' : value);
+  const timer = useRef(null); const last = useRef(value);
+  useEffect(() => { if (value !== last.current) { setV(value == null ? '' : value); last.current = value; } }, [value]);
+  useEffect(() => () => clearTimeout(timer.current), []);
+  const flush = (x) => { clearTimeout(timer.current); if (x !== last.current) { last.current = x; onChange(x); } };
+  return <input {...rest} value={v} onChange={(e) => { const x = e.target.value; setV(x); clearTimeout(timer.current); timer.current = setTimeout(() => flush(x), delay || 250); }} onBlur={(e) => flush(e.target.value)} />;
+}
+
+// Nama material/jasa dengan sugesti dari Master_Data (menggantikan datalist bawaan browser yang berisi ribuan opsi).
+function MasterNameInput({ kind, value, onChange, ...rest }) {
+  const { useState, useEffect, useRef } = React;
+  const kinds = kind === 'list-jasa' ? ['PASANG', 'BONGKAR', 'MATERIAL'] : ['MDU', 'MATERIAL'];
+  const [v, setV] = useState(value == null ? '' : value);
+  const [hits, setHits] = useState([]); const [act, setAct] = useState(0); const [pos, setPos] = useState(null); const [focus, setFocus] = useState(false);
+  const ref = useRef(null), timer = useRef(null), st = useRef(null), last = useRef(value);
+  useEffect(() => { if (value !== last.current) { setV(value == null ? '' : value); last.current = value; } }, [value]);
+  useEffect(() => () => { clearTimeout(timer.current); clearTimeout(st.current); }, []);
+  useEffect(() => { if (!hits.length) return; const close = () => setHits([]); window.addEventListener('scroll', close, true); return () => window.removeEventListener('scroll', close, true); }, [hits.length]);
+  const commit = (x) => { clearTimeout(timer.current); if (x !== last.current) { last.current = x; onChange(x); } };
+  const place = () => { const r = ref.current && ref.current.getBoundingClientRect(); if (r) setPos({ l: r.left, t: r.bottom + 2, w: r.width }); };
+  const pick = (e) => { setV(e.nama); setHits([]); commit(e.nama); };
+  return (
+    <>
+      <input {...rest} ref={ref} value={v} autoComplete="off"
+        style={(() => { const st = window.masterStatus(window.__masterDb, v); return st.s === 'tidak' ? { borderColor: '#DC2626', background: '#FEF2F2', color: '#B91C1C' } : st.s === 'convert' ? { borderColor: '#E9CF9A', background: '#FFF8E8' } : undefined; })()}
+        title={(() => { const st = window.masterStatus(window.__masterDb, v); return st.s === 'tidak' ? 'Nama ini tidak ada di Master data. Pilih dari daftar sugesti.' : st.s === 'convert' ? 'Nama lama, dikenali lewat tabel Convert sebagai: ' + st.nama + '. Sebaiknya pilih nama dari daftar sugesti.' : rest.title; })()}
+        onFocus={() => { setFocus(true); place(); }}
+        onChange={(e) => { const x = e.target.value; setV(x); clearTimeout(timer.current); timer.current = setTimeout(() => commit(x), 300); clearTimeout(st.current); st.current = setTimeout(() => { place(); setHits(window.masterSearch(window.__masterDb, x, kinds, 8)); setAct(0); }, 120); }}
+        onBlur={() => { setFocus(false); setHits([]); clearTimeout(st.current); commit(v); }}
+        onKeyDown={(e) => {
+          if (e.key === 'ArrowDown' && hits.length) { e.preventDefault(); setAct(Math.min(act + 1, hits.length - 1)); }
+          else if (e.key === 'ArrowUp' && hits.length) { e.preventDefault(); setAct(Math.max(act - 1, 0)); }
+          else if (e.key === 'Enter' && hits.length) { e.preventDefault(); pick(hits[act]); }
+          else if (e.key === 'Escape') setHits([]);
+        }} />
+      {focus && hits.length > 0 && pos && ReactDOM.createPortal(
+        <div className="fixed z-[100] bg-white border border-slate-200 rounded-lg shadow-lg overflow-hidden" style={{ left: pos.l, top: pos.t, width: Math.max(pos.w, 420) }}>
+          {hits.map((e, i) => (
+            <div key={e.id + e.nama} onMouseDown={(ev) => { ev.preventDefault(); pick(e); }} onMouseEnter={() => setAct(i)} className={`px-3 py-1.5 cursor-pointer text-[13px] leading-snug ${i === act ? 'bg-indigo-50' : 'hover:bg-slate-50'}`}>
+              <div className="truncate">{e.nama}</div>
+              <div className="text-[11px] text-slate-400">{e.tipe}{e.sat ? ' · ' + e.sat : ''}</div>
+            </div>))}
+        </div>, document.body)}
+    </>
+  );
+}</script>

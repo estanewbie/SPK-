@@ -1,0 +1,128 @@
+<script type="text/babel">
+// Modal: Buka / Edit Wadah SPK
+window.Modals.Spk = (ctx) => {
+  const {
+    daftarUlpBali, editingSpkId, handleCreateSpk, isFetchingData, isSpkModalOpen, newSpkForm,
+    setIsSpkModalOpen, setNewSpkForm
+  } = ctx;
+  return (
+isSpkModalOpen && (
+            <div className="fixed inset-0 z-[60] flex items-center justify-center p-4 bg-slate-900/40 backdrop-blur-sm">
+              <div className="bg-white rounded-2xl shadow-xl w-full max-w-lg overflow-hidden border border-slate-100 animate-in zoom-in-95 duration-200">
+                <div className="p-5 border-b border-slate-100 flex justify-between items-center bg-indigo-50/50">
+                  <div>
+                    <h3 className="font-bold text-indigo-900 text-[16px]"><i className={`fa-solid ${editingSpkId ? 'fa-pen-to-square' : 'fa-folder-plus'} text-indigo-600 mr-2`}></i>{editingSpkId ? 'Edit Wadah Kontrak' : 'Buka Wadah Kontrak SPK'}</h3>
+                    <p className="text-[12px] text-slate-500 mt-0.5">{editingSpkId ? `Memperbarui data kontrak ${editingSpkId}` : 'Daftarkan kontrak induk baru untuk menampung PK.'}</p>
+                  </div>
+                  <button onClick={() => setIsSpkModalOpen(false)} className="w-8 h-8 rounded-full bg-white text-slate-500 hover:bg-rose-50 hover:text-rose-600 transition-colors shadow-sm"><i className="fa-solid fa-xmark"></i></button>
+                </div>
+                
+                <form onSubmit={handleCreateSpk} className="p-5 bg-white max-h-[75vh] overflow-y-auto custom-scrollbar">
+                  <div className="space-y-4">
+                    <div>
+                      <label className="block text-[11px] font-bold text-slate-500 uppercase tracking-wide mb-1.5 ml-1">Nomor SPK / Kontrak <span className="text-rose-500">*</span></label>
+                        <input type="text" required placeholder="Cth: 045/SPK/PLN-U2R/2026" value={newSpkForm.id} disabled={!!editingSpkId} onChange={(e) => setNewSpkForm({...newSpkForm, id: e.target.value})} className="block w-full px-3 py-2.5 bg-slate-50 border border-slate-200 rounded-lg text-slate-800 outline-none focus:border-indigo-400 focus:bg-white text-[13px] font-bold uppercase disabled:bg-slate-200 disabled:text-slate-500 " />
+                    </div>
+                    <div>
+                      <label className="block text-[11px] font-bold text-slate-500 uppercase tracking-wide mb-1.5 ml-1">Uraian Pekerjaan Kontrak <span className="text-rose-500">*</span></label>
+                      <textarea required placeholder="Cth: PEMELIHARAAN TRAFO & GARDU DISTRIBUSI AREA BALI SELATAN" value={newSpkForm.nama} onChange={(e) => setNewSpkForm({...newSpkForm, nama: e.target.value})} className="block w-full px-3 py-2.5 bg-slate-50 border border-slate-200 rounded-lg text-slate-800 outline-none focus:border-indigo-400 focus:bg-white text-[13px] uppercase min-h-[80px] custom-scrollbar"></textarea>
+                    </div>
+                    {/* BARIS 1: NO SPK & POS ANGGARAN DIBUAT BERSEBELAHAN */}
+                    <div>
+                      <label className="block text-[11px] font-bold text-indigo-600 uppercase tracking-wide mb-1.5 ml-1">Pos Anggaran (Code) <span className="text-rose-500">*</span></label>
+                      <input type="text" required placeholder="Cth: 52.1.1" value={newSpkForm.pos_anggaran} onChange={(e) => setNewSpkForm({...newSpkForm, pos_anggaran: e.target.value})} className="block w-full px-3 py-2.5 bg-indigo-50/40 border border-indigo-200 rounded-lg text-indigo-900 outline-none focus:border-indigo-400 focus:bg-white text-[13px] font-bold uppercase" />
+                    </div>
+                    <div>
+                      <label className="block text-[11px] font-bold text-slate-500 uppercase tracking-wide mb-1.5 ml-1">Vendor Pemegang Kontrak <span className="text-rose-500">*</span></label>
+                      <input type="text" required placeholder="Cth: PT. NANDA NIRWANA ELEKTRIK" value={newSpkForm.vendor} onChange={(e) => setNewSpkForm({...newSpkForm, vendor: e.target.value})} className="block w-full px-3 py-2.5 bg-slate-50 border border-slate-200 rounded-lg text-slate-800 outline-none focus:border-indigo-400 focus:bg-white text-[13px] uppercase font-medium" />
+                    </div>
+                    <div className="grid grid-cols-2 gap-4">
+                        <div>
+                          <label className="block text-[11px] font-bold text-slate-500 uppercase tracking-wide mb-1.5 ml-1">Tgl Buka Kontrak <span className="text-rose-500">*</span></label>
+                          <input type="date" required value={newSpkForm.tanggal} onChange={(e) => setNewSpkForm({...newSpkForm, tanggal: e.target.value})} className="block w-full px-3 py-2.5 bg-slate-50 border border-slate-200 rounded-lg text-slate-800 outline-none focus:border-indigo-400 focus:bg-white text-[13px]" />
+                        </div>
+                        <div>
+                          <label className="block text-[11px] font-bold text-slate-500 uppercase tracking-wide mb-1.5 ml-1">Tgl Berakhir (Exp) <span className="text-rose-500">*</span></label>
+                          <input type="date" required value={newSpkForm.exp} onChange={(e) => setNewSpkForm({...newSpkForm, exp: e.target.value})} className="block w-full px-3 py-2.5 bg-slate-50 border border-slate-200 rounded-lg text-slate-800 outline-none focus:border-indigo-400 focus:bg-white text-[13px]" />
+                        </div>
+                    </div>
+                    <div className="mt-4">
+                      <label className="text-[10px] font-bold text-slate-500 uppercase tracking-wider">
+                          WILAYAH ULP AREA BALI <span className="text-rose-500">*</span>
+                      </label>
+                      <div className="relative mt-1.5">
+                          <i className="fa-solid fa-location-dot absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-400"></i>
+                          <select 
+                              value={newSpkForm.ulp_wilayah} 
+                              onChange={(e) => setNewSpkForm({...newSpkForm, ulp_wilayah: e.target.value})}
+                              className="w-full pl-10 pr-4 py-2.5 border border-slate-200 rounded-lg text-[13px] outline-none focus:border-indigo-400 focus:ring-2 focus:ring-indigo-100 bg-slate-50 focus:bg-white transition-all cursor-pointer appearance-none"
+                              required
+                          >
+                              <option value="" disabled>-- Pilih ULP Wilayah --</option>
+                              {daftarUlpBali.map((ulp, index) => (
+                                  <option key={index} value={ulp}>{ulp}</option>
+                              ))}
+                          </select>
+                          <i className="fa-solid fa-chevron-down absolute right-4 top-1/2 -translate-y-1/2 text-[10px] text-slate-400 pointer-events-none"></i>
+                      </div>
+                  </div>    
+                    <div>
+                      <label className="block text-[11px] font-bold text-slate-500 uppercase tracking-wide mb-1.5 ml-1">Kapasitas Maksimal (Nilai Kontrak) <span className="text-rose-500">*</span></label>
+                      <div className="relative">
+                        <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none"><span className="text-slate-400 text-[13px] font-bold">Rp</span></div>
+                        <input 
+                            type="text" 
+                            required 
+                            placeholder="500.000.000" 
+                            value={newSpkForm.nominalFormatted || ''} 
+                            onChange={(e) => {
+                                const rawValue = e.target.value.replace(/[^0-9]/g, '');
+                                const formattedValue = rawValue ? new Intl.NumberFormat('id-ID').format(rawValue) : '';
+                                setNewSpkForm({...newSpkForm, nominal_total: rawValue, nominalFormatted: formattedValue});
+                            }} 
+                            className="block w-full pl-9 pr-3 py-3 bg-indigo-50 border border-indigo-200 rounded-lg text-indigo-900 outline-none focus:border-indigo-500 text-[15px] font-mono font-black shadow-inner" 
+                        />
+                      </div>
+                      <p className="text-[9px] text-slate-400 mt-1 italic"><i className="fa-solid fa-circle-info"></i> Nilai ini akan menjadi batas muat (100%) untuk PK yang dialokasikan ke wadah ini.</p>
+                    </div>
+                  </div>
+                      {editingSpkId && (
+                              <div className="mt-4 p-4 rounded-xl border border-blue-100 bg-blue-50/30">
+                                  <label className="text-[10px] font-bold text-slate-500 uppercase tracking-wider">
+                                      STATUS WADAH KONTRAK
+                                  </label>
+                                  <div className="relative mt-1.5">
+                                      <i className="fa-solid fa-traffic-light absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-400"></i>
+                                      <select 
+                                          value={newSpkForm.status} 
+                                          onChange={(e) => setNewSpkForm({...newSpkForm, status: e.target.value})}
+                                          className={`w-full pl-10 pr-4 py-2.5 border rounded-lg text-[13px] font-bold outline-none focus:ring-2 focus:bg-white transition-all cursor-pointer appearance-none ${
+                                              String(newSpkForm.status).toLowerCase() === 'completed' ? 'text-emerald-600 border-emerald-200 bg-emerald-50 focus:ring-emerald-100' :
+                                              String(newSpkForm.status).toLowerCase() === 'pending' ? 'text-purple-600 border-purple-200 bg-purple-50 focus:ring-purple-100' :
+                                              'text-blue-600 border-blue-200 bg-blue-50 focus:ring-blue-100'
+                                          }`}
+                                      >
+                                          <option value="Aktif">🟢 AKTIF (Bisa Menerima PK)</option>
+                                          <option value="Pending">🟣 PENDING (Ditangguhkan Sementara)</option>
+                                          <option value="Completed">✅ COMPLETED (Ditutup / Penuh)</option>
+                                      </select>
+                                      <i className="fa-solid fa-chevron-down absolute right-4 top-1/2 -translate-y-1/2 text-[10px] text-slate-400 pointer-events-none"></i>
+                                  </div>
+                                  <p className="text-[10px] text-slate-500 mt-1.5">
+                                      *Pilih <span className="font-bold text-emerald-600">COMPLETED</span> jika wadah kontrak ini sudah terisi penuh atau masa berlakunya telah habis.
+                                  </p>
+                              </div>
+                          )}
+                  <div className="mt-6 border-t border-slate-100 pt-4 flex gap-3">
+                    <button type="button" onClick={() => setIsSpkModalOpen(false)} className="px-4 py-2.5 bg-slate-100 text-slate-600 rounded-lg text-[13px] font-bold hover:bg-slate-200 transition-all flex-1">Batal</button>
+                    <button type="submit" disabled={isFetchingData} className="px-4 py-2.5 bg-indigo-600 text-white rounded-lg text-[13px] font-bold hover:bg-indigo-700 transition-all flex-[2] flex justify-center items-center gap-2 shadow-sm">
+                      {isFetchingData ? <><i className="fa-solid fa-spinner fa-spin"></i> Memproses...</> : <><i className="fa-solid fa-cloud-arrow-up"></i> Buka Wadah Kontrak</>}
+                    </button>
+                  </div>
+                </form>
+              </div>
+            </div>
+          )
+  );
+};
+</script>

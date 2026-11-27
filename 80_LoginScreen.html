@@ -1,0 +1,100 @@
+<script type="text/babel">
+// Halaman login (dipanggil App saat !isLoggedIn). Tema ungu tua ke biru tua, dengan ilustrasi grafik dekoratif.
+window.LoginScreen = (ctx) => {
+  const {
+    handleLogin, isFetchingData, loginForm, setLoginForm, toast
+  } = ctx;
+
+  // ===== LOGIKA OTOMATIS ALERT SIKLUS 29 HARI =====
+  const shouldShowAlert = () => {
+    const anchorDate = new Date('2026-08-04');
+    const today = new Date();
+    const diffDays = Math.floor((today - anchorDate) / (1000 * 60 * 60 * 24));
+    const cycleLength = 29;
+    const currentDayInCycle = ((diffDays % cycleLength) + cycleLength) % cycleLength;
+    return currentDayInCycle >= (cycleLength - 3); // 3 hari terakhir sebelum siklus reset
+  };
+  const isAlertVisible = shouldShowAlert();
+
+  const GRAD = 'linear-gradient(135deg,#5A3E9E 0%,#2E3F93 60%,#22358A 100%)';
+  const inputCls = "block w-full h-10 px-3 bg-white border border-[#D9DDE9] rounded-lg text-[#2B2F3A] text-[13px] placeholder:text-slate-400 focus:outline-none focus:border-[#5A3E9E] focus:ring-2 focus:ring-[#5A3E9E]/15 transition";
+
+  return (
+    <div className="min-h-screen flex font-sans bg-[#F7F8FC]">
+      {/* panel kiri: ungu tua ke biru tua, grafik dekoratif */}
+      <div className="hidden lg:flex w-[52%] max-w-[760px] text-white p-12 flex-col justify-between relative overflow-hidden" style={{ background: 'linear-gradient(155deg,#1B1042 0%,#2A1A6B 46%,#17286E 100%)' }}>
+        <div className="absolute -right-24 -bottom-24 w-[380px] h-[380px] rounded-full" style={{ background: 'rgba(122,92,214,.28)' }}></div>
+        <div className="absolute -right-8 -bottom-40 w-[300px] h-[300px] rounded-full" style={{ background: 'rgba(70,110,230,.22)' }}></div>
+
+        <div className="flex items-center gap-3 relative">
+          <div className="w-10 h-10 rounded-xl bg-rose-600 text-white flex items-center justify-center font-medium text-[18px] shadow-lg">N</div>
+          <div className="leading-tight"><div className="text-[15px] font-medium">PT. Nanda Nirwana Elektrik</div><div className="text-[11px] text-[#B9B2E6]">Bali</div></div>
+        </div>
+
+        <div className="relative">
+          <h1 className="text-[30px] leading-9 font-medium">Sistem Manajemen SPK</h1>
+          <p className="mt-3 text-[14px] text-[#D4CFF5] leading-relaxed max-w-md">Kelola SPK, PK, laporan harian, RAB, dan kerja tambah kurang dalam satu tempat.</p>
+
+          <p className="mt-10 text-[15px] italic text-[#D4CFF5]">Lavoro di Cuore, Dedizione di Fatto.</p>
+          <p className="mt-4 text-[14px] italic text-[#A9A3D6] max-w-sm">"I have no special talent. I am only passionately curious."</p>
+        </div>
+
+        <div className="text-[11px] text-[#8F89C4] relative">Apk.V4.1</div>
+      </div>
+
+      {/* form */}
+      <div className="flex-1 flex flex-col items-center justify-center p-6">
+        <div className="w-full max-w-[380px]">
+          <div className="flex flex-col items-center text-center mb-8">
+            <div className="w-14 h-14 rounded-2xl bg-rose-600 text-white flex items-center justify-center font-medium text-[26px] shadow-md">N</div>
+            <div className="mt-3 text-[15px] font-medium text-[#2B2F3A]">PT. Nanda Nirwana Elektrik</div>
+            <div className="text-[12px] text-[#7A8190]">Sistem Manajemen SPK</div>
+          </div>
+          <h2 className="text-[20px] font-medium text-[#2B2F3A]">Masuk</h2>
+          <p className="text-[12px] text-[#7A8190] mt-1 mb-6">Gunakan akun yang diberikan administrator.</p>
+          <form onSubmit={handleLogin} className="space-y-4">
+            <div>
+              <label className="block text-[12px] text-[#5B6275] mb-1.5">Username</label>
+              <input type="text" value={loginForm.username} autoComplete="username"
+                onChange={(e) => setLoginForm({ ...loginForm, username: e.target.value })}
+                className={inputCls} placeholder="Username" required />
+            </div>
+            <div>
+              <label className="block text-[12px] text-[#5B6275] mb-1.5">Password</label>
+              <input type="password" value={loginForm.password} autoComplete="current-password"
+                onChange={(e) => setLoginForm({ ...loginForm, password: e.target.value })}
+                className={inputCls} placeholder="Password" required />
+            </div>
+            <button type="submit" disabled={isFetchingData} className="w-full h-10 mt-2 flex justify-center items-center gap-2 rounded-lg text-[13px] font-medium text-white transition-all hover:brightness-110 disabled:opacity-60 disabled:cursor-not-allowed" style={{ backgroundImage: GRAD }}>
+              {isFetchingData ? (<><i className="fa-solid fa-spinner fa-spin text-[12px]"></i> Memeriksa...</>) : (<>Masuk <i className="fa-solid fa-arrow-right text-[11px]"></i></>)}
+            </button>
+          </form>
+
+          {isAlertVisible && (
+            <div className="mt-6 flex gap-3 bg-amber-50 border border-amber-200 text-amber-800 px-4 py-3 rounded-lg">
+              <i className="fa-solid fa-circle-info mt-0.5 text-amber-500"></i>
+              <div>
+                <p className="text-[12px] font-medium">Periksa database dan pembaruan</p>
+                <p className="text-[11px] mt-0.5 opacity-80 leading-snug">Pastikan database dan versi aplikasi sudah yang terbaru agar masalah cepat terdeteksi.</p>
+              </div>
+            </div>
+          )}
+          <p className="text-center text-[11px] text-[#9AA1AE] mt-8 lg:hidden">Apk.V4.1</p>
+        </div>
+      </div>
+
+      {toast.show && (
+        <div className="fixed bottom-6 right-6 z-[100] page-in">
+          <div className={`flex items-start gap-3 bg-white pl-3 pr-5 py-3 rounded-xl shadow-lg border border-slate-200 min-w-[280px] border-l-4 ${toast.type === 'error' ? 'border-l-rose-500' : 'border-l-emerald-500'}`}>
+            <i className={`mt-0.5 text-[15px] ${toast.type === 'error' ? 'fa-solid fa-circle-exclamation text-rose-500' : 'fa-solid fa-circle-check text-emerald-500'}`}></i>
+            <div className="flex-1">
+              <h4 className="text-[13px] font-medium text-slate-800">{toast.title}</h4>
+              <p className="text-[12px] text-slate-500">{toast.message}</p>
+            </div>
+          </div>
+        </div>
+      )}
+    </div>
+  );
+};
+</script>

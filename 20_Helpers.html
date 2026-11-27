@@ -1,0 +1,37 @@
+<script>
+// Helper murni -- tidak butuh state React. Dipakai semua view.
+// Gantikan semua salinan parseAkurat / getPrices / formatRupiah yang
+// sekarang tersebar 8+ kali di file lama.
+
+window.H = {
+  formatRupiah: (angka) =>
+    new Intl.NumberFormat('id-ID', { style: 'currency', currency: 'IDR', minimumFractionDigits: 0 }).format(angka),
+
+  parseAkurat: (val) => {
+    if (!val) return 0;
+    if (typeof val === 'number') return val;
+    let s = String(val).trim().replace(/[^0-9.,-]/g, '');
+    if (s.includes('.') && s.includes(',')) s = s.replace(/\./g, '').replace(',', '.');
+    else if (s.includes(',')) s = s.replace(/,/g, '.');
+    else if (s.includes('.')) {
+      if (s.startsWith('0.')) return parseFloat(s) || 0;
+      const parts = s.split('.');
+      if (parts.length > 2 || parts[parts.length - 1].length === 3) s = s.replace(/\./g, '');
+    }
+    return parseFloat(s) || 0;
+  },
+
+  // masterDatabase dikirim sebagai argumen (tidak lagi baca variabel global)
+  getPrices: (masterDatabase, itemName) => {
+    if (!itemName) return { mat: 0, jas: 0, bongkar: 0 };
+    const found = (masterDatabase || []).find(x =>
+      String(x.Nama_Item || (x._raw && x._raw[2]) || '').trim().toLowerCase() === String(itemName).trim().toLowerCase());
+    if (!found) return { mat: 0, jas: 0, bongkar: 0 };
+    return {
+      mat: H.parseAkurat(found.Harga_Material || (found._raw && found._raw[4]) || 0),
+      jas: H.parseAkurat(found.Harga_Jasa || (found._raw && found._raw[5]) || 0),
+      bongkar: H.parseAkurat(found.Harga_Bongkar || (found._raw && found._raw[6]) || 0)
+    };
+  }
+};
+</script>

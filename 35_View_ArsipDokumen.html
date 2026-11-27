@@ -1,0 +1,296 @@
+<script type="text/babel">
+// Menu: Arsip Code 3 & 7 (khusus Super Admin)
+window.Views.ArsipDokumen = (ctx) => <ArsipDokumenPage ctx={ctx} />;
+
+// Komponen: daftar baris dibatasi (ratusan baris sekaligus), tombol di bawah tabel menambah 100 baris lagi.
+function ArsipDokumenPage({ ctx }) {
+  const [limit, setLimit] = React.useState(100);
+  const {
+    currentUser, docEndDate, docStartDate, lhs, pks, searchDoc,
+    setDocEndDate, setDocStartDate, setSearchDoc
+  } = ctx;
+  return (
+currentUser?.role === 'Super Admin' && (() => {
+                    
+               // 1. LOGIKA FILTER DATA LH (Mencari LH yang butuh C3/C7 atau sudah punya file)
+              const filteredDocs = (lhs || []).filter(lh => {
+                  const d = lh.data || {};
+                  const pkTerkait = pks.find(p => String(p.id) === String(lh.pk_id)) || {};
+                  
+                  // A. FILTER PENCARIAN TEXT (Cari ID, Uraian, Lokasi, Nama Material, dan Catatan)
+                  const searchQ = (searchDoc || '').toLowerCase().trim();
+                  let matchesSearch = true;
+                  
+                  if (searchQ !== '') {
+                      // 1. Cek Informasi Utama LH & PK
+                      const matchUmum = (d.nama_pekerjaan_lh || lh.uraian || pkTerkait.nama || '').toLowerCase().includes(searchQ) || 
+                                        (lh.id || '').toLowerCase().includes(searchQ) ||
+                                        (lh.pk_id || '').toLowerCase().includes(searchQ) ||
+                                        (d.lokasi_lh || pkTerkait.lokasi || '').toLowerCase().includes(searchQ);
+                      
+                      // 2. Cek ke Dalam Daftar Material & Catatannya (MDU & Retur)
+                      const matchMdu = (d.materialMdu || []).some(m => 
+                          (m.nama || '').toLowerCase().includes(searchQ) || 
+                          (m.catatan || '').toLowerCase().includes(searchQ)
+                      );
+                      const matchRetur = (d.returBekas || []).some(m => 
+                          (m.nama || '').toLowerCase().includes(searchQ) || 
+                          (m.catatan || '').toLowerCase().includes(searchQ)
+                      );
+
+                      // Jika salah satu ketemu (baik di judul maupun di dalam tabel barang), loloskan!
+                      matchesSearch = matchUmum || matchMdu || matchRetur;
+                  }
+
+                  // B. FILTER TANGGAL (Otomatis membedah format DD/MM/YYYY milik Bos)
+                  let matchesDate = true;
+                  if (docStartDate || docEndDate) {
+                      const lhDateRaw = String(lh.tanggal || d.tanggal_lh || pkTerkait.tanggal || '').trim();
+                      let isoDate = null;
+                      
+                      if (lhDateRaw && lhDateRaw !== '-') {
+                          // Pecah berdasarkan garis miring atau strip
+                          const parts = lhDateRaw.split(/[\/\-\.]/); 
+                          if (parts.length === 3) {
+                              let year, month, day;
+                              if (parts[0].length >= 4) { 
+                                  // Jika formatnya sudah YYYY-MM-DD
+                                  year = parts[0]; month = parts[1]; day = parts[2];
+                              } else { 
+                                  // Jika formatnya DD/MM/YYYY (Sesuai JSON Bos)
+                                  day = parts[0]; month = parts[1]; year = parts[2];
+                              }
+                              if (year.length === 2) year = "20" + year; // Antisipasi format tahun cuma 2 angka
+                              
+                              // Gabungkan jadi format standar Internasional (YYYY-MM-DD)
+                              isoDate = `${year}-${String(month).padStart(2, '0')}-${String(day).padStart(2, '0')}`;
+                          }
+                      }
+
+                      if (isoDate) {
+                          if (docStartDate && docEndDate) matchesDate = isoDate >= docStartDate && isoDate <= docEndDate;
+                          else if (docStartDate) matchesDate = isoDate >= docStartDate;
+                          else if (docEndDate) matchesDate = isoDate <= docEndDate;
+                      } else {
+                          matchesDate = false; // Buang data yang tanggalnya kosong/rusak jika filter tanggal aktif
+                      }
+                  }
+
+                  // C. SYARAT TAMPIL DI ARSIP (Wajib ada sangkut pautnya dengan C3/C7)
+                  // Kita gunakan flag boolean bawaan JSON dan data array sekaligus!
+                  const butuhC3 = d.c3 === true || String(d.c3) === 'true' || (d.returBekas || []).some(m => m.nama && String(m.nama).trim() !== '');
+                  const butuhC7 = d.c7 === true || String(d.c7) === 'true' || (d.materialMdu || []).some(m => /bekas|ex/i.test(m.catatan || ''));
+                  const hasFiles = d.file_c3 || d.file_c7 || d.file_ago;
+
+                  return matchesSearch && matchesDate && (butuhC3 || butuhC7 || hasFiles);
+              }).map(lh => {
+                  const d = lh.data || {};
+                  const pkTerkait = pks.find(p => String(p.id) === String(lh.pk_id)) || {};
+                  
+                  // Kumpulkan Material
+                  const matArray = [];
+                  (d.returBekas || []).filter(m => m.nama).forEach(m => {
+                      matArray.push({ type: 'C3', text: m.nama, qty: `${m.jumlah} ${m.satuan || ''}`.trim(), catatan: m.catatan || '-' });
+                  });
+                  (d.materialMdu || []).filter(m => /bekas|ex/i.test(m.catatan || '')).forEach(m => {
+                      matArray.push({ type: 'C7', text: m.nama, qty: `${m.jumlah} ${m.satuan || ''}`.trim(), catatan: m.catatan || '-' });
+                  });
+
+                  return {
+                      id: lh.id,
+                      pk_id: lh.pk_id,
+                      tanggal: lh.tanggal || d.tanggal_lh || pkTerkait.tanggal || '-', // <--- Fallback ke PK
+                      nama: d.nama_pekerjaan_lh || lh.uraian || pkTerkait.nama || '-',
+                      lokasi: d.lokasi_lh || pkTerkait.lokasi || '-',
+                      ulp: pkTerkait.ulp || pkTerkait.penyulang || '-',
+                      material_array: matArray,
+                      File_Code3: lh.File_Code3,  
+                      File_Code7: lh.File_Code7,  
+                      File_AGO: lh.File_AGO
+                  };
+              });
+
+              // 2. LOGIKA REKAP TOTAL MATERIAL (Untuk Tabel Kiri)
+              const rekapMap = {};
+              filteredDocs.forEach(doc => {
+                  doc.material_array.forEach(mat => {
+                      const key = `[${mat.type}] ${mat.text}`;
+                      if (!rekapMap[key]) {
+                          // Ekstrak huruf dari qty untuk satuan (misal: "12 SET" -> "SET")
+                          const textSatuan = mat.qty.replace(/[0-9.,-]/g, '').trim() || 'SET';
+                          rekapMap[key] = { type: mat.type, total: 0, satuan: textSatuan };
+                      }
+                      // Ekstrak angka murni dari qty untuk dijumlah
+                      const qtyNum = parseFloat(String(mat.qty).replace(/[^0-9.,]/g, '').replace(',', '.')) || 0;
+                      rekapMap[key].total += qtyNum;
+                  });
+              });
+              const dataRekap = Object.entries(rekapMap).sort((a,b) => a[0].localeCompare(b[0]));
+
+              return (
+                  <div className="bg-white p-6 rounded-3xl shadow-sm border border-slate-200 animate-fade-in">
+                      {/* HEADER & FILTER AREA */}
+                      <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4 mb-6 border-b border-slate-100 pb-5">
+                          <div>
+                              <h2 className="text-xl font-black text-slate-800 tracking-tight flex items-center gap-2">
+                                  <i className="fa-solid fa-file-shield text-indigo-500"></i> Arsip Dokumen C3, C7, & AGO
+                              </h2>
+                              <p className="text-[13px] text-slate-500 font-medium mt-1">Pantau, unduh dokumen, dan rekap material <b className="text-indigo-600">berdasarkan Laporan Harian (LH)</b>.</p>
+                          </div>
+                          <div className="bg-rose-50 text-rose-600 px-4 py-2 rounded-xl text-[12px] font-bold border border-rose-100 flex items-center gap-2 shadow-sm">
+                              <i className="fa-solid fa-lock"></i> Hak Akses Super Admin
+                          </div>
+                      </div>
+
+                      <div className="grid grid-cols-1 md:grid-cols-4 gap-4 mb-6">
+                          <div className="md:col-span-2 relative">
+                              <label className="block text-[10px] font-bold text-slate-400 uppercase tracking-wider mb-1 px-1">Pencarian </label>
+                              <div className="absolute inset-y-0 left-0 pl-4 flex items-center pointer-events-none"><i className="fa-solid fa-search text-slate-400"></i></div>
+                              <input type="text" placeholder="Cari ID LH, PK, atau Uraian..." value={searchDoc || ''} onChange={(e) => setSearchDoc(e.target.value)} className="w-full pl-11 pr-4 py-3 bg-slate-50 border border-slate-200 rounded-xl text-[13px] focus:ring-2 focus:ring-indigo-500 outline-none transition-all font-medium" />
+                          </div>
+                          <div>
+                              <label className="block text-[10px] font-bold text-slate-400 uppercase tracking-wider mb-1 px-1">Mulai Tanggal</label>
+                              <input type="date" value={docStartDate || ''} onChange={(e) => setDocStartDate(e.target.value)} className="w-full px-4 py-2.5 bg-white border border-slate-200 rounded-xl text-[13px] focus:ring-2 focus:ring-indigo-500 outline-none text-slate-700 font-bold" />
+                          </div>
+                          <div>
+                              <label className="block text-[10px] font-bold text-slate-400 uppercase tracking-wider mb-1 px-1">Sampai Tanggal</label>
+                              <input type="date" value={docEndDate || ''} onChange={(e) => setDocEndDate(e.target.value)} className="w-full px-4 py-2.5 bg-white border border-slate-200 rounded-xl text-[13px] focus:ring-2 focus:ring-indigo-500 outline-none text-slate-700 font-bold" />
+                          </div>
+                      </div>
+
+                      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+                          
+                          {/* KIRI: TABEL REKAP MATERIAL */}
+                          <div className="lg:col-span-1 bg-white rounded-3xl shadow-sm border border-slate-200 overflow-hidden flex flex-col h-[500px]">
+                              <div className="bg-indigo-50/50 p-5 border-b border-slate-100 flex justify-between items-center shrink-0">
+                                  <h3 className="font-black text-indigo-900 text-[14px] uppercase tracking-wider"><i className="fa-solid fa-boxes-stacked mr-2 text-indigo-500"></i> Rekap C3 & C7</h3>
+                                  <span className="bg-indigo-600 text-white text-[10px] px-2 py-1 rounded-md font-bold shadow-sm">{dataRekap.length} Item</span>
+                              </div>
+                              <div className="p-4 overflow-y-auto custom-scrollbar flex-1 bg-slate-50/30">
+                                  {dataRekap.length === 0 ? (
+                                      <div className="text-center py-10 text-slate-400"><i className="fa-solid fa-box-open text-3xl mb-3 opacity-50"></i><p className="text-xs font-bold">Tidak ada rekap material C3/C7.</p></div>
+                                  ) : (
+                                      <div className="space-y-2">
+                                          {dataRekap.map(([key, data], i) => {
+                                              const cleanNama = key.replace(/\[C7\] |\[C3\] /g, '');
+                                              return (
+                                              <div key={i} className="flex justify-between items-center p-3 bg-white border border-slate-200 rounded-xl hover:border-indigo-300 transition-colors shadow-sm">
+                                                  <div>
+                                                      <div className="flex items-center gap-1.5 mb-1">
+                                                          <span className={`px-1.5 py-0.5 rounded-[4px] text-[8px] font-extrabold ${data.type === 'C7' ? 'bg-emerald-100 text-emerald-700' : 'bg-indigo-100 text-indigo-700'}`}>{data.type}</span>
+                                                      </div>
+                                                      <span className="text-[11px] font-bold text-slate-700 line-clamp-2 pr-2 leading-tight">{cleanNama}</span>
+                                                  </div>
+                                                  <div className="text-right shrink-0">
+                                                      <span className="block text-[14px] font-black text-indigo-600">{new Intl.NumberFormat('id-ID').format(data.total)}</span>
+                                                      <span className="block text-[9px] font-bold text-slate-400 uppercase">{data.satuan}</span>
+                                                  </div>
+                                              </div>
+                                          )})}
+                                      </div>
+                                  )}
+                              </div>
+                          </div>
+
+                          {/* KANAN: TABEL LIST DOKUMEN & LH */}
+                          <div className="lg:col-span-2 bg-white rounded-3xl shadow-sm border border-slate-200 overflow-hidden flex flex-col h-[500px]">
+                              <div className="overflow-x-auto custom-scrollbar h-full">
+                                  <table className="w-full text-left border-collapse whitespace-nowrap">
+                                      <thead className="bg-slate-50/80 border-b border-slate-200 sticky top-0 z-10">
+                                          <tr>
+                                              <th className="px-4 py-3 text-[10px] uppercase font-extrabold text-slate-500 tracking-widest w-24">Tanggal LH</th>
+                                              <th className="px-4 py-3 text-[10px] uppercase font-extrabold text-slate-500 tracking-widest w-48">Uraian LH & Lokasi</th>
+                                              <th className="px-4 py-3 text-[10px] uppercase font-extrabold text-slate-500 tracking-widest min-w-[280px]">Material & Catatan</th>
+                                              <th className="px-2 py-3 text-[9px] uppercase font-extrabold text-indigo-600 tracking-wider text-center bg-indigo-50/30 border-l border-slate-200 w-20">Doc C3</th>
+                                              <th className="px-2 py-3 text-[9px] uppercase font-extrabold text-emerald-600 tracking-wider text-center bg-emerald-50/30 w-20">Doc C7</th>
+                                              <th className="px-2 py-3 text-[9px] uppercase font-extrabold text-amber-600 tracking-wider text-center bg-amber-50/30 w-20">Doc AGO</th>
+                                          </tr>
+                                      </thead>
+                                      <tbody className="divide-y divide-slate-100">
+                                          {filteredDocs.length === 0 ? (
+                                              <tr><td colSpan="6" className="text-center py-16 text-slate-400"><i className="fa-solid fa-folder-open text-3xl mb-3 opacity-50"></i><p className="text-xs font-bold">Tidak ada transaksi C3/C7 yang cocok.</p></td></tr>
+                                          ) : (
+                                              filteredDocs.slice(0, limit).map((doc, idx) => (
+                                                  <tr key={idx} className="hover:bg-slate-50/70 transition-colors group">
+                                                      <td className="px-4 py-3 align-top">
+                                                          <div className="text-[11px] font-bold text-slate-700 bg-slate-100 px-2 py-1 rounded-md inline-block">{doc.tanggal}</div>
+                                                          <div className="text-[9px] text-indigo-500 font-black mt-1 uppercase">PK: {doc.pk_id}</div>
+                                                      </td>
+                                                      <td className="px-4 py-3 align-top max-w-[180px] whitespace-normal">
+                                                          <div className="font-bold text-[12px] text-slate-800 leading-snug">{doc.nama}</div>
+                                                          <div className="text-[10px] text-slate-500 mt-1 flex items-center gap-1 font-medium"><i className="fa-solid fa-location-dot text-rose-400"></i> {doc.lokasi}</div>
+                                                      </td>
+                                                      
+                                                      {/* KOLOM MATERIAL WRAPPING */}
+                                                      <td className="px-4 py-3 align-top max-w-[280px] whitespace-normal">
+                                                          {doc.material_array.length === 0 ? <span className="text-[10px] text-slate-400 italic">Tanpa Material Retur/Bekas</span> : (
+                                                          <ul className="text-[10px] space-y-2">
+                                                              {doc.material_array.map((mat, i) => (
+                                                                  <li key={i} className="flex gap-1.5 items-start">
+                                                                      <span className="font-bold text-slate-400 mt-0.5">{i + 1}.</span>
+                                                                      <div>
+                                                                          <span className={`font-extrabold px-1.5 py-0.5 rounded-[4px] text-[8px] mr-1 ${mat.type === 'C7' ? 'bg-emerald-100 text-emerald-700' : 'bg-indigo-100 text-indigo-700'}`}>
+                                                                              {mat.type}
+                                                                          </span>
+                                                                          <span className="leading-tight font-medium text-slate-700">
+                                                                              {mat.text} 
+                                                                              <span className="font-black text-indigo-600 ml-1 text-[11px]">{mat.qty}</span>
+                                                                          </span>
+                                                                          {mat.catatan && (
+                                                                            <div className="mt-1 text-[9.5px] text-amber-700 bg-amber-50 px-2 py-0.5 rounded border border-amber-200 inline-block">
+                                                                                <i className="fa-solid fa-tag text-amber-500 mr-1"></i>
+                                                                                <span className="font-semibold italic">{mat.catatan}</span>
+                                                                            </div>
+                                                                        )}
+
+                                                                      </div>
+                                                                  </li>
+                                                              ))}
+                                                          </ul>
+                                                          )}
+                                                      </td>
+                                                      
+                                                    {/* 🟢 KOLOM DOKUMEN CODE 3 */}
+                                                      <td className="px-2 py-3 align-middle border-l border-slate-100 bg-indigo-50/10 text-center">
+                                                          {doc.File_Code3 ? (
+                                                              <div className="flex justify-center gap-1.5">
+                                                                  <a href={doc.File_Code3} target="_blank" rel="noreferrer" className="w-7 h-7 rounded bg-indigo-100 text-indigo-600 flex items-center justify-center hover:bg-indigo-600 hover:text-white transition-colors shadow-sm"><i className="fa-solid fa-eye text-[10px]"></i></a>
+                                                                  <a href={doc.File_Code3} download className="w-7 h-7 rounded bg-slate-100 text-slate-600 flex items-center justify-center hover:bg-slate-600 hover:text-white transition-colors shadow-sm"><i className="fa-solid fa-download text-[10px]"></i></a>
+                                                              </div>
+                                                          ) : <span className="text-[9px] text-slate-400 font-medium italic">Kosong</span>}
+                                                      </td>
+
+                                                      {/* 🟢 KOLOM DOKUMEN CODE 7 */}
+                                                      <td className="px-2 py-3 align-middle bg-emerald-50/10 text-center">
+                                                          {doc.File_Code7 ? (
+                                                              <div className="flex justify-center gap-1.5">
+                                                                  <a href={doc.File_Code7} target="_blank" rel="noreferrer" className="w-7 h-7 rounded bg-emerald-100 text-emerald-600 flex items-center justify-center hover:bg-emerald-600 hover:text-white transition-colors shadow-sm"><i className="fa-solid fa-eye text-[10px]"></i></a>
+                                                                  <a href={doc.File_Code7} download className="w-7 h-7 rounded bg-slate-100 text-slate-600 flex items-center justify-center hover:bg-slate-600 hover:text-white transition-colors shadow-sm"><i className="fa-solid fa-download text-[10px]"></i></a>
+                                                              </div>
+                                                          ) : <span className="text-[9px] text-slate-400 font-medium italic">Kosong</span>}
+                                                      </td>
+
+                                                      {/* 🟢 KOLOM DOKUMEN AGO */}
+                                                      <td className="px-2 py-3 align-middle bg-amber-50/10 text-center">
+                                                          {doc.File_AGO ? (
+                                                              <div className="flex justify-center gap-1.5">
+                                                                  <a href={doc.File_AGO} target="_blank" rel="noreferrer" className="w-7 h-7 rounded bg-amber-100 text-amber-600 flex items-center justify-center hover:bg-amber-600 hover:text-white transition-colors shadow-sm"><i className="fa-solid fa-eye text-[10px]"></i></a>
+                                                                  <a href={doc.File_AGO} download className="w-7 h-7 rounded bg-slate-100 text-slate-600 flex items-center justify-center hover:bg-slate-600 hover:text-white transition-colors shadow-sm"><i className="fa-solid fa-download text-[10px]"></i></a>
+                                                              </div>
+                                                          ) : <span className="text-[9px] text-slate-400 font-medium italic">Kosong</span>}
+                                                      </td>
+                                                  </tr>
+                                              ))
+                                          )}
+                                      </tbody>
+                                  </table>
+                              {filteredDocs.length > limit && <button onClick={() => setLimit(limit + 100)} className="w-full py-3 text-[12px] font-bold text-indigo-600 hover:bg-slate-50 border-t border-slate-100">Tampilkan 100 baris berikutnya ({filteredDocs.length - limit} lagi)</button>}
+                              </div>
+                          </div>
+                      </div>
+                  </div>
+              );
+          })()
+  );
+}
+</script>

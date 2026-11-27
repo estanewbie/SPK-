@@ -1,0 +1,166 @@
+<script type="text/babel">
+// Menu: Dashboard (Beranda). Ringkasan kontrak, antrean PK, kapasitas, tren bulanan, dan hal yang perlu perhatian.
+// Semua angka dihitung dari data aplikasi (spks, pks, lhs). Grafik berupa SVG biasa tanpa pustaka tambahan.
+window.Views.Dashboard = (ctx) => {
+  const { pendingPKs, pks, spks, lhs, getNominalPKAkurat, setCurrentView, currentUser } = ctx;
+  const GRAD = 'linear-gradient(135deg,#5A3E9E 0%,#2E3F93 60%,#22358A 100%)';
+  const C = { blue: '#3A62B0', purple: '#7E57C2', ink: '#2B2F3A', mute: '#7A8190', line: '#E6E9F2' };
+  const rp = (n) => 'Rp ' + new Intl.NumberFormat('id-ID').format(Math.round(n || 0));
+  const rpShort = (n) => n >= 1e9 ? (n / 1e9).toFixed(1).replace('.', ',') + ' M' : n >= 1e6 ? Math.round(n / 1e6) + ' jt' : rp(n);
+  const parseTgl = (s) => {
+    s = String(s || '').trim(); let m;
+    if ((m = s.match(/^(\d{4})-(\d{1,2})-(\d{1,2})/))) return new Date(+m[1], +m[2] - 1, +m[3]);
+    if ((m = s.match(/^(\d{1,2})[\/.-](\d{1,2})[\/.-](\d{4})/))) return new Date(+m[3], +m[2] - 1, +m[1]);
+    const d = new Date(s); return isNaN(d) ? null : d;
+  };
+  const today = new Date(); today.setHours(0, 0, 0, 0);
+  const safePks = pks || [], safeSpks = spks || [], safeLhs = lhs || [];
+  const nom = (pk) => (typeof getNominalPKAkurat === 'function' ? Number(getNominalPKAkurat(pk)) || 0 : Number(pk.nominal) || 0);
+
+  // kontrak: terpakai, persen, sisa hari
+  const kontrak = safeSpks.map((s) => {
+    const id = String(s.id || s.ID_SPK || '').trim();
+    const total = Number(s.nominal_total || s.Nominal_Total) || 0;
+    const used = safePks.filter((p) => String(p.spk_id).trim() === id).reduce((a, p) => a + nom(p), 0);
+    const e = parseTgl(s.exp || s.Tgl_Berakhir);
+    const diff = e ? Math.ceil((e - today) / 86400000) : 999;
+    const pct = total ? Math.round(used / total * 100) : 0;
+    return { id, nama: s.nama || s.Nama_SPK || '', total, used, pct, diff, done: pct >= 100 };
+  });
+  const berjalan = kontrak.filter((k) => !k.done && k.diff >= 0);
+  const sumTotal = kontrak.reduce((a, k) => a + k.total, 0), sumUsed = kontrak.reduce((a, k) => a + k.used, 0);
+  const pctAll = sumTotal ? Math.round(sumUsed / sumTotal * 100) : 0;
+  const nAlok = safePks.filter((p) => p.spk_id).length;
+  const nMenunggu = (pendingPKs || []).length;
+  const hampir = kontrak.filter((k) => !k.done && k.diff >= 0 && k.diff <= 14).sort((a, b) => a.diff - b.diff);
+  const lewat = kontrak.filter((k) => !k.done && k.diff < 0);
+  const revisi = safeLhs.filter((l) => l.audit_note || l.Audit_Note).length;
+  const topKontrak = [...kontrak].filter((k) => k.total > 0).sort((a, b) => b.pct - a.pct).slice(0, 6);
+
+  // PK per bulan, 6 bulan terakhir
+  const bulan = [];
+  for (let i = 5; i >= 0; i--) { const d = new Date(today.getFullYear(), today.getMonth() - i, 1); bulan.push({ key: d.getFullYear() * 12 + d.getMonth(), label: d.toLocaleDateString('id-ID', { month: 'short' }), n: 0 }); }
+  safePks.forEach((p) => { const d = parseTgl(p.tanggal); if (!d) return; const b = bulan.find((x) => x.key === d.getFullYear() * 12 + d.getMonth()); if (b) b.n++; });
+  const maxN = Math.max(1, ...bulan.map((b) => b.n));
+
+  const nama = String(currentUser?.name || '').trim().split(/\s+/)[0] || '';
+  const hari = new Date().toLocaleDateString('id-ID', { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' });
+
+  const Kpi = ({ icon, label, value, sub, onClick }) => (
+    <div onClick={onClick} className={`bg-white border rounded-2xl px-5 py-4 flex items-center gap-4 ${onClick ? 'cursor-pointer hover:shadow-md transition-shadow' : ''}`} style={{ borderColor: C.line }}>
+      <span className="w-11 h-11 rounded-xl flex items-center justify-center text-white shrink-0" style={{ backgroundImage: GRAD }}><i className={`${icon} text-[16px]`}></i></span>
+      <div className="min-w-0">
+        <div className="text-[11px]" style={{ color: C.mute }}>{label}</div>
+        <div className="text-[26px] leading-8 font-medium num !text-left" style={{ color: C.ink }}>{value}</div>
+        <div className="text-[11px] truncate" style={{ color: '#8A93A3' }}>{sub}</div>
+      </div>
+    </div>
+  );
+  const Panel = ({ title, sub, action, children, className = '' }) => (
+    <section className={`bg-white border rounded-2xl ${className}`} style={{ borderColor: C.line }}>
+      <div className="px-5 pt-4 pb-2 flex items-start justify-between gap-3">
+        <div><div className="text-[14px] font-medium" style={{ color: C.ink }}>{title}</div>{sub && <div className="text-[11px]" style={{ color: C.mute }}>{sub}</div>}</div>{action}
+      </div>
+      <div className="px-5 pb-4">{children}</div>
+    </section>
+  );
+
+  // donut: teralokasi vs menunggu
+  const R = 44, CIR = 2 * Math.PI * R, totalPk = nAlok + nMenunggu || 1;
+  const dA = CIR * nAlok / totalPk;
+
+  // grafik batang bulanan
+  const W = 460, H = 150, bw = 34, gap = (W - bulan.length * bw) / (bulan.length + 1);
+
+  return (
+    <div className="space-y-4 pt-1">
+      <div className="flex flex-wrap items-end justify-between gap-2">
+        <div>
+          <h2 className="text-[22px] leading-8 font-medium" style={{ color: C.ink }}>Beranda{nama ? `, ${nama}` : ''}</h2>
+          <div style={{ color: C.mute }}>{hari}</div>
+        </div>
+        <div className="flex gap-2">
+          <button onClick={() => setCurrentView('monitor_pk')} className="btn-grad h-9 px-4 rounded-[10px] font-medium">Buka antrean PK</button>
+        </div>
+      </div>
+
+      <div className="grid gap-4" style={{ gridTemplateColumns: 'repeat(auto-fit, minmax(230px, 1fr))' }}>
+        <Kpi icon="fa-solid fa-briefcase" label="Kontrak berjalan" value={berjalan.length} sub={`${kontrak.length} kontrak seluruhnya`} onClick={() => setCurrentView('spk_list')} />
+        <Kpi icon="fa-solid fa-hourglass-half" label="PK menunggu SPK" value={nMenunggu} sub="belum dimasukkan ke kontrak" onClick={() => setCurrentView('monitor_pk')} />
+        <Kpi icon="fa-solid fa-circle-check" label="PK sudah di SPK" value={nAlok} sub={`dari ${safePks.length} PK`} />
+        <Kpi icon="fa-solid fa-chart-pie" label="Kapasitas terpakai" value={pctAll + '%'} sub={`${rpShort(sumUsed)} dari ${rpShort(sumTotal)}`} />
+      </div>
+
+      <div className="grid gap-4" style={{ gridTemplateColumns: 'repeat(auto-fit, minmax(380px, 1fr))' }}>
+        <Panel title="Kapasitas kontrak" sub="Kontrak dengan pemakaian tertinggi" action={<button onClick={() => setCurrentView('spk_list')} className="text-[12px] hover:underline" style={{ color: C.blue }}>Lihat semua</button>}>
+          {topKontrak.length === 0 && <div className="py-8 text-center" style={{ color: C.mute }}>Belum ada kontrak bernilai.</div>}
+          <div className="space-y-3">
+            {topKontrak.map((k) => {
+              const col = k.pct > 100 ? '#C25560' : k.pct >= 100 ? '#3C8A5E' : k.pct >= 75 ? C.purple : C.blue;
+              return (
+                <div key={k.id}>
+                  <div className="flex justify-between gap-3"><span className="truncate" style={{ color: C.ink }} title={k.nama}><span className="font-medium" style={{ color: C.blue }}>{k.id}</span> <span style={{ color: C.mute }}>{k.nama}</span></span><span className="num font-medium shrink-0" style={{ color: col }}>{k.pct}%</span></div>
+                  <div className="h-[7px] rounded-full overflow-hidden my-1" style={{ background: '#E9ECF4' }}><div className="h-full rounded-full" style={{ width: Math.min(k.pct, 100) + '%', backgroundImage: `linear-gradient(90deg, ${col}, ${col}CC)` }}></div></div>
+                  <div className="flex justify-between text-[11px]" style={{ color: '#8A93A3' }}><span>Terpakai {rp(k.used)}</span><span>Total {rp(k.total)}</span></div>
+                </div>);
+            })}
+          </div>
+        </Panel>
+
+        <Panel title="Posisi PK" sub="Sudah dan belum masuk SPK">
+          <div className="flex items-center gap-6 flex-wrap justify-center py-2">
+            <svg width="150" height="150" viewBox="0 0 120 120" role="img" aria-label={`${nAlok} PK sudah di SPK, ${nMenunggu} PK menunggu`}>
+              <defs><linearGradient id="dn" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stopColor="#5A3E9E"></stop><stop offset="1" stopColor="#2E5BC4"></stop></linearGradient></defs>
+              <circle cx="60" cy="60" r={R} fill="none" stroke="#EDEFF6" strokeWidth="13"></circle>
+              <circle cx="60" cy="60" r={R} fill="none" stroke="url(#dn)" strokeWidth="13" strokeLinecap="round" strokeDasharray={`${dA} ${CIR - dA}`} transform="rotate(-90 60 60)"></circle>
+              <text x="60" y="58" textAnchor="middle" fontSize="20" fontWeight="500" fill={C.ink}>{Math.round(nAlok / totalPk * 100)}%</text>
+              <text x="60" y="74" textAnchor="middle" fontSize="9" fill={C.mute}>sudah di SPK</text>
+            </svg>
+            <div className="space-y-3 min-w-[180px]">
+              <div className="flex items-center gap-2.5"><span className="w-3 h-3 rounded-sm" style={{ backgroundImage: GRAD }}></span><span style={{ color: C.mute }}>Sudah di SPK</span><span className="ml-auto num font-medium" style={{ color: C.ink }}>{nAlok}</span></div>
+              <div className="flex items-center gap-2.5"><span className="w-3 h-3 rounded-sm" style={{ background: '#E1E4EE' }}></span><span style={{ color: C.mute }}>Menunggu</span><span className="ml-auto num font-medium" style={{ color: C.ink }}>{nMenunggu}</span></div>
+              <div className="pt-2 border-t flex items-center gap-2.5" style={{ borderColor: C.line }}><span style={{ color: C.mute }}>Catatan audit aktif</span><span className="ml-auto num font-medium" style={{ color: revisi ? '#AE4850' : C.ink }}>{revisi}</span></div>
+            </div>
+          </div>
+        </Panel>
+      </div>
+
+      <div className="grid gap-4" style={{ gridTemplateColumns: 'repeat(auto-fit, minmax(380px, 1fr))' }}>
+        <Panel title="PK dibuat per bulan" sub="Enam bulan terakhir">
+          <svg viewBox={`0 0 ${W} ${H + 26}`} className="w-full" role="img" aria-label="Jumlah PK per bulan">
+            <defs><linearGradient id="bg" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stopColor="#7E57C2"></stop><stop offset="1" stopColor="#2E4FA8"></stop></linearGradient></defs>
+            {[0, 1, 2, 3].map((i) => <line key={i} x1="0" x2={W} y1={H - i * H / 3.2 - 0.5} y2={H - i * H / 3.2 - 0.5} stroke="#EEF0F7"></line>)}
+            {bulan.map((b, i) => { const h = Math.max(b.n ? 6 : 0, b.n / maxN * (H - 22)); const x = gap + i * (bw + gap); return (
+              <g key={b.key}>
+                <rect x={x} y={H - h} width={bw} height={h} rx="7" fill="url(#bg)" opacity={i === bulan.length - 1 ? 1 : .78}></rect>
+                <text x={x + bw / 2} y={H - h - 6} textAnchor="middle" fontSize="11" fill={C.ink}>{b.n || ''}</text>
+                <text x={x + bw / 2} y={H + 17} textAnchor="middle" fontSize="11" fill={C.mute}>{b.label}</text>
+              </g>); })}
+          </svg>
+        </Panel>
+
+        <Panel title="Perlu perhatian" sub="Hal yang sebaiknya ditangani lebih dulu">
+          <div className="space-y-2.5">
+            {lewat.map((k) => <Item key={'l' + k.id} tone="bad" title={`${k.id} sudah kedaluwarsa`} sub={k.nama} go={() => setCurrentView('spk_list')} />)}
+            {hampir.map((k) => <Item key={'h' + k.id} tone={k.diff <= 3 ? 'bad' : 'warn'} title={`${k.id} berakhir ${k.diff === 0 ? 'hari ini' : k.diff + ' hari lagi'}`} sub={k.nama} go={() => setCurrentView('spk_list')} />)}
+            {revisi > 0 && <Item tone="warn" title={`${revisi} LH punya catatan audit`} sub="Perbaiki sebelum PK dimasukkan ke SPK" go={() => setCurrentView('monitor_pk')} />}
+            {nMenunggu > 0 && <Item tone="info" title={`${nMenunggu} PK menunggu dimasukkan ke SPK`} sub="Buka Antrean PK atau tab PK ke SPK di KTK" go={() => setCurrentView('monitor_pk')} />}
+            {lewat.length + hampir.length + revisi + nMenunggu === 0 && <div className="py-8 text-center" style={{ color: C.mute }}>Tidak ada yang perlu ditangani. Semua berjalan baik.</div>}
+          </div>
+        </Panel>
+      </div>
+    </div>
+  );
+
+  function Item({ tone, title, sub, go }) {
+    const col = { bad: '#AE4850', warn: '#94620F', info: C.blue }[tone], bg = { bad: '#FCE8EA', warn: '#FFF3D6', info: '#E9EEFA' }[tone];
+    return (
+      <div onClick={go} role="button" tabIndex={0} onKeyDown={(e) => { if (e.key === 'Enter') go(); }} className="flex items-center gap-3 rounded-xl px-3 py-2 cursor-pointer hover:bg-[#F4F2FB] transition-colors">
+        <span className="w-8 h-8 rounded-lg flex items-center justify-center shrink-0" style={{ background: bg, color: col }}><i className="fa-solid fa-circle-exclamation text-[13px]"></i></span>
+        <div className="min-w-0 flex-1"><div className="font-medium truncate" style={{ color: C.ink }}>{title}</div><div className="text-[11px] truncate" style={{ color: C.mute }}>{sub}</div></div>
+        <i className="fa-solid fa-chevron-right text-[10px]" style={{ color: '#B3B8C6' }}></i>
+      </div>
+    );
+  }
+};
+</script>

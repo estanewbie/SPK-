@@ -1,0 +1,336 @@
+<script type="text/babel">
+// Modal: Preview Cetak LH (A4)
+window.Modals.CetakLh = (ctx) => {
+  const {
+    activeLhData, dataTtd, executePrint, isLhPrintOpen, kopImageError, managePkOpen,
+    setIsLhPrintOpen, setKopImageError
+  } = ctx;
+  return (
+isLhPrintOpen && activeLhData && (() => {
+              
+              // --- LOGIC TARIK TANDA TANGAN DARI EXCEL ---
+              
+              // 1. Kiri (Manager PT / Pelaksana Pekerjaan)
+             // --- LOGIC TARIK TANDA TANGAN DARI EXCEL (BERSIH & TUNGGAL) ---
+              const vendorDipilih = managePkOpen?.vendor || ""; 
+              const ulpDipilih = activeLhData.data?.ulp_lh || ""; // Ambil dari LH sesuai instruksi Bos
+
+              const dbTtd = typeof dataTtd !== 'undefined' && dataTtd ? dataTtd : [];
+
+              // 1. Kiri (Manager PT / Pelaksana Pekerjaan)
+              const ttdPelaksana = dbTtd.find(t => 
+                  String(t.Kategori || '').toLowerCase() === 'pelaksana' && 
+                  String(t.Perusahaan || '').toLowerCase() === String(vendorDipilih).toLowerCase()
+              ) || dbTtd.find(t => String(t.Kategori || '').toLowerCase() === 'pelaksana' && String(t.ULP || '').toUpperCase() === 'ALL') || {};
+
+              const namaPTLengkap = ttdPelaksana.Perusahaan || vendorDipilih || "PT. NANDA NIRWANA ELEKTRIK";
+              const namaPengawasVendor = ttdPelaksana.Nama || "(....................)";
+
+              // 2. Kanan (Pengawas PLN sesuai lokasi ULP pada LH)
+              const targetUlp = String(ulpDipilih).trim().toLowerCase();
+              const ttdPengawas = dbTtd.find(t => 
+                  String(t.Kategori || '').toLowerCase() === 'pengawas' && 
+                  String(t.ULP || '').trim().toLowerCase() === targetUlp
+              ) || {};
+
+              const namaUlpPLN = ttdPengawas.Perusahaan || (ulpDipilih ? `PT PLN (Persero) ${ulpDipilih}` : '....................');
+              const namaPengawasPLN = ttdPengawas.Nama || '....................';
+
+              return (
+          
+              <div className="fixed inset-0 z-[80] flex justify-center bg-slate-900/90 backdrop-blur-sm overflow-y-auto p-4 custom-scrollbar">
+                  <div className="w-full max-w-[210mm] py-4 flex flex-col items-center">
+                      
+                      {/* Kontrol UI (Tidak Ter-print) */}
+                      <div className="no-print w-full flex justify-between items-center mb-4 bg-white p-4 rounded-xl shadow-lg border border-slate-200 sticky top-4 z-10">
+                          <div>
+                              <p className="text-[14px] font-bold text-slate-800"><i className="fa-solid fa-print text-blue-600 mr-2"></i> Pratinjau Cetak LH</p>
+                              <p className="text-[11px] text-slate-500">Tekan tombol Cetak untuk menyimpannya sebagai PDF</p>
+                          </div>
+                          <div className="flex gap-2">
+                              <button onClick={() => setIsLhPrintOpen(false)} className="px-5 py-2 border rounded-lg text-[12px] font-bold text-slate-600 hover:bg-slate-100">Tutup</button>
+                              <button onClick={executePrint} className="px-5 py-2 bg-blue-600 text-white rounded-lg text-[12px] font-bold hover:bg-blue-700 shadow-md"><i className="fa-solid fa-print mr-1"></i> Cetak PDF</button>
+                          </div>
+                      </div>
+
+                      {/* KERTAS A4 MURNI EXACT EXCEL */}
+                      <div className="a4-paper print-container">
+                          
+                          {/* IMAGE KOP SURAT (FULL WIDTH EDGE TO EDGE) */}
+                          <div style={{ width: '100%', marginBottom: '10px', borderBottom: '2px solid black', paddingBottom: '2px' }}>
+                              {!kopImageError ? (
+                                  <img 
+                                    src="https://lh3.googleusercontent.com/d/1HM9bt9FhVb6TPifkBcbAsAw9-Tunex4T"
+                                    alt="Kop Surat PT Nanda" 
+                                    className="crisp-image"
+                                    style={{ width: '100%', height: 'auto', display: 'block' }}
+                                    onError={() => setKopImageError(true)}
+                                  />
+                              ) : (
+                                  <div style={{ textAlign: 'center', paddingBottom: '4px' }}>
+                                      <div style={{ fontSize: '28pt', fontWeight: 'bold', color: 'black', textTransform: 'uppercase' }}>PT. NANDA Nirwana Elektrik</div>
+                                      <div style={{ fontSize: '10pt', fontWeight: 'bold', textTransform: 'uppercase', color: 'black' }}>Supplier & Kontraktor Mekanikal Elektrical</div>
+                                  </div>
+                              )}
+                          </div>
+
+                          <div className="print-exact" style={{ textAlign: 'center', fontWeight: 'bold', fontSize: '14pt', textDecoration: 'underline', marginBottom: '10px', color: 'black' }}>
+                              LAPORAN HARIAN
+                          </div>
+
+                          {/* METADATA INFO KOTAK SOLID (TIDAK BOLD PADA DATA) */}
+                          <table className="print-exact print-metadata-table" style={{ width: '100%', borderCollapse: 'collapse', marginBottom: '15px' }}>
+                              <tbody>
+                                 <tr style={{ height: '15pt' }}>
+                                    <td style={{ border: '1px solid black', width: '150px', padding: '0 4px', fontSize: '11pt', color: 'black', backgroundColor: 'transparent' }}>Nama Pekerjaan</td>
+                                    <td style={{ border: '1px solid black', padding: '0 4px', fontSize: '11pt', color: 'black', backgroundColor: 'transparent' }}>
+                                        {activeLhData.data?.nama_pekerjaan_lh || managePkOpen?.nama}
+                                    </td>
+                                  </tr>
+                                  <tr style={{ height: '15pt' }}>
+                                    <td style={{ border: '1px solid black', padding: '0 4px', fontSize: '11pt', color: 'black', backgroundColor: 'transparent' }}>Lokasi / Jenis</td>
+                                    <td style={{ border: '1px solid black', padding: '0 4px', fontSize: '11pt', color: 'black', backgroundColor: 'transparent' }}>
+                                        {activeLhData.data?.lokasi_lh || managePkOpen?.lokasi || managePkOpen?.jenis_pekerjaan}
+                                    </td>
+                                  </tr>
+                                  <tr style={{ height: '15pt' }}>
+                                    <td style={{ border: '1px solid black', padding: '0 4px', fontSize: '11pt', color: 'black', backgroundColor: 'transparent' }}>Penyulang/Section</td>
+                                    <td style={{ border: '1px solid black', padding: '0 4px', fontSize: '11pt', color: 'black', backgroundColor: 'transparent' }}>
+                                        {activeLhData.data?.penyulang_lh || managePkOpen?.penyulang}
+                                    </td>
+                                  </tr>
+                                  <tr style={{ height: '15pt' }}>
+                                    <td style={{ border: '1px solid black', padding: '0 4px', fontSize: '11pt', color: 'black', backgroundColor: 'transparent' }}>No. SPK/No. PK</td>
+                                    <td style={{ border: '1px solid black', padding: '0 4px', fontSize: '11pt', color: 'black', backgroundColor: 'transparent' }}>{managePkOpen?.id}</td>
+                                  </tr>
+                                  <tr style={{ height: '15pt' }}>
+                                    <td style={{ border: '1px solid black', padding: '0 4px', fontSize: '11pt', color: 'black', backgroundColor: 'transparent' }}>Vendor</td>
+                                    <td style={{ border: '1px solid black', padding: '0 4px', fontSize: '11pt', color: 'black', backgroundColor: 'transparent' }}>{managePkOpen?.vendor}</td>
+                                  </tr>
+                                  <tr style={{ height: '15pt' }}>
+                                    <td style={{ border: '1px solid black', padding: '0 4px', fontSize: '11pt', color: 'black', backgroundColor: 'transparent' }}>Tanggal</td>
+                                    <td style={{ border: '1px solid black', padding: '0 4px', fontSize: '11pt', color: 'black', backgroundColor: 'transparent' }}>
+                                        {activeLhData.data?.tanggal_lh 
+                                            ? new Date(activeLhData.data.tanggal_lh).toLocaleDateString('id-ID', { day: '2-digit', month: 'long', year: 'numeric' }) 
+                                            : managePkOpen?.tanggal 
+                                                ? new Date(managePkOpen.tanggal).toLocaleDateString('id-ID', { day: '2-digit', month: 'long', year: 'numeric' })
+                                                : activeLhData.tanggal}
+                                    </td>
+                                  </tr>
+                              </tbody>
+                          </table>
+
+                          {/* ROW 1: TABEL MATERIAL MDU (SPLIT KIRI - KANAN) */}
+                          <div style={{ display: 'flex', gap: '8px', width: '100%', marginBottom: '10px', pageBreakInside: 'avoid' }}>
+                              <div style={{ width: 'calc(50% - 4px)' }}>
+                                  <div className="print-title print-exact" style={{ fontSize: '11pt', marginBottom: '2px', color: 'black' }}>MATERIAL MDU</div>
+                                  <table className="print-table" style={{ width: '100%', borderCollapse: 'collapse', backgroundColor: 'transparent' }}>
+                                      <thead>
+                                          <tr style={{ height: '15pt' }}>
+                                              <th className="print-header print-exact" style={{ width: '10%' }}>NO.</th>
+                                              <th className="print-header print-exact" style={{ width: '50%' }}>MATERIAL MDU</th>
+                                              <th className="print-header print-exact" style={{ width: '20%' }}>SATUAN</th>
+                                              <th className="print-header print-exact" style={{ width: '20%' }}>JUMLAH</th>
+                                          </tr>
+                                      </thead>
+                                      <tbody>
+                                          {Array.from({length: 7}).map((_, i) => {
+                                              const item = activeLhData.data?.materialMdu?.[i] || {};
+                                              return (
+                                                  <tr key={`mdu-left-${i}`} style={{ height: '15pt' }}>
+                                                      <td className="print-cell print-exact" style={{ textAlign: 'center' }}>{i + 1}</td>
+                                                      <td className="print-cell print-exact">{item.nama ? `${item.nama}${item.catatan ? ` (${item.catatan})` : ''}` : '\u00A0'}</td>
+                                                      <td className="print-cell print-exact" style={{ textAlign: 'center' }}>{item.satuan || '\u00A0'}</td>
+                                                      <td className="print-cell print-exact" style={{ textAlign: 'center' }}>{item.jumlah || '\u00A0'}</td>
+                                                  </tr>
+                                              );
+                                          })}
+                                      </tbody>
+                                  </table>
+                              </div>
+                              <div style={{ width: 'calc(50% - 4px)' }}>
+                                  <div className="print-title print-exact" style={{ fontSize: '11pt', marginBottom: '2px', color: 'black' }}>MATERIAL MDU</div>
+                                  <table className="print-table" style={{ width: '100%', borderCollapse: 'collapse', backgroundColor: 'transparent' }}>
+                                      <thead>
+                                          <tr style={{ height: '15pt' }}>
+                                              <th className="print-header print-exact" style={{ width: '10%' }}>NO.</th>
+                                              <th className="print-header print-exact" style={{ width: '50%' }}>MATERIAL MDU</th>
+                                              <th className="print-header print-exact" style={{ width: '20%' }}>SATUAN</th>
+                                              <th className="print-header print-exact" style={{ width: '20%' }}>JUMLAH</th>
+                                          </tr>
+                                      </thead>
+                                      <tbody>
+                                          {Array.from({length: 7}).map((_, i) => {
+                                              const item = activeLhData.data?.materialMdu?.[i + 7] || {};
+                                              return (
+                                                  <tr key={`mdu-right-${i}`} style={{ height: '15pt' }}>
+                                                      <td className="print-cell print-exact" style={{ textAlign: 'center' }}>{i + 8}</td>
+                                                      <td className="print-cell print-exact">{item.nama ? `${item.nama}${item.catatan ? ` (${item.catatan})` : ''}` : '\u00A0'}</td>
+                                                      <td className="print-cell print-exact" style={{ textAlign: 'center' }}>{item.satuan || '\u00A0'}</td>
+                                                      <td className="print-cell print-exact" style={{ textAlign: 'center' }}>{item.jumlah || '\u00A0'}</td>
+                                                  </tr>
+                                              );
+                                          })}
+                                      </tbody>
+                                  </table>
+                              </div>
+                          </div>
+
+                          {/* ROW 2: TABEL URAIAN PASANG & BONGKAR (SPLIT KIRI KANAN) */}
+                          <div style={{ display: 'flex', gap: '8px', width: '100%', marginBottom: '10px', pageBreakInside: 'avoid' }}>
+                              <div style={{ width: 'calc(50% - 4px)' }}>
+                                  <div className="print-title print-exact" style={{ fontSize: '11pt', marginBottom: '2px', color: 'black' }}>PASANG</div>
+                                  <table className="print-table" style={{ width: '100%', borderCollapse: 'collapse', backgroundColor: 'transparent' }}>
+                                  <thead>
+                                          <tr style={{ height: '15pt' }}>
+                                              <th className="print-header print-exact" style={{ width: '8%' }}>NO</th>
+                                              <th className="print-header print-exact" style={{ width: '44%' }}>URAIAN PEKERJAAN</th>
+                                              <th className="print-header print-exact" style={{ width: '12%' }}>SATUAN</th>
+                                              <th className="print-header print-exact" style={{ width: '12%' }}>PLN</th>
+                                              <th className="print-header print-exact" style={{ width: '12%' }}>PEMB</th>
+                                              <th className="print-header print-exact" style={{ width: '12%' }}>JUMLAH</th>
+                                      </tr>
+                                  </thead>
+                                  <tbody>
+                                          {Array.from({length: Math.max(10, Math.min(24, activeLhData.data?.uraianPasang?.filter(item => item.nama).length || 0))}).map((_, i) => {
+                                              const item = activeLhData.data?.uraianPasang?.[i] || {};
+                                          return (
+                                                  <tr key={`up-${i}`} style={{ height: '15pt' }}>
+                                                      <td className="print-cell print-exact" style={{ textAlign: 'center' }}>{i + 1}</td>
+                                                      <td className="print-cell print-exact">{item.nama ? `${item.nama}${item.catatan ? ` (${item.catatan})` : ''}` : '\u00A0'}</td>
+                                                      <td className="print-cell print-exact" style={{ textAlign: 'center' }}>{item.satuan || '\u00A0'}</td>
+                                                     <td className="print-cell print-exact" style={{ textAlign: 'center' }}>{item.pln || '\u00A0'}</td>
+                                                      <td className="print-cell print-exact" style={{ textAlign: 'center' }}>{item.pemb || '\u00A0'}</td>
+                                                      {/* RATAKANAN V4.3: Auto-Sum PLN + PEMB */}
+                                                      <td className="print-cell print-exact" style={{ textAlign: 'center', fontWeight: 'bold' }}>
+                                                        {(Number(item.pln) || 0) + (Number(item.pemb) || 0) || '\u00A0'}
+                                                      </td>
+                                              </tr>
+                                          );
+                                      })}
+                                  </tbody>
+                              </table>
+                              </div>
+                              <div style={{ width: 'calc(50% - 4px)' }}>
+                                  <div className="print-title print-exact" style={{ fontSize: '11pt', marginBottom: '2px', color: 'black' }}>BONGKAR</div>
+                                  <table className="print-table" style={{ width: '100%', borderCollapse: 'collapse', backgroundColor: 'transparent' }}>
+                                      <thead>
+                                          <tr style={{ height: '15pt' }}>
+                                              <th className="print-header print-exact" style={{ width: '8%' }}>NO</th>
+                                              <th className="print-header print-exact" style={{ width: '52%' }}>URAIAN PEKERJAAN</th>
+                                              <th className="print-header print-exact" style={{ width: '20%' }}>SATUAN</th>
+                                              <th className="print-header print-exact" style={{ width: '20%' }}>JUMLAH</th>
+                                          </tr>
+                                      </thead>
+                                      <tbody>
+                                          {Array.from({length: Math.max(10, Math.min(24, activeLhData.data?.uraianBongkar?.filter(item => item.nama).length || 0))}).map((_, i) => {
+                                              const item = activeLhData.data?.uraianBongkar?.[i] || {};
+                                              return (
+                                                  <tr key={`ub-${i}`} style={{ height: '15pt' }}>
+                                                      <td className="print-cell print-exact" style={{ textAlign: 'center' }}>{i + 1}</td>
+                                                      <td className="print-cell print-exact">{item.nama ? `${item.nama}${item.catatan ? ` (${item.catatan})` : ''}` : '\u00A0'}</td>
+                                                      <td className="print-cell print-exact" style={{ textAlign: 'center' }}>{item.satuan || '\u00A0'}</td>
+                                                      <td className="print-cell print-exact" style={{ textAlign: 'center', fontWeight: 'bold' }}>{item.jumlah || '\u00A0'}</td>
+                                                  </tr>
+                                              );
+                                          })}
+                                      </tbody>
+                                  </table>
+                              </div>
+                          </div>
+
+                          {/* ROW 3: TABEL RETUR BARU & BEKAS (SPLIT KIRI KANAN) */}
+                          <div style={{ display: 'flex', gap: '8px', width: '100%', marginBottom: '20px', pageBreakInside: 'avoid' }}>
+                              <div style={{ width: 'calc(50% - 4px)' }}>
+                                  <div className="print-title print-exact" style={{ fontSize: '11pt', marginBottom: '2px', color: 'black' }}>RETUR MATERIAL BARU</div>
+                                  <table className="print-table" style={{ width: '100%', borderCollapse: 'collapse', backgroundColor: 'transparent' }}>
+                                      <thead>
+                                          <tr style={{ height: '15pt' }}>
+                                              <th className="print-header print-exact" style={{ width: '10%' }}>NO.</th>
+                                              <th className="print-header print-exact" style={{ width: '50%' }}>MATERIAL MDU</th>
+                                              <th className="print-header print-exact" style={{ width: '20%' }}>SATUAN</th>
+                                              <th className="print-header print-exact" style={{ width: '20%' }}>JUMLAH</th>
+                                          </tr>
+                                      </thead>
+                                      <tbody>
+                                          {Array.from({length: 9}).map((_, i) => {
+                                              const item = activeLhData.data?.returBaru?.[i] || {};
+                                              return (
+                                                  <tr key={`rb-${i}`} style={{ height: '15pt' }}>
+                                                      <td className="print-cell print-exact" style={{ textAlign: 'center' }}>{i + 1}</td>
+                                                      <td className="print-cell print-exact">{item.nama ? `${item.nama}${item.catatan ? ` (${item.catatan})` : ''}` : '\u00A0'}</td>
+                                                      <td className="print-cell print-exact" style={{ textAlign: 'center' }}>{item.satuan || '\u00A0'}</td>
+                                                      <td className="print-cell print-exact" style={{ textAlign: 'center' }}>{item.jumlah || '\u00A0'}</td>
+                                                  </tr>
+                                              );
+                                          })}
+                                      </tbody>
+                                  </table>
+                              </div>
+                              <div style={{ width: 'calc(50% - 4px)' }}>
+                                  <div className="print-title print-exact" style={{ fontSize: '11pt', marginBottom: '2px', color: 'black' }}>RETUR MATERIAL BEKAS</div>
+                                  <table className="print-table" style={{ width: '100%', borderCollapse: 'collapse', backgroundColor: 'transparent' }}>
+                                      <thead>
+                                          <tr style={{ height: '15pt' }}>
+                                              <th className="print-header print-exact" style={{ width: '10%' }}>NO.</th>
+                                              <th className="print-header print-exact" style={{ width: '50%' }}>MATERIAL MDU</th>
+                                              <th className="print-header print-exact" style={{ width: '20%' }}>SATUAN</th>
+                                              <th className="print-header print-exact" style={{ width: '20%' }}>JUMLAH</th>
+                                          </tr>
+                                      </thead>
+                                      <tbody>
+                                          {Array.from({length: 9}).map((_, i) => {
+                                              const item = activeLhData.data?.returBekas?.[i] || {};
+                                              return (
+                                                  <tr key={`rbk-${i}`} style={{ height: '15pt' }}>
+                                                      <td className="print-cell print-exact" style={{ textAlign: 'center' }}>{i + 1}</td>
+                                                      <td className="print-cell print-exact">{item.nama ? `${item.nama}${item.catatan ? ` (${item.catatan})` : ''}` : '\u00A0'}</td>
+                                                      <td className="print-cell print-exact" style={{ textAlign: 'center' }}>{item.satuan || '\u00A0'}</td>
+                                                      <td className="print-cell print-exact" style={{ textAlign: 'center' }}>{item.jumlah || '\u00A0'}</td>
+                                                  </tr>
+                                              );
+                                          })}
+                                      </tbody>
+                                  </table>
+                              </div>
+                          </div>
+
+                         {/* TANDA TANGAN */}
+                          <div style={{ display: 'flex', justifyContent: 'space-between', width: '100%', fontSize: '11pt', pageBreakInside: 'avoid', color: 'black', marginTop: '30px' }} className="print-exact">
+                              
+                              {/* === KIRI: PENGAWAS VENDOR === */}
+                              <div style={{ width: '50%', textAlign: 'center', color: 'black' }}>
+                                  <div style={{ height: '15pt', marginBottom: '2px', color: 'black' }}>Pengawas Vendor</div>
+                                  <div style={{ height: '15pt', fontWeight: 'bold', color: 'black' }}>
+                                      {namaPTLengkap}
+                                  </div>
+                                  <div style={{ height: '50pt' }}></div>
+                                  <div style={{ height: '15pt', fontWeight: 'bold', color: 'black' }}>
+                                      (<span style={{ textDecoration: 'underline' }}>{namaPengawasVendor}</span>)
+                                  </div>
+                                  
+                              </div>
+
+                              {/* === KANAN: PENGAWAS PEKERJAAN (PLN ULP) === */}
+                              <div style={{ width: '50%', textAlign: 'center', color: 'black' }}>
+                                  <div style={{ height: '15pt', marginBottom: '2px', color: 'black' }}>Pengawas Pekerjaan</div>
+                                  <div style={{ height: '15pt', fontWeight: 'bold', color: 'black' }}>
+                                      {namaUlpPLN}
+                                  </div>
+                                  <div style={{ height: '50pt' }}></div>
+                                  <div style={{ height: '15pt', fontWeight: 'bold', color: 'black' }}>
+                                      (<span style={{ textDecoration: 'underline' }}>{namaPengawasPLN}</span>)
+                                  </div>
+                              </div>
+
+                          </div>
+                          
+                          
+                      </div>
+                  </div>
+              </div>
+              );
+          })()
+  );
+};
+</script>

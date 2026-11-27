@@ -1,0 +1,614 @@
+<script type="text/babel">
+// Menu: Radar audit = meja kerja Admin audit + rekap alur LH untuk admin yang menangani.
+// Tampilan mengikuti standar aplikasi (DESIGN.md, pola daftar Antrean PK): huruf dan komponen yang sama dengan menu lain.
+//
+// ALUR LH (aturan di UiKit: lhTahap, lhDokumen, lhAlur):
+//   LH selesai dibuat (Admin LH) -> AUDIT (Admin audit)
+//     - ada temuan   -> REVISI oleh Admin LH. Begitu LH disimpan ulang, otomatis lanjut ke Admin Code (tanpa audit ulang).
+//     - tanpa temuan -> langsung ke Admin Code
+//   Admin Code membuat dokumen yang diperlukan: Code 3, Code 7, lalu AGO -> SELESAI.
+//
+// KEAMANAN PROSES: setiap simpan memakai window.safeRun (UiKit): layar diblokir selama proses, tidak bisa pindah halaman,
+// ada batas waktu, dan LH baru berubah di layar setelah server menjawab "terverifikasi" (data dibaca ulang dari Sheet).
+// Bila server tidak menjawab, data disegarkan dari server supaya layar tidak menampilkan keadaan yang salah.
+// CATATAN BERKAS: simpan sebagai UTF-8. Jangan membaca/menulis berkas ini lewat PowerShell Get-Content/Set-Content (merusak karakter).
+(() => {
+  const { useState, useMemo, useEffect, useDeferredValue } = React;
+  const UI = window.UI;
+  const K = window.KtkMath;
+  const AUDIT_ROLES = ['Super Admin', 'Admin Audit'];
+  const C = { ink: '#2B2F3A', mute: '#7A8190', line: '#E6E9F2', soft: '#EEF0F7', blue: '#3A62B0', purple: '#7E57C2', ago: '#5A7FD0', ok: '#3C8A5E', warn: '#B7791F', bad: '#B5524F' };
+  const norm = (s) => String(s == null ? '' : s).toLowerCase().replace(/[^a-z0-9]/g, '');
+  const lower = (s) => String(s == null ? '' : s).toLowerCase();
+  const btn = 'h-8 px-3.5 rounded-lg border bg-white hover:border-[#9FB0D2] disabled:opacity-40 disabled:cursor-not-allowed';
+  const inp = 'h-9 px-3 rounded-[10px] border bg-white outline-none focus:border-[#3A62B0]';
+
+  // ---------- tanggal ----------
+  const parseTgl = (s) => window.Periode.waktu({ tanggal: s });   // satu penerjemah tanggal untuk seluruh aplikasi (UiKit)
+  const fmtTgl = (t) => t ? new Date(t).toLocaleDateString('id-ID', { day: 'numeric', month: 'long', year: 'numeric' }) : 'belum diisi';
+  const fmtPendek = (t) => t ? new Date(t).toLocaleDateString('id-ID', { day: '2-digit', month: 'short', year: 'numeric' }) : '-';
+
+  // ---------- isi LH ----------
+  const GROUPS = [['materialMdu', 'Material utama (MDU)'], ['materialKonstruksi', 'Material konstruksi'], ['uraianPasang', 'Pekerjaan pasang'], ['uraianBongkar', 'Pekerjaan bongkar'], ['returBaru', 'Material retur baru'], ['returBekas', 'Material retur bekas']];
+  const vnum = (x) => { try { if (x === '' || x == null) return 0; if (!K.valid(String(x))) return NaN; return Number(K.toSheetV(K.parseV(String(x)))); } catch (e) { return NaN; } };
+  const volOf = (it) => {
+    const d = vnum(it.pln), e = vnum(it.pemb);
+    if (Number.isNaN(d) || Number.isNaN(e)) return NaN;
+    if (d === 0 && e === 0 && it.jumlah !== undefined && it.jumlah !== '') return vnum(it.jumlah);
+    return d + e;
+  };
+  const itemsOf = (lh) => {
+    const d = (lh && lh.data) || {}; const out = [];
+    GROUPS.forEach(([g, label]) => (d[g] || []).forEach((it) => { if (it && String(it.nama || '').trim()) out.push({ grup: g, label, nama: String(it.nama).trim(), sat: it.satuan || '', cat: String(it.catatan || '').trim(), vol: volOf(it) }); }));
+    return out;
+  };
+  const NAMA_JENIS = {
+    nama: 'Nama barang tidak ada di daftar induk', ganda: 'Barang yang sama tertulis dua kali', kosong: 'Barang tanpa jumlah', aneh: 'Jumlah tidak masuk akal', besar: 'Jumlah jauh di atas biasanya',
+    tglDepan: 'Tanggal LH di masa depan', tglSpk: 'Tanggal LH di luar masa berlaku SPK', tglKosong: 'Tanggal LH belum diisi', pelaksana: 'Data lokasi, pengawas, atau team kosong',
+    lhKosong: 'LH tanpa barang atau jasa', lhGanda: 'Kemungkinan LH dobel', tanpaSpk: 'PK belum masuk SPK'
+  };
+  const DOC_NAMA = { c3: 'Code 3', c7: 'Code 7', ago: 'AGO' };
+  const DOC_KATA = { ada: 'sudah ada', kurang: 'belum ada', tidak: 'tidak diperlukan' };
+  const ALUR = {
+    audit: { label: 'Menunggu audit', admin: 'Admin audit', tone: 'warn' },
+    revisi: { label: 'Perlu revisi', admin: 'Admin LH', tone: 'bad' },
+    dokumen: { label: 'Menunggu dokumen', admin: 'Admin Code', tone: 'info' },
+    selesai: { label: 'Selesai', admin: '', tone: 'ok' }
+  };
+  // tiga kotak kecil C3 / C7 / AGO (gaya yang sama dengan Antrean PK): penuh = ada, putus-putus = diperlukan tetapi belum ada, abu = tidak diperlukan
+  const DOKS = [['c3', 'C3', C.blue], ['c7', 'C7', C.purple], ['ago', 'AGO', C.ago]];
+  const DocBoxes = ({ dok }) => (
+    <div className="flex gap-1.5">{DOKS.map(([k, l, col]) => { const st = dok.st[k]; const perlu = st !== 'tidak', ada = st === 'ada';
+      return (<div key={k} title={DOC_NAMA[k] + ': ' + DOC_KATA[st]} className="w-[44px] h-[34px] rounded-[9px] bg-white flex flex-col items-center justify-center"
+        style={{ border: '1.5px ' + (!perlu || ada ? 'solid' : 'dashed') + ' ' + (!perlu ? '#DADDE7' : col), color: !perlu ? '#B3B8C6' : col }}>
+        <span className="text-[10px] leading-3 opacity-80">{l}</span><span className="text-[13px] leading-4 font-medium">{!perlu ? '-' : ada ? '✓' : '○'}</span></div>); })}</div>);
+  const Titik = ({ tone, children }) => <UI.Status tone={tone}>{children}</UI.Status>;
+
+  // ---------- pemeriksaan otomatis (untuk Admin audit) ----------
+  // Daftar temuan { kode, level: 'bad' | 'warn', judul, rinci } per LH. 'bad' = penting dicek, 'warn' = sebaiknya dicek.
+  // Foto TIDAK diperiksa (kolom Foto_URL tidak pernah terisi) dan dokumen Code 3/7/AGO juga tidak (dibuat Admin Code sesudah audit).
+  const buildChecks = (lhs, pks, spks, master) => {
+    const pkBy = {}; (pks || []).forEach((p) => { pkBy[String(p.id).trim()] = p; });
+    const spkBy = {}; (spks || []).forEach((s) => { spkBy[String(s.id).trim()] = s; });
+    const per = {}; const itemsBy = new Map();
+    (lhs || []).forEach((l) => { const its = itemsOf(l); itemsBy.set(l, its); its.forEach((it) => { if (it.vol > 0) (per[norm(it.nama)] || (per[norm(it.nama)] = [])).push(it.vol); }); });
+    const med = {}; Object.keys(per).forEach((k) => { const a = per[k].slice().sort((x, y) => x - y); if (a.length >= 5) med[k] = a[Math.floor(a.length / 2)]; });
+    const dupKey = {}; (lhs || []).forEach((l) => { const k = [String(l.pk_id).trim(), parseTgl(l.tanggal), norm(l.uraian)].join('|'); (dupKey[k] || (dupKey[k] = [])).push(l.id); });
+    const now = Date.now() + 86400000;
+    const out = new Map();
+    (lhs || []).forEach((l) => {
+      const res = []; const its = itemsBy.get(l); const d = l.data || {};
+      const pk = pkBy[String(l.pk_id).trim()]; const spk = pk && pk.spk_id ? spkBy[String(pk.spk_id).trim()] : null;
+      const add = (kode, level, rinci) => res.push({ kode, level, judul: NAMA_JENIS[kode], rinci });
+      const bad = window.lhBadNames ? window.lhBadNames(master, d) : [];
+      if (bad.length) add('nama', 'bad', bad.slice(0, 6).map((b) => b.nama).join('; ') + (bad.length > 6 ? ' dan ' + (bad.length - 6) + ' lainnya' : ''));
+      const seen = {}, dups = {};
+      its.forEach((it) => { const k = it.grup + '|' + norm(it.nama); if (seen[k]) dups[it.nama] = true; seen[k] = true; });
+      if (Object.keys(dups).length) add('ganda', 'bad', Object.keys(dups).slice(0, 5).join('; '));
+      const kosong = its.filter((it) => it.vol === 0), aneh = its.filter((it) => Number.isNaN(it.vol) || it.vol < 0);
+      if (aneh.length) add('aneh', 'bad', aneh.slice(0, 5).map((it) => it.nama).join('; '));
+      if (kosong.length) add('kosong', 'warn', kosong.slice(0, 5).map((it) => it.nama).join('; '));
+      const besar = its.filter((it) => { const m = med[norm(it.nama)]; return m && it.vol >= 5 * m && it.vol - m >= 5; });
+      if (besar.length) add('besar', 'warn', besar.slice(0, 4).map((it) => it.nama + ' (' + it.vol + ' ' + it.sat + ', biasanya sekitar ' + med[norm(it.nama)] + ')').join('; '));
+      const t = parseTgl(l.tanggal);
+      if (!t) add('tglKosong', 'warn', 'Isi kolom tanggal pada LH ini.');
+      else {
+        if (t > now) add('tglDepan', 'bad', 'Tanggal LH ' + fmtTgl(t) + ' belum terjadi.');
+        if (spk) { const a = parseTgl(spk.tanggal), b = parseTgl(spk.exp); if ((a && t < a) || (b && t > b + 86399000)) add('tglSpk', 'bad', 'LH tanggal ' + fmtTgl(t) + ', masa berlaku SPK ' + (a ? fmtTgl(a) : '?') + ' sampai ' + (b ? fmtTgl(b) : '?') + '.'); }
+      }
+      const lokasi = d.lokasi_lh || (pk && pk.lokasi), pengawas = d.pengawas_lh || (pk && pk.pengawas), team = d.team_lh || (pk && pk.team);
+      const hilang = [!lokasi && 'lokasi', !pengawas && 'pengawas', !team && 'team'].filter(Boolean);
+      if (hilang.length) add('pelaksana', 'warn', 'Belum diisi: ' + hilang.join(', ') + '.');
+      if (!its.length) add('lhKosong', 'bad', 'Tidak ada satu pun barang atau jasa di LH ini.');
+      const dk = dupKey[[String(l.pk_id).trim(), t, norm(l.uraian)].join('|')]; if (dk && dk.length > 1) add('lhGanda', 'bad', 'Sama dengan LH ' + dk.filter((x) => x !== l.id).join(', ') + ' (PK, tanggal, dan uraian sama).');
+      if (!spk) add('tanpaSpk', 'warn', 'PK ' + (pk ? pk.id : l.pk_id) + ' belum dimasukkan ke SPK.');
+      res.sort((a, b) => (a.level === 'bad' ? 0 : 1) - (b.level === 'bad' ? 0 : 1));
+      out.set(l.id, { cek: res, items: its });
+    });
+    return { byLh: out, med };
+  };
+
+  // ---------- rekap alur LH untuk admin yang menangani ----------
+  // Satu baris ringkas per PK; rincian LH dibuka per PK. Bisa dicetak, diunduh untuk Excel, dan teks per PK bisa disalin.
+  function AlurRekap({ rows, showToast }) {
+    const [spkF, setSpkF] = useState('');
+    const [q, setQ] = useState('');
+    const dq = useDeferredValue(q);
+    const [tahap, setTahap] = useState('aktif');   // aktif | audit | revisi | dokumen | selesai | semua
+    const [open, setOpen] = useState({});
+    const [limit, setLimit] = useState(25);
+    const spkOf = (r) => r.spk ? String(r.spk.id).trim() : '(tanpa)';
+    const inSpk = rows.filter((r) => !spkF || spkOf(r) === spkF);
+    const spkOptions = useMemo(() => Array.from(new Set(rows.map(spkOf))).sort(), [rows]);
+    const cnt = { audit: 0, revisi: 0, dokumen: 0, selesai: 0 }; inSpk.forEach((r) => { cnt[r.alur.key]++; });
+    const inT = (r) => tahap === 'semua' || (tahap === 'aktif' ? r.alur.key !== 'selesai' : r.alur.key === tahap);
+    const ws = lower(dq).split(/\s+/).filter(Boolean);
+    const pkRows = useMemo(() => {
+      const m = {};
+      inSpk.forEach((r) => {
+        const k = String(r.l.pk_id).trim();
+        const g = m[k] || (m[k] = { id: k, pk: r.pk, spk: r.spk, lhs: [], n: { audit: 0, revisi: 0, dokumen: 0, selesai: 0 }, kurang: { c3: 0, c7: 0, ago: 0 } });
+        g.lhs.push(r); g.n[r.alur.key]++;
+        if (r.alur.key === 'dokumen') r.dok.kurang.forEach((t) => { g.kurang[t]++; });
+      });
+      return Object.keys(m).map((k) => m[k]);
+    }, [inSpk]);
+    const list = pkRows.map((g) => ({ ...g, show: g.lhs.filter(inT) })).filter((g) => g.show.length > 0 && ws.every((w) => lower([g.id, g.pk && g.pk.nama, g.pk && g.pk.lokasi, g.show.map((r) => r.l.id + ' ' + r.nama).join(' ')].join(' ')).indexOf(w) >= 0))
+      .sort((a, b) => b.show.length - a.show.length || String(a.id).localeCompare(String(b.id)));
+    const shown = list.slice(0, limit);
+    const nLhShown = list.reduce((a, g) => a + g.show.length, 0);
+    const label = { aktif: 'Semua yang belum selesai', audit: 'Menunggu audit', revisi: 'Perlu revisi', dokumen: 'Menunggu dokumen', selesai: 'Selesai', semua: 'Semua tahap' }[tahap];
+
+    const ringkasLh = (r) => r.l.id + (r.nama ? ' (' + r.nama + ')' : '') + (r.alur.key === 'dokumen' ? ': ' + r.dok.kurang.map((t) => DOC_NAMA[t]).join(', ') : r.alur.key === 'revisi' ? ': temuan - ' + r.l.audit_note : '');
+    const teksPk = (g) => {
+      const part = (key, judul) => { const a = g.show.filter((r) => r.alur.key === key); return a.length ? '\n' + judul + ':\n' + a.map((r) => '- ' + ringkasLh(r)).join('\n') : ''; };
+      return 'PK ' + g.id + (g.pk && g.pk.nama ? ' - ' + g.pk.nama : '') + (g.pk && g.pk.lokasi ? '\nLokasi: ' + g.pk.lokasi : '') + '\n' + (g.spk ? 'SPK ' + g.spk.id : 'Belum masuk SPK')
+        + part('revisi', 'Untuk Admin LH (perlu revisi)') + part('dokumen', 'Untuk Admin Code (buat dokumen)') + part('audit', 'Menunggu Admin audit') + '\nTerima kasih.';
+    };
+    const salin = (text) => {
+      const ok = () => showToast('Teks disalin', 'Tempel ke pesan untuk admin yang menangani.', 'success');
+      const gagal = () => showToast('Gagal menyalin', 'Peramban menolak menyalin. Pilih dan salin teks secara manual dari rekap.', 'error');
+      const cadangan = () => { try { const ta = document.createElement('textarea'); ta.value = text; document.body.appendChild(ta); ta.select(); const b = document.execCommand('copy'); document.body.removeChild(ta); if (b) ok(); else gagal(); } catch (e) { gagal(); } };
+      try { if (navigator.clipboard && navigator.clipboard.writeText) navigator.clipboard.writeText(text).then(ok).catch(cadangan); else cadangan(); } catch (e) { cadangan(); }
+    };
+    const kata = { ada: 'Ada', kurang: 'Belum ada', tidak: '-' };
+    const unduh = () => {
+      try {
+        const lines = [['SPK', 'No. PK', 'Nama PK', 'Lokasi', 'ID LH', 'Tanggal LH', 'Pekerjaan LH', 'Tahap', 'Ditangani oleh', 'Code 3', 'Code 7', 'AGO', 'Catatan temuan']];
+        list.forEach((g) => g.show.forEach((r) => lines.push([g.spk ? g.spk.id : 'Belum masuk SPK', g.id, g.pk && g.pk.nama || '', r.lokasi, r.l.id, r.t ? new Date(r.t).toISOString().slice(0, 10) : '', r.nama, r.alur.label, r.alur.admin, kata[r.dok.st.c3], kata[r.dok.st.c7], kata[r.dok.st.ago], r.alur.key === 'revisi' ? r.l.audit_note : ''])));
+        if (lines.length === 1) return showToast('Tidak ada data', 'Tidak ada LH untuk pilihan ini, jadi tidak ada yang diunduh.', 'error');
+        const csv = '﻿' + lines.map((row) => row.map((v) => '"' + String(v == null ? '' : v).replace(/"/g, '""') + '"').join(';')).join('\r\n');
+        if (!(window.URL && window.URL.createObjectURL)) return showToast('Tidak bisa mengunduh', 'Peramban ini tidak mendukung unduhan.', 'error');
+        const a = document.createElement('a'); a.href = window.URL.createObjectURL(new Blob([csv], { type: 'text/csv;charset=utf-8' })); a.download = 'rekap-alur-lh-' + new Date().toISOString().slice(0, 10) + '.csv';
+        document.body.appendChild(a); a.click(); document.body.removeChild(a);
+        showToast('Rekap diunduh', (lines.length - 1) + ' baris LH. Buka dengan Excel.', 'success');
+      } catch (e) { showToast('Gagal mengunduh', String((e && e.message) || e), 'error'); }
+    };
+    const cetak = () => { try { window.print(); } catch (e) { showToast('Gagal mencetak', 'Peramban tidak bisa membuka jendela cetak.', 'error'); } };
+    const Langkah = ({ k, judul, admin, n, col }) => (
+      <button onClick={() => { setTahap(k); setLimit(25); }} className="flex-1 min-w-[170px] text-left px-4 py-2.5 rounded-xl bg-white border hover:border-[#9FB0D2]"
+        style={{ borderColor: tahap === k ? C.blue : C.line, boxShadow: tahap === k ? '0 0 0 2px #E9EEFA' : 'none' }}>
+        <div className="text-[11px]" style={{ color: C.mute }}>{admin ? 'Ditangani ' + admin : 'Tidak perlu tindakan'}</div>
+        <div className="flex items-baseline gap-2"><span className="text-[22px] leading-8 num" style={{ color: col }}>{n}</span><span className="font-medium" style={{ color: C.ink }}>{judul}</span></div>
+      </button>);
+    const Angka = ({ n, col }) => n > 0 ? <span className="num font-medium" style={{ color: col }}>{n}</span> : <span style={{ color: '#B3B8C6' }}>-</span>;
+    const GRID = 'minmax(0,2.2fr) minmax(0,1.3fr) 64px 64px 64px 64px 64px minmax(0,1.4fr) 190px';
+
+    return (
+      <div className="space-y-3">
+        <div className="no-print-rk">
+          <div className="text-[12px] mb-1.5" style={{ color: C.mute }}>Alur setiap LH: dibuat, lalu diaudit. Bila ada temuan, Admin LH merevisi dan LH otomatis lanjut. Bila tidak ada, LH langsung ke Admin Code untuk membuat Code 3, Code 7, dan AGO yang diperlukan.</div>
+          <div className="flex flex-wrap items-center gap-2">
+            <Langkah k="audit" judul="Menunggu audit" admin="Admin audit" n={cnt.audit} col={C.warn} /><span style={{ color: '#9AA3B5' }}>→</span>
+            <Langkah k="revisi" judul="Perlu revisi" admin="Admin LH" n={cnt.revisi} col={C.bad} /><span style={{ color: '#9AA3B5' }}>→</span>
+            <Langkah k="dokumen" judul="Menunggu dokumen" admin="Admin Code" n={cnt.dokumen} col={C.blue} /><span style={{ color: '#9AA3B5' }}>→</span>
+            <Langkah k="selesai" judul="Selesai" admin="" n={cnt.selesai} col={C.ok} />
+          </div>
+        </div>
+        <section className="bg-white border rounded-xl px-4 py-2.5 flex flex-wrap items-end gap-x-4 gap-y-2 no-print-rk" style={{ borderColor: C.line }}>
+          <label className="block"><span className="block text-[11px] mb-0.5" style={{ color: C.mute }}>Cari</span>
+            <input value={q} onChange={(e) => { setQ(e.target.value); setLimit(25); }} placeholder="Nomor PK, pelanggan, lokasi, atau nomor LH" className={inp + ' w-[300px] max-w-full'} style={{ borderColor: '#D9DDE9' }} /></label>
+          <label className="block"><span className="block text-[11px] mb-0.5" style={{ color: C.mute }}>SPK</span>
+            <select value={spkF} onChange={(e) => { setSpkF(e.target.value); setLimit(25); }} className={inp + ' w-[220px]'} style={{ borderColor: '#D9DDE9' }}><option value="">Semua SPK</option>{spkOptions.map((k) => <option key={k} value={k}>{k === '(tanpa)' ? 'PK belum masuk SPK' : k}</option>)}</select></label>
+          <label className="block"><span className="block text-[11px] mb-0.5" style={{ color: C.mute }}>Tampilkan</span>
+            <select value={tahap} onChange={(e) => { setTahap(e.target.value); setLimit(25); }} className={inp + ' w-[230px]'} style={{ borderColor: '#D9DDE9' }}>
+              <option value="aktif">Semua yang belum selesai</option><option value="audit">Menunggu audit (Admin audit)</option><option value="revisi">Perlu revisi (Admin LH)</option><option value="dokumen">Menunggu dokumen (Admin Code)</option><option value="selesai">Selesai</option><option value="semua">Semua tahap</option></select></label>
+          <span className="flex-1"></span>
+          <button className={btn} style={{ borderColor: '#D9DDE9' }} onClick={() => { const o = {}; shown.forEach((g) => { o[g.id] = true; }); setOpen(o); }}>Buka semua rincian</button>
+          <button className={btn} style={{ borderColor: '#D9DDE9' }} onClick={() => setOpen({})}>Tutup rincian</button>
+          <button className={btn} style={{ borderColor: '#D9DDE9' }} onClick={unduh}>Unduh untuk Excel</button>
+          <UI.Btn kind="primary" onClick={cetak}>Cetak rekap</UI.Btn>
+        </section>
+
+        <section className="rk-print bg-white border rounded-[14px] overflow-hidden" style={{ borderColor: C.line }}>
+          <div className="px-5 py-2.5">
+            <div className="text-[14px] font-medium" style={{ color: C.ink }}>Rekap alur LH dan dokumen Code 3, Code 7, AGO</div>
+            <div style={{ color: C.mute }}>Dicetak {fmtTgl(Date.now())} · {spkF ? (spkF === '(tanpa)' ? 'PK belum masuk SPK' : 'SPK ' + spkF) : 'Semua SPK'} · {label} · {list.length} PK, {nLhShown} LH</div>
+          </div>
+          <div className="grid items-center gap-3 px-5 h-9 text-[11px]" style={{ gridTemplateColumns: GRID, background: '#F4F6FB', color: C.mute }}>
+            <span>PK</span><span>SPK</span><span className="text-right">Total</span><span className="text-right">Audit</span><span className="text-right">Revisi</span><span className="text-right">Dokumen</span><span className="text-right">Selesai</span><span>Dokumen yang belum dibuat</span><span className="no-print-rk"></span>
+          </div>
+          {list.length === 0 && <div className="py-12 text-center border-t" style={{ borderColor: C.line, color: C.mute }}>Tidak ada LH untuk pilihan ini.</div>}
+          {shown.map((g) => { const isOpen = !!open[g.id]; return (
+            <React.Fragment key={g.id}>
+              <div className="grid items-center gap-3 px-5 py-2.5 border-t" style={{ gridTemplateColumns: GRID, borderTopColor: '#EEF0F7' }}>
+                <div className="min-w-0"><div className="text-[14px] leading-5 font-medium truncate" style={{ color: C.ink }} title={g.pk && g.pk.nama}>{g.pk && g.pk.nama ? g.pk.nama : 'PK ' + g.id}</div><div className="text-[11px] truncate" style={{ color: C.blue }}>PK {g.id}{g.pk && g.pk.lokasi ? ' · ' + g.pk.lokasi : ''}</div></div>
+                <span className="truncate" style={{ color: '#5B6275' }}>{g.spk ? g.spk.id : 'belum masuk SPK'}</span>
+                <span className="text-right num">{g.lhs.length}</span>
+                <span className="text-right"><Angka n={g.n.audit} col={C.warn} /></span><span className="text-right"><Angka n={g.n.revisi} col={C.bad} /></span><span className="text-right"><Angka n={g.n.dokumen} col={C.blue} /></span><span className="text-right"><Angka n={g.n.selesai} col={C.ok} /></span>
+                <span style={{ color: '#5B6275' }}>{g.n.dokumen === 0 ? '' : ['c3', 'c7', 'ago'].filter((t) => g.kurang[t] > 0).map((t) => DOC_NAMA[t] + ' ' + g.kurang[t] + ' LH').join(' · ')}</span>
+                <div className="flex gap-1.5 justify-end no-print-rk">
+                  <button className="h-7 px-2.5 rounded-lg border bg-white hover:border-[#9FB0D2]" style={{ borderColor: '#D9DDE9' }} onClick={() => setOpen((o) => ({ ...o, [g.id]: !o[g.id] }))}>{isOpen ? 'Tutup' : 'Lihat ' + g.show.length + ' LH'}</button>
+                  <button className="h-7 px-2.5 rounded-lg border bg-white hover:border-[#9FB0D2]" style={{ borderColor: '#D9DDE9' }} onClick={() => salin(teksPk(g))}>Salin teks</button>
+                </div>
+              </div>
+              {isOpen && <div className="px-5 pb-2.5 pt-1" style={{ background: '#F8F9FD' }}>
+                <div className="grid gap-3 px-2 h-7 items-center text-[11px]" style={{ gridTemplateColumns: '110px 100px minmax(0,2fr) 170px 150px', color: C.mute }}><span>LH</span><span>Tanggal</span><span>Pekerjaan LH</span><span>Tahap</span><span>Dokumen</span></div>
+                {g.show.map((r) => (
+                  <div key={r.l.id} className="grid gap-3 px-2 py-1.5 items-center border-t" style={{ gridTemplateColumns: '110px 100px minmax(0,2fr) 170px 150px', borderTopColor: '#EEF0F7' }}>
+                    <span className="num" style={{ color: C.purple }}>{r.l.id}</span><span className="num" style={{ color: '#2F8F9D' }}>{fmtPendek(r.t)}</span>
+                    <div className="min-w-0"><div className="truncate" style={{ color: C.ink }}>{r.nama || '-'}</div>{r.alur.key === 'revisi' && <div className="text-[11px]" style={{ color: C.bad }}>Temuan: {r.l.audit_note}</div>}</div>
+                    <div><Titik tone={ALUR[r.alur.key].tone}>{r.alur.label}</Titik>{r.alur.admin && <div className="text-[11px]" style={{ color: C.mute }}>{r.alur.admin}</div>}</div>
+                    <DocBoxes dok={r.dok} />
+                  </div>))}
+              </div>}
+            </React.Fragment>); })}
+          {list.length > limit && <button onClick={() => setLimit(limit + 25)} className="w-full py-2.5 border-t hover:bg-[#F9FAFD] no-print-rk" style={{ borderColor: C.line, color: C.blue }}>Tampilkan 25 PK berikutnya ({list.length - limit} lagi)</button>}
+        </section>
+      </div>);
+  }
+
+  // Pemantauan KTK: sudah sampai mana tiap KTK dikerjakan (semua folder, semua admin) dan hasilnya. Hanya membaca.
+  // LH di KTK: jenis 71 = LH yang dicentang; jenis 62 = semua LH milik PK yang dipilih. Tahap tiap LH memakai aturan alur yang sama dengan tab lain.
+  function KtkProgres({ lhs, auth, showToast }) {
+    const K = window.KtkMath; const Z = BigInt(0);
+    const [st, setSt] = useState({ s: 'muat', data: [], msg: '' });
+    const [f, setF] = useState('belum');
+    const [q, setQ] = useState('');
+    const [open, setOpen] = useState({});
+    const muat = React.useCallback(async () => {
+      setSt((x) => ({ ...x, s: 'muat' }));
+      const o = await window.safeRun('auditKtkProgres', [{ t: auth.t, as: auth.as }], { label: 'Memuat KTK', tanpaBlokir: true });
+      if (o.ok) setSt({ s: 'ok', data: o.res.data || [], msg: '' }); else setSt({ s: 'galat', data: [], msg: o.message || 'Data KTK tidak bisa dimuat.' });
+    }, [auth.t, auth.as]);
+    useEffect(() => { muat(); }, []);
+    const lhBy = useMemo(() => { const m = {}, byPk = {}; (lhs || []).forEach((l) => { m[String(l.id).trim()] = l; (byPk[String(l.pk_id).trim()] = byPk[String(l.pk_id).trim()] || []).push(l); }); return { m, byPk }; }, [lhs]);
+    const rows = useMemo(() => st.data.map((k) => {
+      const set = {}; k.lhIds.forEach((id) => { const l = lhBy.m[String(id).trim()]; if (l) set[l.id] = l; });
+      k.pkIds.forEach((p) => { (lhBy.byPk[String(p).trim()] || []).forEach((l) => { set[l.id] = l; }); });
+      const daftar = Object.keys(set).map((id) => ({ l: set[id], a: window.lhAlur(set[id]) }));
+      const n = { audit: 0, revisi: 0, dokumen: 0, selesai: 0 }; daftar.forEach((x) => { if (n[x.a.key] !== undefined) n[x.a.key]++; });
+      const total = daftar.length;
+      const s = K.sumItems((k.baris || []).map((b) => ({ tipe: 'item', vol: b[0], pm: b[1], pj: b[2] })));
+      const nilai = K.hitung(s.vm, s.vj).bulat; const bervol = (k.baris || []).filter((b) => K.parseV(b[0]) !== Z).length;
+      let tahap, tone;
+      if (!total) { tahap = k.nPaket ? 'Belum memilih LH' : 'Baru dibuat, paket belum disusun'; tone = 'mute'; }
+      else if (n.revisi) { tahap = n.revisi + ' LH menunggu revisi Admin LH'; tone = 'bad'; }
+      else if (n.audit) { tahap = n.audit + ' LH menunggu audit'; tone = 'warn'; }
+      else if (n.dokumen) { tahap = n.dokumen + ' LH menunggu dokumen Code 3, Code 7, AGO'; tone = 'info'; }
+      else if (k.status === 'Final') { tahap = 'Selesai, harga terkunci'; tone = 'ok'; }
+      else { tahap = 'LH lengkap, harga belum dikunci'; tone = 'info'; }
+      return { k, daftar, n, total, nilai, bervol, tahap, tone, selesai: tone === 'ok' };
+    }), [st.data, lhBy]);
+    const qq = lower(q).trim();
+    const tampil = rows.filter((r) => (f === 'semua' || (f === 'belum' ? !r.selesai : r.selesai)) && (!qq || lower([r.k.no, r.k.nama, r.k.idSpk, r.k.pemilik, r.k.pemilikNama, r.k.folderNama].join(' ')).indexOf(qq) >= 0))
+      .sort((a, b) => (a.selesai - b.selesai) || String(a.k.diubah).localeCompare(String(b.k.diubah)));
+    const nBelum = rows.filter((r) => !r.selesai).length;
+    const GR = 'minmax(0,1.6fr) minmax(0,1fr) 78px minmax(0,1.5fr) minmax(0,1.5fr) 130px';
+    return (
+      <div className="space-y-3" data-testid="progres-ktk">
+        <section className="bg-white border rounded-xl px-4 py-2.5 flex flex-wrap items-end gap-x-4 gap-y-2" style={{ borderColor: C.line }}>
+          <label className="block"><span className="block text-[11px] mb-0.5" style={{ color: C.mute }}>Tampilkan</span>
+            <select value={f} onChange={(e) => setF(e.target.value)} className={inp + ' w-[220px]'} style={{ borderColor: '#D9DDE9' }}><option value="belum">Belum selesai ({nBelum})</option><option value="selesai">Selesai ({rows.length - nBelum})</option><option value="semua">Semua ({rows.length})</option></select></label>
+          <label className="block"><span className="block text-[11px] mb-0.5" style={{ color: C.mute }}>Cari</span>
+            <input value={q} onChange={(e) => setQ(e.target.value)} placeholder="Nomor kontrak, SPK, nama folder, atau ID admin" className={inp + ' w-[320px] max-w-full'} style={{ borderColor: '#D9DDE9' }} /></label>
+          <span className="flex-1"></span>
+          <UI.Btn onClick={muat} disabled={st.s === 'muat'}>{st.s === 'muat' ? 'Memuat...' : 'Segarkan'}</UI.Btn>
+        </section>
+        {st.s === 'galat' && <div role="alert" className="rounded-xl px-4 py-3 border" style={{ background: '#FDF6F5', borderColor: '#F0C4BF', color: C.bad }}>{st.msg} <button className="underline ml-2" onClick={muat}>Coba lagi</button></div>}
+        <section className="bg-white border rounded-[14px] overflow-hidden" style={{ borderColor: C.line }}>
+          <div className="grid items-center gap-3 px-5 h-9 text-[11px]" style={{ gridTemplateColumns: GR, background: '#F4F6FB', color: C.mute }}>
+            <span>Kontrak</span><span>Folder dan pengerjaan</span><span>Status</span><span>LH di KTK</span><span>Sudah sampai mana</span><span className="text-right">Nilai awal</span>
+          </div>
+          {st.s === 'muat' && <div className="py-10 text-center" style={{ color: C.mute }}><i className="fa-solid fa-circle-notch fa-spin mr-2"></i>Memuat KTK...</div>}
+          {st.s === 'ok' && !tampil.length && <div className="py-10 text-center" style={{ color: C.mute }}>{rows.length ? 'Tidak ada KTK yang cocok.' : 'Belum ada KTK.'}</div>}
+          {tampil.map((r) => { const o = !!open[r.k.id]; const seg = (n, col) => r.total ? <span title={String(n)} style={{ width: (n / r.total * 100) + '%', background: col }}></span> : null; return (
+            <React.Fragment key={r.k.id}>
+              <div role="button" tabIndex={0} data-testid="baris-ktk" onClick={() => setOpen((x) => ({ ...x, [r.k.id]: !x[r.k.id] }))} onKeyDown={(e) => { if (e.key === 'Enter') setOpen((x) => ({ ...x, [r.k.id]: !x[r.k.id] })); }}
+                className="grid items-center gap-3 px-5 py-2.5 border-t cursor-pointer hover:bg-[#F9FAFD]" style={{ gridTemplateColumns: GR, borderTopColor: '#EEF0F7' }}>
+                <div className="min-w-0"><div className="text-[14px] font-medium truncate" style={{ color: C.blue }} title={r.k.no}>{r.k.no || r.k.id}</div><div className="truncate" style={{ color: C.mute }} title={r.k.nama}>KTK {r.k.jenis} · SPK {r.k.idSpk || '-'}{r.k.nama && r.k.nama !== r.k.no ? ' · ' + r.k.nama : ''}</div></div>
+                <div className="min-w-0"><div className="truncate" style={{ color: C.ink }}>{r.k.folderNama || 'Belum masuk folder'}</div><div className="text-[11px] truncate" style={{ color: C.mute }}>{r.k.pemilik ? 'ID ' + r.k.pemilik + (r.k.pemilikNama ? ' · ' + r.k.pemilikNama : '') : 'tanpa pemilik'} · diubah {String(r.k.diubah).slice(0, 10) || '-'}</div></div>
+                <UI.Status tone={r.k.status === 'Final' ? 'ok' : 'warn'}>{r.k.status || '-'}</UI.Status>
+                <div className="min-w-0">
+                  <div className="text-[13px]" style={{ color: C.ink }}>{r.total} LH · {r.n.selesai} selesai{r.n.audit ? ' · ' + r.n.audit + ' audit' : ''}{r.n.revisi ? ' · ' + r.n.revisi + ' revisi' : ''}{r.n.dokumen ? ' · ' + r.n.dokumen + ' dokumen' : ''}</div>
+                  <div className="flex h-[6px] rounded-full overflow-hidden mt-1" style={{ background: '#E9ECF4' }}>{seg(r.n.selesai, C.ok)}{seg(r.n.dokumen, C.blue)}{seg(r.n.audit, C.warn)}{seg(r.n.revisi, C.bad)}</div>
+                </div>
+                <div><UI.Status tone={r.tone}>{r.tahap}</UI.Status></div>
+                <div className="text-right num">{r.nilai !== Z ? 'Rp ' + K.fmtRp(r.nilai) : '-'}<div className="text-[11px]" style={{ color: C.mute }}>{r.k.nPaket} paket · {r.bervol} bervolume</div></div>
+              </div>
+              {o && <div className="px-5 pb-2.5 pt-1" style={{ background: '#F8F9FD' }}>
+                {!r.daftar.length ? <div className="py-2" style={{ color: C.mute }}>Belum ada LH yang dimasukkan ke KTK ini.</div> : (<>
+                  <div className="grid gap-3 px-2 h-7 items-center text-[11px]" style={{ gridTemplateColumns: '120px minmax(0,2fr) 200px 160px', color: C.mute }}><span>LH</span><span>Pekerjaan</span><span>Tahap</span><span>Dibuat oleh</span></div>
+                  {r.daftar.slice(0, 200).map((x) => (
+                    <div key={x.l.id} className="grid gap-3 px-2 py-1.5 items-center border-t" style={{ gridTemplateColumns: '120px minmax(0,2fr) 200px 160px', borderTopColor: '#EEF0F7' }}>
+                      <span className="num" style={{ color: C.purple }}>{x.l.id}</span>
+                      <span className="truncate" style={{ color: C.ink }}>{(x.l.data && x.l.data.nama_pekerjaan_lh) || x.l.uraian || '-'}</span>
+                      <Titik tone={ALUR[x.a.key] ? ALUR[x.a.key].tone : 'mute'}>{x.a.label}{x.a.admin ? ' · ' + x.a.admin : ''}</Titik>
+                      <span style={{ color: C.mute }}>{x.l.dibuat_oleh ? 'ID ' + x.l.dibuat_oleh : 'tidak tercatat'}</span>
+                    </div>))}
+                  {r.daftar.length > 200 && <div className="px-2 py-1" style={{ color: C.mute }}>Menampilkan 200 dari {r.daftar.length} LH.</div>}
+                </>)}
+              </div>}
+            </React.Fragment>); })}
+        </section>
+      </div>);
+  }
+
+  function AuditDesk({ ctx }) {
+    const { spks, pks, lhs, masterDatabase, currentUser, setLhs, showToast, fetchMainAppData } = ctx;
+    const role = currentUser && currentUser.role;
+    const canAudit = AUDIT_ROLES.indexOf(role) >= 0;
+    const auth = { t: (currentUser && currentUser.token) || '', as: (currentUser && currentUser.asUser) || '' };
+    const [tab, setTab] = useState('belum');          // belum | temuan | sudah | alur
+    const [q, setQ] = useState('');
+    const dq = useDeferredValue(q);
+    const [spkF, setSpkF] = useState('');
+    const [jenisF, setJenisF] = useState('');
+    const [urut, setUrut] = useState('lama');
+    const [limit, setLimit] = useState(30);
+    const [openId, setOpenId] = useState(null);
+    const [note, setNote] = useState('');
+    const [busy, setBusy] = useState(false);
+    const [periode, setPeriode] = useState(() => window.Periode.baca('audit'));
+
+    const safeLhs = lhs || [], safePks = pks || [], safeSpks = spks || [];
+    const { byLh, med } = useMemo(() => buildChecks(safeLhs, safePks, safeSpks, masterDatabase), [safeLhs, safePks, safeSpks, masterDatabase]);
+    const pkBy = useMemo(() => { const m = {}; safePks.forEach((p) => { m[String(p.id).trim()] = p; }); return m; }, [safePks]);
+    const spkBy = useMemo(() => { const m = {}; safeSpks.forEach((s) => { m[String(s.id).trim()] = s; }); return m; }, [safeSpks]);
+
+    const rowsSemua = useMemo(() => safeLhs.map((l) => {
+      const pk = pkBy[String(l.pk_id).trim()] || {}; const spk = pk.spk_id ? spkBy[String(pk.spk_id).trim()] : null; const d = l.data || {};
+      const info = byLh.get(l.id) || { cek: [], items: [] };
+      const status = { audit: 'belum', revisi: 'temuan', lolos: 'sudah' }[window.lhTahap(l)];
+      return { l, pk, spk, status, cek: info.cek, items: info.items, t: parseTgl(l.tanggal),
+        dok: window.lhDokumen(l), alur: window.lhAlur(l), revisiSelesai: String(l.audit_status || '').trim() === 'Revisi',
+        nama: String(d.nama_pekerjaan_lh || l.uraian || '').trim(),
+        lokasi: d.lokasi_lh || pk.lokasi || '', pengawas: d.pengawas_lh || pk.pengawas || '', team: d.team_lh || pk.team || '',
+        cari: lower([l.id, l.uraian, pk.id, pk.nama, d.lokasi_lh, pk.lokasi, spk && spk.id, spk && spk.vendor, d.nama_pekerjaan_lh, l.audit_note].join(' ')) };
+    }), [safeLhs, pkBy, spkBy, byLh]);
+    // PERIODE: bawaan sejak 1 November 2026 (UiKit: Periode). Yang di luar periode tidak hilang: jumlahnya ditampilkan dan bisa dibuka.
+    const rows = useMemo(() => rowsSemua.filter((r) => window.Periode.cocok(periode, r.t)), [rowsSemua, periode]);
+    const diluar = useMemo(() => rowsSemua.filter((r) => !window.Periode.cocok(periode, r.t)), [rowsSemua, periode]);
+    const diluarBelum = diluar.filter((r) => r.status === 'belum').length, diluarTemuan = diluar.filter((r) => r.status === 'temuan').length;
+    const ubahPeriode = (v) => { setPeriode(v); window.Periode.simpan('audit', v); setLimit(30); setJenisF(''); };
+    const opsiPeriode = useMemo(() => window.Periode.opsi(safeLhs), [safeLhs]);
+    const cnt = { belum: 0, temuan: 0, sudah: 0 }; rows.forEach((r) => { cnt[r.status]++; });
+    const nBelumSelesai = rows.filter((r) => r.alur.key !== 'selesai').length;
+
+    const inTab = rows.filter((r) => r.status === tab);
+    const ws = lower(dq).split(/\s+/).filter(Boolean);
+    const matchQ = (r) => !ws.length || ws.every((w) => r.cari.indexOf(w) >= 0 || r.items.some((it) => lower(it.nama).indexOf(w) >= 0));
+    const spkKey = (r) => r.spk ? String(r.spk.id).trim() : '(tanpa)';
+    const base = inTab.filter((r) => (!spkF || spkKey(r) === spkF) && matchQ(r));
+    const jenisCount = {}; base.forEach((r) => r.cek.forEach((c) => { jenisCount[c.kode] = (jenisCount[c.kode] || 0) + 1; }));
+    const list = base.filter((r) => !jenisF || r.cek.some((c) => c.kode === jenisF))
+      .sort((a, b) => urut === 'lama' ? (a.t - b.t) || String(a.l.id).localeCompare(String(b.l.id)) : (b.t - a.t) || String(b.l.id).localeCompare(String(a.l.id)));
+    const shown = list.slice(0, limit);
+    const spkOptions = useMemo(() => { const m = {}; rows.forEach((r) => { const k = spkKey(r); m[k] = (m[k] || 0) + 1; }); return Object.keys(m).sort(); }, [rows]);
+
+    const cur = openId ? rows.find((r) => r.l.id === openId) : null;
+    useEffect(() => { setNote(cur ? String(cur.l.audit_note || '') : ''); }, [openId]);
+    useEffect(() => { if (openId && !cur) setOpenId(null); }, [cur, openId]);
+    const nBad = (r) => r.cek.filter((c) => c.level === 'bad').length;
+    const tutup = () => { if (!busy) setOpenId(null); };   // panel tidak bisa ditutup saat data sedang disimpan
+
+    const patchLh = (id, patch) => { if (typeof setLhs === 'function') setLhs((prev) => (prev || []).map((x) => x.id === id ? { ...x, ...patch } : x)); };
+    const nextAfter = (id) => { const i = list.findIndex((r) => r.l.id === id); return i >= 0 ? (list[i + 1] || list[i - 1] || null) : null; };
+    // kegagalan: layar TIDAK diubah. Bila server tidak menjawab, hasilnya belum diketahui, jadi data disegarkan dari server.
+    const gagal = (judul, out) => {
+      if (!out.timeout) return showToast(judul, (out.message || 'Terjadi kesalahan.') + ' Data tidak berubah.', 'error');
+      // hasil BELUM DIKETAHUI (server tidak menjawab / jawaban tidak lengkap): peringatan yang harus dibaca dan ditutup pengguna
+      // (tidak hilang sendiri), sementara data disegarkan diam-diam dari server agar layar mencerminkan keadaan sebenarnya.
+      const pesan = (out.message || 'Hasil belum diketahui.') + ' Data sudah disegarkan dari server. Periksa status LH ini sebelum mengulang.';
+      try { Swal.fire({ icon: 'warning', title: judul, text: pesan, confirmButtonText: 'Mengerti', confirmButtonColor: '#3A62B0' }); } catch (e) { showToast(judul, pesan, 'error'); }
+      if (typeof fetchMainAppData === 'function') { try { fetchMainAppData({ senyap: true }); } catch (e) { /* abaikan */ } }
+    };
+    const konfirmasi = async (judul, teks, tombol, merah) => {
+      try { const r = await Swal.fire({ title: judul, text: teks, icon: 'question', showCancelButton: true, confirmButtonText: tombol, cancelButtonText: 'Batal', confirmButtonColor: merah ? '#B42318' : '#3A62B0' }); return !!(r && r.isConfirmed); } catch (e) { return false; }
+    };
+
+    const tandai = async (r, status) => {
+      if (busy) return;
+      if (!canAudit) return showToast('Tidak diizinkan', 'Hanya pegawai audit yang boleh memberi tanda audit.', 'error');
+      if (status === 'Sudah' && String(r.l.audit_note || '').trim()) return showToast('Masih ada temuan', 'Hapus temuan dulu bila sudah diperbaiki, baru tandai sudah diaudit.', 'error');
+      const nxt = status === 'Sudah' ? nextAfter(r.l.id) : null;
+      setBusy(true);
+      try {
+        const out = await window.safeRun('auditTandaiLh', [auth, [r.l.id], status], { label: status === 'Sudah' ? 'Menyimpan tanda audit' : 'Mengembalikan ke daftar audit' });
+        if (!out.ok) return gagal(status === 'Sudah' ? 'Tanda audit tidak tersimpan' : 'LH tidak dikembalikan', out);
+        if (out.res.terverifikasi !== true || out.res.jumlah !== 1) return gagal('Hasil dari server tidak lengkap', { message: 'Server tidak memastikan data tersimpan.', timeout: true });
+        if (status === 'Sudah') {
+          patchLh(r.l.id, { audit_status: 'Sudah', audit_oleh: out.res.oleh, audit_tgl: out.res.tgl });
+          const keDok = r.dok.kurang.length > 0;
+          showToast('LH ' + r.l.id + ' sudah diaudit', 'Tersimpan dan terverifikasi di database. ' + (keDok ? 'Diteruskan ke Admin Code untuk membuat ' + r.dok.kurang.map((t) => DOC_NAMA[t]).join(', ') + '.' : 'Tidak butuh dokumen Code, jadi selesai.') + (nxt ? ' Ini LH berikutnya.' : ''), 'success');
+          setOpenId(nxt ? nxt.l.id : null);
+        } else {
+          patchLh(r.l.id, { audit_status: '', audit_oleh: '', audit_tgl: '' });
+          showToast('Dikembalikan ke daftar audit', 'LH ' + r.l.id + ' kembali ke daftar perlu diaudit (tersimpan dan terverifikasi).', 'success'); setOpenId(null);
+        }
+      } catch (e) { showToast('Terjadi kesalahan', String((e && e.message) || e), 'error'); }
+      finally { setBusy(false); }
+    };
+    const simpanTemuan = async (r, teks) => {
+      if (busy) return;
+      if (!canAudit) return showToast('Tidak diizinkan', 'Hanya pegawai audit yang boleh menulis temuan.', 'error');
+      const t = String(teks || '').replace(/\s+/g, ' ').trim();
+      if (t.length > 1000) return showToast('Catatan terlalu panjang', 'Maksimal 1000 huruf.', 'error');
+      const ok = await konfirmasi(t ? 'Kirim temuan ke Admin LH?' : 'Hapus temuan ini?', t ? 'LH ' + r.l.id + ' akan menunggu revisi Admin LH.' : 'LH ' + r.l.id + ' kembali ke daftar perlu diaudit.', t ? 'Ya, kirim' : 'Ya, hapus', !t);
+      if (!ok) return;
+      setBusy(true);
+      try {
+        const out = await window.safeRun('auditSimpanTemuan', [auth, r.l.id, t], { label: t ? 'Mengirim temuan' : 'Menghapus temuan' });
+        if (!out.ok) return gagal(t ? 'Temuan tidak tersimpan' : 'Temuan tidak terhapus', out);
+        if (out.res.terverifikasi !== true) return gagal('Hasil dari server tidak lengkap', { message: 'Server tidak memastikan data tersimpan.', timeout: true });
+        patchLh(r.l.id, { audit_note: out.res.catatan, audit_status: '', audit_oleh: '', audit_tgl: '' });
+        showToast(t ? 'Temuan terkirim ke Admin LH' : 'Temuan dihapus', (t ? 'Tersimpan dan terverifikasi. LH menunggu revisi Admin LH; setelah disimpan ulang otomatis lanjut ke Admin Code.' : 'Tersimpan dan terverifikasi. LH kembali ke daftar perlu diaudit.'), 'success');
+        if (t) setOpenId(null);
+      } catch (e) { showToast('Terjadi kesalahan', String((e && e.message) || e), 'error'); }
+      finally { setBusy(false); }
+    };
+
+    const TABS = [['belum', 'Perlu diaudit', cnt.belum, C.blue], ['temuan', 'Ada temuan', cnt.temuan, C.bad], ['sudah', 'Sudah diaudit', cnt.sudah, C.ok], ['alur', 'Rekap alur LH', nBelumSelesai, C.mute], ['ktk', 'Progres KTK', '', C.mute]];
+    const GRID = '92px minmax(0,2.2fr) minmax(0,1.3fr) minmax(0,1.5fr) 150px 84px';
+
+    const ItemTable = ({ r }) => {
+      const badSet = {}; (window.lhBadNames ? window.lhBadNames(masterDatabase, r.l.data) : []).forEach((b) => { badSet[norm(b.nama)] = true; });
+      const seen = {};
+      return (<div className="space-y-3">
+        {GROUPS.map(([g, label]) => { const its = r.items.filter((it) => it.grup === g); if (!its.length) return null; return (
+          <div key={g}>
+            <div className="text-[12px] mb-1" style={{ color: C.mute }}>{label} · {its.length} baris</div>
+            <div className="border rounded-lg overflow-hidden" style={{ borderColor: C.line }}>
+              <div className="grid gap-3 px-3 h-8 items-center text-[11px]" style={{ gridTemplateColumns: 'minmax(0,2fr) minmax(0,1.4fr) 56px 84px minmax(0,1.4fr)', background: '#F4F6FB', color: C.mute }}><span>Nama barang atau pekerjaan</span><span>Merk / nomor seri</span><span>Satuan</span><span className="text-right">Jumlah</span><span>Hasil periksa</span></div>
+              {its.map((it, i) => {
+                const k = g + '|' + norm(it.nama); const dobel = !!seen[k]; seen[k] = true;
+                const m = (r.cek.find((c) => c.kode === 'besar') && med[norm(it.nama)]) || null;
+                const isBad = !!badSet[norm(it.nama)], isEmpty = it.vol === 0, isOdd = Number.isNaN(it.vol) || it.vol < 0, isBig = !!(m && it.vol >= 5 * m && it.vol - m >= 5);
+                const notes = [];
+                if (isBad) notes.push(['bad', 'Tidak ada di daftar induk']); if (dobel) notes.push(['bad', 'Tertulis dua kali']); if (isOdd) notes.push(['bad', 'Jumlah tidak masuk akal']);
+                if (isEmpty) notes.push(['warn', 'Jumlah kosong']); if (isBig) notes.push(['warn', 'Biasanya sekitar ' + m]);
+                // merk dan nomor seri: trafo wajib punya; seri barang retur bekas harus sama dengan yang dibongkar atau tercatat di material
+                if ((g === 'materialMdu' || g === 'returBekas') && /trafo/i.test(it.nama) && !it.cat) notes.push(['warn', 'Merk atau nomor seri belum diisi']);
+                if (g === 'returBekas' && it.cat) { const sumber = r.items.filter((x) => x.grup === 'uraianBongkar' || x.grup === 'materialMdu'); if (!sumber.some((x) => x.cat && norm(x.cat) === norm(it.cat))) notes.push(['warn', 'Merk atau nomor seri tidak sama dengan data bongkar']); }
+                return (<div key={i} className="grid gap-3 px-3 py-1.5 items-start border-t" style={{ gridTemplateColumns: 'minmax(0,2fr) minmax(0,1.4fr) 56px 84px minmax(0,1.4fr)', borderTopColor: '#EEF0F7', background: notes.some((n) => n[0] === 'bad') ? '#FDF6F5' : notes.length ? '#FFFBF0' : '#fff' }}>
+                  <span style={{ color: C.ink }}>{it.nama}</span><span className="break-words" style={{ color: it.cat ? C.ink : C.mute }}>{it.cat || '-'}</span><span style={{ color: C.mute }}>{it.sat}</span><span className="text-right num">{Number.isNaN(it.vol) ? 'salah' : it.vol}</span>
+                  <span>{notes.length ? notes.map((n, j) => <span key={j} className="mr-3 inline-block"><Titik tone={n[0]}>{n[1]}</Titik></span>) : <span style={{ color: C.mute }}>Wajar</span>}</span></div>);
+              })}
+            </div>
+          </div>); })}
+        {!r.items.length && <div className="border rounded-lg px-4 py-5 text-center" style={{ borderColor: C.line, color: C.mute }}>LH ini tidak berisi barang atau jasa.</div>}
+      </div>);
+    };
+
+    return (
+      <div className="space-y-3 pt-1">
+        <style>{'@media print { body * { visibility: hidden !important; } .rk-print, .rk-print * { visibility: visible !important; } .rk-print { position: absolute !important; left: 0; top: 0; width: 100% !important; border: 0 !important; } .no-print-rk { display: none !important; } @page { size: A4 landscape; margin: 10mm; } }'}</style>
+        <div className="flex flex-wrap items-center justify-between gap-3">
+          <div className="flex items-baseline gap-3">
+            <h2 className="text-[22px] leading-8 font-medium" style={{ color: C.ink }}>Radar audit</h2>
+            <span style={{ color: C.mute }}>{cnt.belum} perlu diaudit · {cnt.temuan} ada temuan · {cnt.sudah} sudah diaudit</span>
+          </div>
+          <div className="flex flex-wrap items-center gap-2">
+            <label className="flex items-center gap-2"><span style={{ color: C.mute }}>Periode</span>
+              <select value={periode} onChange={(e) => ubahPeriode(e.target.value)} className={inp + ' w-[240px]'} style={{ borderColor: '#D9DDE9' }} data-testid="pilih-periode">
+                {opsiPeriode.map((o) => <option key={o.v} value={o.v}>{o.label}</option>)}</select></label>
+            {tab !== 'alur' && tab !== 'ktk' && <input value={q} onChange={(e) => { setQ(e.target.value); setLimit(30); }} placeholder="Cari nomor LH, PK, pelanggan, lokasi, atau nama barang" className={inp + ' w-[330px] max-w-full'} style={{ borderColor: '#D9DDE9' }} />}
+          </div>
+        </div>
+        {diluar.length > 0 && tab !== 'ktk' && (
+          <div className="rounded-xl px-4 py-2 border flex flex-wrap items-center gap-x-4 gap-y-1" style={{ background: diluarBelum || diluarTemuan ? '#FFF6E3' : '#F4F6FB', borderColor: diluarBelum || diluarTemuan ? '#F2DFB0' : C.line, color: diluarBelum || diluarTemuan ? '#6B4A00' : '#5B6275' }} data-testid="periode-tersembunyi">
+            <span>Menampilkan {window.Periode.nama(periode)}. <span className="font-medium">{diluar.length} LH di periode lain disembunyikan</span>{diluarBelum || diluarTemuan ? ' (' + [diluarBelum && diluarBelum + ' belum diaudit', diluarTemuan && diluarTemuan + ' ada temuan'].filter(Boolean).join(', ') + ')' : ''}. Data lengkap tetap ada di menu lain.</span>
+            <button className="underline" style={{ color: C.blue }} onClick={() => ubahPeriode('semua')}>Tampilkan semua data</button>
+          </div>)}
+
+        <nav className="flex flex-wrap gap-x-7 border-b" style={{ borderColor: C.line }}>
+          {TABS.map(([k, label, n, col]) => (
+            <button key={k} onClick={() => { setTab(k); setLimit(30); setJenisF(''); }} className="h-9 -mb-px border-b-2 flex items-center gap-1.5"
+              style={{ borderColor: tab === k ? C.blue : 'transparent', color: tab === k ? C.ink : col, fontWeight: tab === k ? 500 : 400 }}>
+              {label}<span className="num" style={{ color: tab === k ? C.blue : col, opacity: tab === k ? 1 : .8 }}>{n}</span>
+            </button>))}
+        </nav>
+
+        {tab === 'ktk' ? <KtkProgres lhs={safeLhs} auth={auth} showToast={showToast} /> : tab === 'alur' ? <AlurRekap rows={rows} showToast={showToast} /> : (<>
+        <section className="bg-white border rounded-xl px-4 py-2.5 flex flex-wrap items-end gap-x-4 gap-y-2" style={{ borderColor: C.line }}>
+          <label className="block"><span className="block text-[11px] mb-0.5" style={{ color: C.mute }}>SPK</span>
+            <select value={spkF} onChange={(e) => { setSpkF(e.target.value); setLimit(30); }} className={inp + ' w-[230px]'} style={{ borderColor: '#D9DDE9' }}><option value="">Semua SPK</option>{spkOptions.map((k) => <option key={k} value={k}>{k === '(tanpa)' ? 'PK belum masuk SPK' : k}</option>)}</select></label>
+          <label className="block"><span className="block text-[11px] mb-0.5" style={{ color: C.mute }}>Kejanggalan</span>
+            <select value={jenisF} onChange={(e) => { setJenisF(e.target.value); setLimit(30); }} className={inp + ' w-[300px]'} style={{ borderColor: '#D9DDE9' }}>
+              <option value="">Semua LH ({base.length})</option>{Object.keys(jenisCount).sort((a, b) => jenisCount[b] - jenisCount[a]).map((k) => <option key={k} value={k}>{NAMA_JENIS[k]} ({jenisCount[k]})</option>)}</select></label>
+          <label className="block"><span className="block text-[11px] mb-0.5" style={{ color: C.mute }}>Urutan</span>
+            <select value={urut} onChange={(e) => setUrut(e.target.value)} className={inp + ' w-[190px]'} style={{ borderColor: '#D9DDE9' }}><option value="lama">Tanggal terlama dulu</option><option value="baru">Tanggal terbaru dulu</option></select></label>
+          <span className="flex-1"></span>
+          <span style={{ color: C.mute }}>{list.length} LH{(q || spkF || jenisF) ? ' sesuai saringan' : ''}</span>
+        </section>
+
+        <section className="bg-white border rounded-[14px] overflow-hidden" style={{ borderColor: C.line }}>
+          <div className="grid items-center gap-4 px-5 h-9 text-[11px]" style={{ gridTemplateColumns: GRID, background: '#F4F6FB', color: C.mute }}>
+            <span>Tanggal</span><span>Pekerjaan LH</span><span>SPK dan pelaksana</span><span>Hasil pemeriksaan</span><span>Dokumen</span><span></span>
+          </div>
+          {list.length === 0 && <div className="py-12 text-center border-t" style={{ borderColor: C.line, color: C.mute }}>{tab === 'belum' ? (cnt.belum === 0 ? 'Semua LH sudah diaudit. Tidak ada yang perlu diperiksa.' : 'Tidak ada LH yang cocok dengan saringan ini.') : tab === 'temuan' ? 'Tidak ada LH dengan temuan.' : 'Belum ada LH yang ditandai sudah diaudit.'}</div>}
+          {shown.map((r) => { const nb = nBad(r), nw = r.cek.length - nb; return (
+            <div key={r.l.id} onClick={() => setOpenId(r.l.id)} role="button" tabIndex={0} onKeyDown={(e) => { if (e.key === 'Enter') setOpenId(r.l.id); }}
+              className="grid items-center gap-4 px-5 py-2.5 border-t cursor-pointer border-l-[3px] border-l-transparent hover:bg-[#F4F2FB] hover:border-l-[#7E57C2] transition-colors" style={{ gridTemplateColumns: GRID, borderTopColor: '#EEF0F7' }}>
+              <div><div className="num font-medium" style={{ color: '#2F8F9D' }}>{fmtPendek(r.t)}</div><div className="text-[11px] num" style={{ color: C.purple }}>{r.l.id}</div></div>
+              <div className="min-w-0">
+                <div className="text-[14px] leading-5 font-medium truncate" style={{ color: C.ink }} title={r.nama}>{r.nama || 'Pekerjaan LH belum diberi nama'}</div>
+                <div className="text-[11px] truncate" style={{ color: C.blue }}>PK {r.pk.id || r.l.pk_id}{r.pk.nama && lower(r.pk.nama) !== lower(r.nama) ? ' · ' + r.pk.nama : ''}</div>
+                {r.status === 'temuan' && <div className="text-[11px] truncate" style={{ color: C.bad }} title={r.l.audit_note}>Temuan: {r.l.audit_note}</div>}
+                {r.status === 'sudah' && <div className="text-[11px] truncate" style={{ color: C.ok }}>{r.revisiSelesai ? 'Revisi selesai (tanpa audit ulang)' : 'Diaudit oleh ' + (r.l.audit_oleh || '-')}</div>}
+              </div>
+              <div className="min-w-0 leading-5"><div className="truncate" style={{ color: '#5B6275' }}>{r.spk ? 'SPK ' + r.spk.id : 'PK belum masuk SPK'}</div><div className="text-[11px] truncate" style={{ color: C.mute }}>{r.lokasi || 'Lokasi belum diisi'}{r.pengawas ? ' · ' + r.pengawas : ''}</div></div>
+              <div className="min-w-0">{r.cek.length === 0 ? <Titik tone="ok">Tidak ada kejanggalan</Titik> : <><Titik tone={nb ? 'bad' : 'warn'}>{nb ? nb + ' penting dicek' : nw + ' sebaiknya dicek'}{nb && nw ? ', ' + nw + ' lain' : ''}</Titik><div className="text-[11px] truncate" style={{ color: C.mute }} title={r.cek.map((c) => c.judul).join('; ')}>{r.cek[0].judul}{r.cek.length > 1 ? ' +' + (r.cek.length - 1) : ''}</div></>}</div>
+              <DocBoxes dok={r.dok} />
+              <div className="text-right"><span className="inline-flex items-center h-7 px-3 rounded-lg text-white font-medium" style={{ background: C.blue }}>{r.status === 'sudah' ? 'Lihat' : 'Periksa'}</span></div>
+            </div>); })}
+        </section>
+        {list.length > limit && <button className={btn + ' w-full'} style={{ borderColor: '#D9DDE9' }} onClick={() => setLimit(limit + 30)}>Tampilkan 30 LH berikutnya ({list.length - limit} lagi)</button>}
+        </>)}
+
+        <UI.Drawer open={!!cur} onClose={tutup} width={780} title={cur ? 'LH ' + cur.l.id : ''}
+          footer={cur && (
+            <div className="space-y-1.5">
+              {cur.status === 'sudah'
+                ? <div className="flex items-center gap-3 flex-wrap"><Titik tone="ok">{cur.revisiSelesai ? 'Revisi selesai, tidak diaudit ulang' : 'Diaudit oleh ' + (cur.l.audit_oleh || '-') + (cur.l.audit_tgl ? ', ' + cur.l.audit_tgl : '')}</Titik><span className="flex-1"></span>
+                    <UI.Btn kind="danger" disabled={busy || !canAudit} onClick={() => tandai(cur, '')}>Kembalikan ke daftar audit</UI.Btn><UI.Btn disabled={busy} onClick={tutup}>Tutup</UI.Btn></div>
+                : (() => {
+                    // SATU tombol keputusan saja, sesuai isi kolom catatan: ada catatan baru = kirim temuan; ada temuan lama tanpa perubahan = hapus temuan; kosong = sudah diaudit.
+                    const tersimpan = String(cur.l.audit_note || '').trim(), baru = note.trim();
+                    const mode = baru && baru !== tersimpan ? 'kirim' : tersimpan ? 'hapus' : 'sudah';
+                    const info = { kirim: 'Ada catatan temuan. LH akan dikirim ke Admin LH untuk direvisi.', hapus: 'LH ini masih punya temuan. Bila sudah diperbaiki, hapus temuan agar LH lanjut.', sudah: 'Catatan temuan kosong. Bila ada yang tidak sesuai, tulis di kolom catatan di atas.' }[mode];
+                    return (<div className="flex items-center gap-3 flex-wrap">
+                      {mode === 'kirim' && <UI.Btn kind="primary" disabled={busy || !canAudit || baru.length > 1000} onClick={() => simpanTemuan(cur, note)}>Kirim temuan ke Admin LH</UI.Btn>}
+                      {mode === 'hapus' && <UI.Btn kind="danger" disabled={busy || !canAudit} onClick={() => simpanTemuan(cur, '')}>Hapus temuan (sudah diperbaiki)</UI.Btn>}
+                      {mode === 'sudah' && <UI.Btn kind="primary" disabled={busy || !canAudit} onClick={() => tandai(cur, 'Sudah')}>Sudah diaudit, tidak ada masalah</UI.Btn>}
+                      <UI.Btn disabled={busy} onClick={tutup}>Tutup</UI.Btn>
+                      <span data-testid="info-keputusan" style={{ color: mode === 'kirim' ? C.bad : C.mute }}>{!canAudit ? 'Peran Anda hanya bisa melihat.' : info}</span>
+                    </div>);
+                  })()}
+            </div>)}>
+          {cur && (<div className="space-y-4">
+            <section className="border rounded-lg px-4 py-3" style={{ borderColor: C.line }}>
+              <div className="text-[14px] font-medium" style={{ color: C.ink }}>{cur.nama || 'Pekerjaan LH belum diberi nama'}</div>
+              <div style={{ color: C.blue }}>PK {cur.pk.id || cur.l.pk_id}{cur.pk.nama && lower(cur.pk.nama) !== lower(cur.nama) ? ' · ' + cur.pk.nama : ''}</div>
+              <div style={{ color: C.mute }}>Tanggal LH {fmtTgl(cur.t)} · {cur.lokasi || 'lokasi belum diisi'}</div>
+              <div style={{ color: C.mute }}>Pengawas {cur.pengawas || 'belum diisi'} · Team {cur.team || 'belum diisi'}</div>
+              <div style={{ color: C.mute }}>{cur.spk ? 'SPK ' + cur.spk.id + (cur.spk.vendor ? ' · ' + cur.spk.vendor : '') : 'PK ini belum masuk SPK'}</div>
+              {cur.l.uraian && lower(cur.l.uraian) !== lower(cur.nama) && <div className="mt-1" style={{ color: C.ink }}>Uraian: {cur.l.uraian}</div>}
+            </section>
+
+            <section>
+              <div className="text-[14px] font-medium mb-1.5" style={{ color: C.ink }}>Hasil pemeriksaan otomatis</div>
+              {cur.cek.length === 0
+                ? <div className="rounded-lg px-4 py-2.5" style={{ background: '#EAF4EE', color: C.ok }}>Tidak ditemukan kejanggalan. Tetap baca isi laporan di bawah sebelum menandai.</div>
+                : <div className="space-y-1.5">{cur.cek.map((c, i) => (
+                    <div key={i} className="rounded-lg px-4 py-2" style={{ background: c.level === 'bad' ? '#FDF6F5' : '#FFFBF0', border: '1px solid ' + (c.level === 'bad' ? '#F0D5D2' : '#F2E6C4') }}>
+                      <div className="font-medium" style={{ color: c.level === 'bad' ? C.bad : C.warn }}>{c.level === 'bad' ? 'Penting: ' : 'Sebaiknya dicek: '}{c.judul}</div>
+                      <div style={{ color: C.ink }}>{c.rinci}</div>
+                    </div>))}</div>}
+            </section>
+
+            <section>
+              <div className="text-[14px] font-medium mb-1.5" style={{ color: C.ink }}>Posisi LH di alur</div>
+              <div className="border rounded-lg px-4 py-3" style={{ borderColor: C.line }}>
+                <div className="flex items-center gap-3 flex-wrap"><Titik tone={ALUR[cur.alur.key].tone}>{cur.alur.label}</Titik>{cur.alur.admin && <span style={{ color: C.mute }}>Ditangani {cur.alur.admin}</span>}</div>
+                <div className="mt-1" style={{ color: C.mute }}>
+                  {cur.status === 'belum' && (cur.dok.kurang.length ? 'Bila Anda tandai sudah diaudit, LH ini otomatis diteruskan ke Admin Code untuk membuat ' + cur.dok.kurang.map((t) => DOC_NAMA[t]).join(', ') + '.' : 'LH ini tidak membutuhkan dokumen Code, jadi selesai setelah diaudit.')}
+                  {cur.status === 'temuan' && 'Menunggu Admin LH merevisi. Begitu LH disimpan ulang, temuan terhapus otomatis dan LH lanjut ke Admin Code tanpa audit ulang.'}
+                  {cur.status === 'sudah' && (cur.dok.kurang.length ? 'Sudah di antrean Admin Code: ' + cur.dok.kurang.map((t) => DOC_NAMA[t]).join(', ') + ' belum dibuat.' : 'Dokumen yang diperlukan sudah lengkap, atau LH ini tidak membutuhkannya.')}
+                </div>
+                <div className="mt-2 flex items-center gap-3 flex-wrap"><DocBoxes dok={cur.dok} />
+                  {DOKS.map(([k]) => cur.dok.url[k] ? <a key={k} href={cur.dok.url[k]} target="_blank" rel="noreferrer" style={{ color: C.blue }}>Buka {DOC_NAMA[k]}</a> : null)}</div>
+              </div>
+            </section>
+
+            <section><UI.RiwayatLh id={cur.l.id} auth={auth} ringkasLokal={{ dibuatOleh: cur.l.dibuat_oleh, dibuatTgl: cur.l.dibuat_tgl, diubahOleh: cur.l.diubah_oleh, diubahTgl: cur.l.diubah_tgl, auditOleh: cur.l.audit_oleh, auditTgl: cur.l.audit_tgl }} /></section>
+
+            <section><div className="text-[14px] font-medium mb-1.5" style={{ color: C.ink }}>Isi laporan</div><ItemTable r={cur} /></section>
+
+            <section>
+              <div className="text-[14px] font-medium" style={{ color: C.ink }}>Catatan temuan</div>
+              <p style={{ color: C.mute }}>Tulis bila ada yang tidak sesuai. Tombol keputusan ada di bagian bawah dan menyesuaikan isi catatan ini.</p>
+              <textarea value={note} onChange={(e) => setNote(e.target.value)} disabled={!canAudit || busy} rows={4} maxLength={1100} placeholder="Contoh: Jumlah kabel NYY 70 mm2 tidak sesuai di lapangan, mohon dicek ulang." className="w-full mt-1.5 p-3 border rounded-lg bg-white outline-none focus:border-[#B5524F]" style={{ borderColor: '#D9DDE9' }}></textarea>
+              <div className="mt-1 flex items-center gap-3 flex-wrap">
+                <span style={{ color: note.trim().length > 1000 ? C.bad : C.mute }}>{note.trim().length} / 1000 huruf</span>
+              </div>
+            </section>
+          </div>)}
+        </UI.Drawer>
+      </div>
+    );
+  }
+
+  window.Views.RadarAudit = (ctx) => <UI.Guard nama="Radar audit"><AuditDesk ctx={ctx} /></UI.Guard>;
+})();
+</script>

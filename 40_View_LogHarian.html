@@ -1,0 +1,397 @@
+<script type="text/babel">
+// Menu: Log harian. Alur: pilih SPK (saran dari tabel eksternal) > PK/pekerjaan di dalamnya > log per hari > Buat LH.
+// Sumber: Google Sheets eksternal lewat LogHarian.js (hanya dibaca). Pemetaan kolom ditebak otomatis dan bisa dikoreksi di Pengaturan.
+// Tampil sebagai tab di dalam Antrean PK (lihat 31_View_AntreanPK.html).
+window.Views.LogHarian = (ctx) => <LogHarianPage ctx={ctx} />;
+window.LogHarianPage = LogHarianPage;
+
+function LogHarianPage({ ctx }) {
+  const { useState, useEffect, useMemo } = React;
+  const { currentUser, pks, spks, showToast, defaultLhForm, setManagePkOpen, setLhFormData, setIsLhInputOpen, setEditingLhId } = ctx;
+  const role = currentUser?.role;
+  const allowed = ['Super Admin', 'Admin PK', 'Admin SPK'].includes(role);
+  const canMake = ['Super Admin', 'Admin PK'].includes(role);
+  const C = { blue: '#3A62B0', purple: '#7E57C2', ink: '#2B2F3A', mute: '#7A8190', line: '#E6E9F2' };
+  const run = (fn, ...args) => new Promise((resolve, reject) => { google.script.run.withSuccessHandler(resolve).withFailureHandler(reject)[fn](...args); });
+  const idN = (x) => String(x == null ? '' : x).trim();
+  const norm = (s) => idN(s).toLowerCase().replace(/[^a-z0-9]/g, '');
+
+  // kolom yang dipakai per tab: [kunci, label, sinonim judul kolom]. Sinonim pendek (<=3 huruf) harus sama persis.
+  const DEFS = {
+    Contracts: [['nominal', 'Nominal', ['nominal']], ['id', 'ID kontrak', ['contractid', 'id']], ['tgl', 'Tanggal', ['date', 'tanggal']], ['spk', 'SPK', ['spk']], ['pk', 'PK', ['pk']], ['customer', 'Pelanggan', ['customer', 'pelanggan']], ['region', 'Wilayah', ['region', 'ulp']], ['type', 'Jenis', ['type', 'jenis']], ['status', 'Status', ['status']]],
+    PK_Drafts: [['id', 'ID draf', ['draftid', 'id']], ['start', 'Mulai', ['startdate', 'start']], ['end', 'Selesai', ['enddate', 'end']], ['type', 'Jenis', ['type', 'jenis']], ['region', 'Wilayah', ['region']], ['nama', 'Nama pekerjaan', ['projectname', 'namapekerjaan', 'name']], ['address', 'Alamat', ['address', 'alamat']], ['customer', 'Pelanggan', ['customer', 'pelanggan']], ['spk', 'SPK', ['spk']], ['pk', 'PK', ['pk']], ['supervisor', 'Pengawas', ['supervisor', 'pengawas']], ['team', 'Team', ['team', 'tim']]],
+    Projects: [['id', 'ID proyek', ['projectid', 'id']], ['start', 'Mulai', ['startdate', 'start']], ['nama', 'Nama pekerjaan', ['projectname', 'namapekerjaan', 'name']], ['type', 'Jenis', ['type', 'jenis']], ['customer', 'Pelanggan', ['customer', 'pelanggan']], ['region', 'Wilayah', ['region']], ['address', 'Alamat', ['address', 'alamat']], ['spk', 'SPK', ['spk']], ['pk', 'PK', ['pk']], ['supervisor', 'Pengawas', ['supervisor', 'pengawas']], ['team', 'Team', ['team', 'tim']]],
+    Project_Logs: [['pid', 'ID proyek', ['projectid']], ['dt', 'Waktu', ['datetime', 'tanggal', 'date']], ['author', 'Penulis', ['author', 'penulis']], ['text', 'Isi log', ['logtext', 'text', 'log']]],
+    Project_Materials: [['pid', 'ID proyek', ['projectid']], ['sku', 'Kode SKU', ['sku', 'itemcode', 'kodebarang']], ['qty', 'Jumlah terpasang', ['realizedqty', 'realized', 'terpasang', 'qty', 'quantity', 'jumlah']], ['plan', 'Jumlah rencana', ['plannedqty', 'planned', 'rencana']], ['date', 'Tanggal (jika ada)', ['date', 'tanggal', 'datetime']]],
+    Inventory: [['sku', 'Kode SKU', ['sku', 'itemcode', 'kodebarang', 'id']], ['nama', 'Nama material', ['materialname', 'itemname', 'nama', 'description', 'name']], ['unit', 'Satuan', ['unit', 'satuan', 'uom']], ['pln', 'Kategori PLN (berisi MDU)', ['kategoripln', 'kategoripln1']], ['cat', 'Kategori barang', ['category', 'kategori', 'group', 'jenis', 'type']]],
+    Project_Bongkaran: [['pid', 'ID proyek', ['projectid']], ['sku', 'Kode SKU', ['sku', 'itemcode', 'kodebarang']], ['qty', 'Jumlah', ['qty', 'quantity', 'jumlah', 'volume']], ['cond', 'Kondisi', ['condition', 'kondisi']], ['date', 'Tanggal laporan', ['reportdate', 'date', 'tanggal']]]
+  };
+  const guess = (tab, headers) => {
+    const map = {}, used = {};
+    DEFS[tab].forEach(([k, , syn]) => {
+      let best = null;
+      headers.forEach((h, i) => { if (used[i]) return; const n = norm(h); if (!n) return;
+        syn.forEach((s, si) => { if ((n === s || (s.length > 3 && n.indexOf(s) >= 0)) && (!best || si < best.si)) best = { i, si }; }); });
+      if (best) { map[k] = best.i; used[best.i] = true; }
+    });
+    return map;
+  };
+
+  const [bundle, setBundle] = useState(null);
+  const [over, setOver] = useState({});      // koreksi pemetaan dari admin: { tab: { kunci: indeks } }
+  const [loading, setLoading] = useState(false);
+  const [err, setErr] = useState('');
+  const [showSet, setShowSet] = useState(false);
+  const [spkQ, setSpkQ] = useState('');
+  const [spkKey, setSpkKey] = useState('');
+  const [projId, setProjId] = useState('');
+  const [sel, setSel] = useState({});        // hari yang dicentang untuk digabung menjadi 1 LH
+
+  const load = () => {
+    setLoading(true); setErr('');
+    return run('logBundle', role).then((r) => { setLoading(false); if (r.status !== 'success') setErr(r.message); else setBundle(r); })
+      .catch((e) => { setLoading(false); setErr(String((e && e.message) || e)); });
+  };
+  useEffect(() => {
+    if (!allowed || typeof google === 'undefined') return;
+    run('logGetConfig', role).then((r) => { if (r && r.config && r.config.over) setOver(r.config.over); }).catch(() => {});
+    load();
+  }, []);
+
+  // ---------- baca tabel menjadi objek ----------
+  const T = useMemo(() => {
+    const out = {};
+    if (!bundle) return out;
+    Object.keys(DEFS).forEach((tab) => {
+      const t = bundle.tabs[tab];
+      if (!t) return;
+      const map = { ...guess(tab, t.headers), ...(over[tab] || {}) };
+      Object.keys(map).forEach((k) => { if (map[k] === undefined || map[k] === '' || map[k] === null) delete map[k]; });
+      out[tab] = { map, headers: t.headers, rows: t.rows.map((r) => { const o = {}; Object.keys(map).forEach((k) => { const v = idN(r[map[k]]); o[k] = /^[-–—.]+$/.test(v) ? '' : v; }); o._raw = r; return o; }) };
+    });
+    return out;
+  }, [bundle, over]);
+
+  const parseTgl = (s) => {
+    s = idN(s); let m;
+    if ((m = s.match(/^(\d{4})-(\d{1,2})-(\d{1,2})/))) return new Date(+m[1], +m[2] - 1, +m[3]);
+    if ((m = s.match(/^(\d{1,2})[\/.-](\d{1,2})[\/.-](\d{4})/))) return new Date(+m[3], +m[2] - 1, +m[1]);
+    return null;
+  };
+  const dayKey = (s) => { const d = parseTgl(s); return d ? `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}` : ''; };
+  const timeOf = (s) => { const m = idN(s).match(/(\d{1,2})[:.](\d{2})/); return m ? `${m[1].padStart(2, '0')}.${m[2]}` : ''; };
+  const hari = (k) => { const d = parseTgl(k); return d ? d.toLocaleDateString('id-ID', { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' }) : k; };
+
+  // ---------- proyek (PK) = gabungan Projects dan PK_Drafts ----------
+  const projects = useMemo(() => {
+    const m = {};
+    const add = (rows) => (rows || []).forEach((r) => { if (!r.id) return; m[r.id] = { ...(m[r.id] || {}), ...Object.fromEntries(Object.entries(r).filter(([k, v]) => k !== '_raw' && v !== '')) }; });
+    add(T.PK_Drafts && T.PK_Drafts.rows); add(T.Projects && T.Projects.rows);
+    // pekerjaan yang hanya punya log atau material (tidak ada barisnya di Projects/PK_Drafts) tetap dimunculkan
+    [T.Project_Logs, T.Project_Materials].forEach((t) => ((t && t.rows) || []).forEach((r) => {
+      if (r.pid && !m[r.pid]) m[r.pid] = { id: r.pid, nama: r.pid, start: r.dt || r.date || '' };
+    }));
+    return Object.values(m);
+  }, [T]);
+  const NO_SPK = '__tanpa';
+  const projKey = (p) => { const k = norm(p.spk); return k.length >= 3 ? k : NO_SPK; };
+  const logsBy = useMemo(() => { const m = {}; ((T.Project_Logs && T.Project_Logs.rows) || []).forEach((r) => { (m[r.pid] = m[r.pid] || []).push(r); }); return m; }, [T]);
+  // nama, satuan, dan kategori material diambil dari tab Inventory lewat kode SKU
+  const invBy = useMemo(() => { const m = {}; ((T.Inventory && T.Inventory.rows) || []).forEach((r) => { if (r.sku) m[norm(r.sku)] = r; }); return m; }, [T]);
+  const skuPrefix = (s) => idN(s).replace(/[0-9]+$/, '');
+  const enrich = (r) => { const i = invBy[norm(r.sku)] || {}; return { ...r, nama: r.nama || i.nama || r.sku, unit: r.unit || i.unit || '', cat: r.cat || i.cat || skuPrefix(r.sku), pln: i.pln || '' }; };
+  const matBy = useMemo(() => { const m = {}; ((T.Project_Materials && T.Project_Materials.rows) || []).forEach((r) => { const q = parseFloat(String(r.qty).replace(',', '.')); if (!(q > 0)) return; (m[r.pid] = m[r.pid] || []).push(enrich(r)); }); return m; }, [T, invBy]);
+  const bongBy = useMemo(() => { const m = {}; ((T.Project_Bongkaran && T.Project_Bongkaran.rows) || []).forEach((r) => { const e = enrich(r); (m[r.pid] = m[r.pid] || []).push({ ...e, nama: e.nama + (r.cond ? ' (' + r.cond.replace(/\s*\[.*$/, '') + ')' : '') }); }); return m; }, [T, invBy]);
+
+  // ---------- SPK sebagai saran ----------
+  const spkList = useMemo(() => {
+    const m = {};
+    const add = (spkTxt, info) => {
+      let k = norm(spkTxt);
+      if (k.length < 3) { if (!info.pid) return; k = NO_SPK; }
+      const e = m[k] = m[k] || { key: k, label: k === NO_SPK ? 'Tanpa SPK' : idN(spkTxt), customers: {}, region: '', last: 0, projects: {}, contracts: 0, nominal: 0, tgl: '' };
+      const nom = Number(String(info.nominal || '').replace(/[^0-9]/g, '')) || 0; if (nom && !e.nominal) e.nominal = nom;
+      if (info.contract && info.tgl && !e.tgl) e.tgl = info.tgl;
+      if (info.customer) e.customers[info.customer] = true;
+      if (info.region && !e.region) e.region = info.region;
+      const d = parseTgl(info.tgl); if (d && d.getTime() > e.last) e.last = d.getTime();
+      if (info.pid) e.projects[info.pid] = true;
+      if (info.contract) e.contracts++;
+    };
+    ((T.Contracts && T.Contracts.rows) || []).forEach((r) => add(r.spk, { customer: r.customer, region: r.region, tgl: r.tgl, nominal: r.nominal, contract: true }));
+    projects.forEach((p) => add(p.spk, { customer: p.customer, region: p.region, tgl: p.start, pid: p.id }));
+    return Object.values(m).sort((a, b) => (a.key === NO_SPK ? -1 : b.key === NO_SPK ? 1 : b.last - a.last));
+  }, [T, projects]);
+  const appSpk = (label) => label === 'Tanpa SPK' ? null : (spks || []).find((s) => { const a = norm(s.id || s.ID_SPK); const b = norm(label); return a && b && (a === b || a.indexOf(b) >= 0 || b.indexOf(a) >= 0); });
+
+  // ajukan SPK ke Ruangan SPK (status menunggu persetujuan Admin SPK), tanpa mengetik ulang
+  const toApp = (s) => ({ id: s.label, nama: Object.keys(s.customers).slice(0, 2).join(', ') || s.label, nominal: s.nominal, tgl: s.tgl, ulp: s.region });
+  const ajukan = (list) => {
+    if (!list.length) return;
+    run('logAjukanSpk', role, list.map(toApp)).then((r) => {
+      if (r.status !== 'success') return showToast('Gagal mengajukan', r.message, 'error');
+      const mk = (x) => ({ id: x.id, nama: x.nama, pos_anggaran: '', nominal_total: Number(x.nominal) || 0, nominal_terpakai: 0, status: 'Menunggu persetujuan', tanggal: x.tgl || '', exp: '', vendor: 'PT. NANDA NIRWANA ELEKTRIK', ulp_wilayah: x.ulp || '' });
+      const newOnes = list.map(toApp).filter((x) => r.added.indexOf(x.id) >= 0).map(mk);
+      if (newOnes.length) ctx.setSpks([...newOnes, ...(spks || [])]);
+      showToast('Diajukan', `${r.added.length} SPK masuk Ruangan SPK, menunggu persetujuan Admin SPK.` + (r.skipped ? ` ${r.skipped} sudah ada.` : ''), 'success');
+    }).catch((e) => showToast('Gagal mengajukan', String((e && e.message) || e), 'error'));
+  };
+  const canAjukan = ['Super Admin', 'Admin PK', 'Admin SPK'].includes(role);
+  const belum = spkList.filter((s) => s.key !== NO_SPK && s.contracts > 0 && !appSpk(s.label));
+
+  const q = spkQ.trim().toLowerCase();
+  const spkShown = spkList.filter((s) => !q || (s.label + ' ' + Object.keys(s.customers).join(' ') + ' ' + s.region).toLowerCase().indexOf(q) >= 0).slice(0, 80);
+  const spk = spkList.find((s) => s.key === spkKey) || null;
+  // waktu pekerjaan: tanggal mulai, kalau kosong log terbaru, kalau kosong ID berformat cap waktu (PRJ-179...)
+  const projTime = (p) => {
+    const d = parseTgl(p.start) || parseTgl((logsBy[p.id] || [])[0] && (logsBy[p.id] || [])[0].dt);
+    if (d) return d.getTime();
+    const m = String(p.id).match(/(\d{13})/);
+    return m ? Number(m[1]) : 0;
+  };
+  const projOfSpk = spk ? projects.filter((p) => projKey(p) === spk.key).sort((a, b) => projTime(b) - projTime(a)) : [];
+  const proj = projects.find((p) => p.id === projId) || null;
+
+  // ---------- pencocokan ke PK aplikasi ----------
+  // Patokan = ID proyek (ProjectID), BUKAN nomor PK/SPK: satu PK aplikasi tertaut ke satu ProjectID lewat kolom ID_Sumber.
+  const appPkOf = (p) => {
+    if (!p) return null;
+    return (pks || []).find((x) => idN(x.sumber_id) === idN(p.id)) || null;
+  };
+  const linkPk = (p, pkId) => {
+    run('logLinkPk', role, pkId, p.id).then((r) => {
+      if (r.status !== 'success') return showToast('Gagal menautkan', r.message, 'error');
+      ctx.setPks((pks || []).map((x) => idN(x.id) === idN(pkId) ? { ...x, sumber_id: p.id } : x));
+      showToast('Tertaut', 'PK ' + pkId + ' sekarang tertaut ke pekerjaan ini (berdasarkan ID).', 'success');
+    }).catch((e) => showToast('Gagal menautkan', String((e && e.message) || e), 'error'));
+  };
+  const appPk = appPkOf(proj);
+
+  // ---------- log per hari untuk proyek terpilih ----------
+  const days = useMemo(() => {
+    if (!proj) return [];
+    const m = {};
+    (logsBy[proj.id] || []).forEach((l) => { const k = dayKey(l.dt) || 'tanpa-tanggal'; (m[k] = m[k] || { key: k, logs: [] }).logs.push(l); });
+    Object.values(m).forEach((d) => d.logs.sort((a, b) => timeOf(a.dt).localeCompare(timeOf(b.dt))));
+    return Object.values(m).sort((a, b) => b.key.localeCompare(a.key));
+  }, [proj, logsBy]);
+  const matsOf = (p, dk) => {
+    const all = matBy[p.id] || [];
+    const hasDate = all.some((r) => r.date);
+    const rows = hasDate ? all.filter((r) => dayKey(r.date) === dk) : all;
+    const isMdu = (r) => norm(r.pln).indexOf('mdu') >= 0;
+    const mdu = rows.filter(isMdu), utama = rows.filter((r) => !isMdu(r));
+    return { mdu, utama, perHari: hasDate };
+  };
+
+  // keys = satu atau beberapa hari; beberapa hari digabung menjadi 1 LH (tanggal = hari terakhir, log berurutan dari hari pertama)
+  const buatLh = (keysIn) => {
+    const keys = (Array.isArray(keysIn) ? keysIn : [keysIn]).slice().sort();
+    const dk = keys[keys.length - 1];
+    const pk = appPk;
+    if (!proj) return;
+    if (!pk) return showToast('PK belum cocok', 'Pekerjaan ini belum punya PK di aplikasi. Pilih PK pada "Cocokkan manual" di bagian atas panel kanan, atau daftarkan PK barunya lebih dulu.', 'error');
+    if (!canMake) return showToast('Akses ditolak', 'Hanya Admin PK dan Super Admin yang membuat LH.', 'error');
+    const dd = keys.map((k) => days.find((x) => x.key === k)).filter(Boolean);
+    const parts = keys.map((k) => matsOf(proj, k));
+    // bila material tidak punya tanggal, seluruh pekerjaan cukup dihitung sekali (tidak digandakan per hari)
+    const mt = parts[0].perHari ? { mdu: [].concat(...parts.map((x) => x.mdu)), utama: [].concat(...parts.map((x) => x.utama)) } : parts[0];
+    const shortD = (k) => { const x = parseTgl(k); return x ? `${String(x.getDate()).padStart(2, '0')}/${String(x.getMonth() + 1).padStart(2, '0')}` : ''; };
+    const logTxt = dd.map((d) => (dd.length > 1 ? `[${shortD(d.key)}] ` : '') + d.logs.map((l) => `${timeOf(l.dt) ? timeOf(l.dt) + ' ' : ''}${l.text}`).join(' | ')).join(' || ');
+    const rowM = (r, i) => ({ id: i + 1, nama: r.nama, catatan: i === 0 ? logTxt : '', satuan: r.unit, jumlah: r.qty });
+    const mdu = mt.mdu.map(rowM);
+    const utama = mt.utama.map((r, i) => ({ id: i + 1, nama: r.nama, catatan: (!mdu.length && i === 0) ? logTxt : '', satuan: r.unit, pln: '', pemb: r.qty, jumlah: r.qty }));
+    setEditingLhId(null);
+    setManagePkOpen(pk);
+    const lhId = `LH-BARU-${Date.now().toString(36).toUpperCase()}${Math.random().toString(36).toUpperCase().slice(2, 5)}`;   // penanda sementara; ID resmi dibuat server saat disimpan
+    const plain = (r) => ({ nama: r.nama, qty: r.qty, unit: r.unit });
+    ctx.setLhRef({
+      lhId, title: (proj.nama || proj.id) + (keys.length > 1 ? '' : dk === 'tanpa-tanggal' ? '' : ' · ' + shortD(dk)), matNote: parts[0].perHari ? '' : 'seluruh pekerjaan',
+      days: dd.map((d) => ({ label: d.key === 'tanpa-tanggal' ? 'Tanpa tanggal' : hari(d.key), logs: d.logs.map((l) => ({ t: timeOf(l.dt), text: l.text })) })),
+      mdu: mt.mdu.map(plain), utama: mt.utama.map(plain),
+      bong: (bongBy[proj.id] || []).filter((r) => !r.date || keys.indexOf(dayKey(r.date)) >= 0).map(plain)
+    });
+    setLhFormData({
+      ...defaultLhForm,
+      id_lh: lhId,
+      nama_pekerjaan_lh: proj.nama || pk.nama || '',
+      lokasi_lh: proj.address || pk.lokasi || '', penyulang_lh: pk.penyulang || '', ulp_lh: proj.region || pk.ulp || '',
+      jenis_pekerjaan_lh: proj.type || pk.jenis_pekerjaan || '', jenis_jaringan_lh: 'SUTM',
+      tanggal_lh: dk === 'tanpa-tanggal' ? '' : dk, pengawas_lh: proj.supervisor || pk.pengawas || '', team_lh: proj.team || pk.team || '',
+      materialMdu: mdu.length ? mdu : defaultLhForm.materialMdu, uraianPasang: utama.length ? utama : defaultLhForm.uraianPasang
+    });
+    setIsLhInputOpen(true);
+  };
+
+  // pekerjaan dari tabel log yang belum punya PK di aplikasi: buka formulir PK baru yang sudah terisi
+  const daftarkanPk = () => {
+    if (!proj) return;
+    ctx.setEditingPkId(null);
+    ctx.setNewPkForm({ sumber_id: proj.id, jenis_jaringan: 'SUTM', id: proj.pk || '', nama: proj.customer || proj.nama || '', jenis_pekerjaan: proj.type || '', penyulang: '', pengawas: proj.supervisor || '', team: proj.team || '', jumlah_tenaga: '', ulp: proj.region || '', vendor: 'PT. NANDA NIRWANA ELEKTRIK', tanggal: dayKey(proj.start) || '', nominal: '', nominalFormatted: '', lokasi: proj.address || '', butuh_c3: false, butuh_c7: false });
+    ctx.setIsPkModalOpen(true);
+  };
+
+  const saveSettings =() => run('logSaveConfig', role, { over }).then((r) => { if (r.status === 'success') { showToast('Tersimpan', 'Pemetaan kolom disimpan untuk semua admin.', 'success'); setShowSet(false); } else showToast('Gagal', r.message, 'error'); });
+
+  if (!allowed) return <div className="py-16 text-center" style={{ color: C.mute }}>Log harian hanya untuk Super Admin, Admin PK, dan Admin SPK.</div>;
+
+  const Chip = ({ tone, children, title }) => {
+    const t = { ok: ['#E6F5EC', '#2D7A4E'], warn: ['#FFF3D6', '#94620F'], bad: ['#FCE8EA', '#AE4850'], mute: ['#EEF0F5', '#6B7180'], info: ['#E9EEFA', '#3A62B0'] }[tone];
+    return <span title={title} className="inline-flex items-center gap-1.5 h-5 px-2 rounded-full max-w-full" style={{ background: t[0], color: t[1] }}><span className="w-[5px] h-[5px] rounded-full shrink-0" style={{ background: t[1] }}></span><span className="truncate">{children}</span></span>;
+  };
+  const MatList = ({ title, rows, col }) => (
+    <div className="min-w-0">
+      <div className="text-[11px] mb-1" style={{ color: col }}>{title} ({rows.length})</div>
+      {rows.length === 0 ? <div style={{ color: '#A3A9B8' }}>-</div> : rows.map((r, i) => (
+        <div key={i} className="flex gap-2 py-0.5"><span className="flex-1 min-w-0 truncate" title={r.nama}>{r.nama}</span><span className="num shrink-0" style={{ color: col }}>{r.qty}{r.unit ? ' ' + r.unit : ''}</span></div>))}
+    </div>
+  );
+
+  return (
+    <div className="space-y-3 pt-1">
+      <div className="flex flex-wrap items-center justify-between gap-3">
+        <div className="flex items-baseline gap-3">
+          <h2 className="text-[16px] leading-8 font-medium" style={{ color: C.ink }}>Log harian dan buat LH</h2>
+          <span style={{ color: C.mute }}>{bundle ? `${spkList.length} SPK · ${projects.length} pekerjaan · ${(T.Project_Logs ? T.Project_Logs.rows.length : 0)} log` : 'memuat tabel...'}</span>
+        </div>
+        <div className="flex items-center gap-2">
+          <button onClick={load} disabled={loading} className="h-9 px-3 rounded-[10px] border bg-white hover:border-[#9FB0D2] disabled:opacity-50" style={{ borderColor: '#D9DDE9' }}>{loading ? 'Memuat...' : 'Muat ulang'}</button>
+          <button onClick={() => setShowSet(true)} className="h-9 px-3 rounded-[10px] border bg-white hover:border-[#9FB0D2]" style={{ borderColor: '#D9DDE9' }}>Kolom tabel</button>
+        </div>
+      </div>
+
+      {err && <div className="px-4 py-3 rounded-xl leading-5" style={{ background: '#FCE8EA', color: '#AE4850' }}><b>Tabel log belum bisa dibaca.</b> {err}</div>}
+      {bundle && bundle.missing.length > 0 && <div className="px-4 py-2 rounded-xl" style={{ background: '#FFF3D6', color: '#94620F' }}>Tab tidak ditemukan di tabel: {bundle.missing.join(', ')}. Bagian yang bergantung pada tab itu akan kosong.</div>}
+
+      <div className="grid gap-3 items-start" style={{ gridTemplateColumns: 'minmax(260px,300px) minmax(260px,320px) minmax(0,1fr)' }}>
+        {/* 1. SPK sebagai saran */}
+        <section className="bg-white border rounded-[14px] overflow-hidden" style={{ borderColor: C.line }}>
+          <div className="px-4 py-3 border-b" style={{ borderColor: C.line }}>
+            <div className="font-medium mb-1.5" style={{ color: C.ink }}>1. Pilih SPK</div>
+            <input value={spkQ} onChange={(e) => setSpkQ(e.target.value)} placeholder="Ketik nomor SPK atau pelanggan" className="w-full h-8 px-3 border rounded-lg bg-white outline-none focus:border-[#3A62B0]" style={{ borderColor: '#D9DDE9' }} />
+          </div>
+          <div className="max-h-[640px] overflow-y-auto">
+            {spkShown.length === 0 && <div className="py-10 text-center" style={{ color: C.mute }}>{bundle ? 'Tidak ada SPK yang cocok.' : ''}</div>}
+            {spkShown.map((s) => {
+              const on = s.key === spkKey, a = appSpk(s.label), n = Object.keys(s.projects).length;
+              return (
+                <div key={s.key} onClick={() => { setSpkKey(s.key); setProjId(''); }} role="button" tabIndex={0} onKeyDown={(e) => { if (e.key === 'Enter') { setSpkKey(s.key); setProjId(''); } }}
+                  className={`px-4 py-2.5 border-b cursor-pointer border-l-[3px] ${on ? 'bg-[#F4F2FB] border-l-[#7E57C2]' : 'border-l-transparent hover:bg-[#F9FAFD]'}`} style={{ borderBottomColor: '#EEF0F7' }}>
+                  <div className="font-medium truncate" style={{ color: C.blue }} title={s.label}>{s.label}</div>
+                  <div className="truncate" style={{ color: '#5B6275' }}>{Object.keys(s.customers).slice(0, 2).join(', ') || '-'}</div>
+                  <div className="flex items-center gap-2 mt-1 text-[11px]" style={{ color: C.mute }}><span>{n} pekerjaan</span>{s.region && <span>· {s.region}</span>}{a && (/^menunggu/i.test(a.status || '') ? <Chip tone="warn" title="Menunggu persetujuan Admin SPK">menunggu persetujuan</Chip> : <Chip tone="ok" title={'Terdaftar di aplikasi: ' + (a.id || a.ID_SPK)}>di aplikasi</Chip>)}
+                    {!a && s.key !== NO_SPK && s.contracts > 0 && <Chip tone="warn" title="Tampil di Ruangan SPK, menunggu persetujuan Admin SPK">usulan di Ruangan SPK</Chip>}</div>
+                </div>);
+            })}
+          </div>
+        </section>
+
+        {/* 2. PK / pekerjaan di dalam SPK */}
+        <section className="bg-white border rounded-[14px] overflow-hidden" style={{ borderColor: C.line }}>
+          <div className="px-4 py-3 border-b" style={{ borderColor: C.line }}><div className="font-medium" style={{ color: C.ink }}>2. Pekerjaan di dalam SPK</div><div className="text-[11px]" style={{ color: C.mute }}>{spk ? spk.label : 'Pilih SPK di kiri'}</div></div>
+          <div className="max-h-[640px] overflow-y-auto">
+            {!spk && <div className="py-10 text-center px-4" style={{ color: C.mute }}>SPK yang dipilih akan menampilkan pekerjaan dan PK di dalamnya.</div>}
+            {spk && projOfSpk.length === 0 && <div className="py-10 text-center px-4" style={{ color: C.mute }}>Belum ada pekerjaan di tabel untuk SPK ini.</div>}
+            {projOfSpk.map((p) => {
+              const on = p.id === projId, nLog = (logsBy[p.id] || []).length, a = appPkOf(p);
+              return (
+                <div key={p.id} onClick={() => setProjId(p.id)} role="button" tabIndex={0} onKeyDown={(e) => { if (e.key === 'Enter') setProjId(p.id); }}
+                  className={`px-4 py-2.5 border-b cursor-pointer border-l-[3px] ${on ? 'bg-[#F4F2FB] border-l-[#7E57C2]' : 'border-l-transparent hover:bg-[#F9FAFD]'}`} style={{ borderBottomColor: '#EEF0F7' }}>
+                  <div className="font-medium leading-5" style={{ color: C.ink }}>{p.nama || p.id}</div>
+                  <div className="text-[11px]" style={{ color: C.mute }}>{(() => { const t = projTime(p); return t ? new Date(t).toLocaleDateString('id-ID', { day: '2-digit', month: '2-digit', year: 'numeric' }) + ' · ' : ''; })()}{p.id}{p.pk ? ' · PK ' + p.pk : ''}</div>
+                  <div className="text-[11px] leading-4 mt-0.5">
+                    <span style={{ color: '#2F8F9D' }}>{p.customer || 'Pelanggan -'}</span>
+                    <span style={{ color: C.mute }}> · Spv </span><span style={{ color: C.ink }}>{p.supervisor || '-'}</span>
+                    <span style={{ color: C.mute }}> · Team </span><span style={{ color: C.ink }}>{p.team || '-'}</span>
+                  </div>
+                  <div className="flex flex-wrap items-center gap-1.5 mt-1">
+                    {p.type && <span className="text-[11px]" style={{ color: '#B7791F' }}>{p.type}</span>}
+                    <Chip tone={nLog ? 'info' : 'mute'}>{nLog} log</Chip>
+                    {a ? <Chip tone="ok" title={a.nama}>PK {a.id}</Chip> : <Chip tone="warn">Belum ada PK</Chip>}
+                  </div>
+                </div>);
+            })}
+          </div>
+        </section>
+
+        {/* 3. log per hari */}
+        <section className="bg-white border rounded-[14px] overflow-hidden" style={{ borderColor: C.line }}>
+          <div className="px-4 py-3 border-b" style={{ borderColor: C.line }}>
+            <div className="font-medium" style={{ color: C.ink }}>3. Log harian dan buat LH</div>
+            {proj && (<div className="mt-2 grid gap-x-6 gap-y-1" style={{ gridTemplateColumns: 'repeat(auto-fit, minmax(170px,1fr))' }}>
+              <div><span style={{ color: C.mute }}>Pekerjaan </span><b style={{ color: C.ink }}>{proj.nama || proj.id}</b></div>
+              <div><span style={{ color: C.mute }}>Jenis </span><span style={{ color: '#B7791F' }}>{proj.type || '-'}</span></div>
+              <div><span style={{ color: C.mute }}>Pelanggan </span><span style={{ color: '#2F8F9D' }}>{proj.customer || '-'}</span></div>
+              <div><span style={{ color: C.mute }}>Pengawas </span>{proj.supervisor || '-'}</div>
+              <div><span style={{ color: C.mute }}>Team </span>{proj.team || '-'}</div>
+              <div className="flex flex-wrap items-center gap-2"><span style={{ color: C.mute }}>PK aplikasi</span>
+                {appPk ? <Chip tone="ok" title={appPk.nama}>{appPk.id}</Chip> : (<>
+                  {canMake && <button className="btn-grad h-7 px-3 rounded-lg font-medium" onClick={daftarkanPk}>{proj.pk ? 'Buat PK ' + proj.pk : 'Buat PK'}</button>}
+                  {canMake && <select value="" onChange={(e) => { if (e.target.value) linkPk(proj, e.target.value); }} className="h-7 px-2 border rounded-md bg-white outline-none focus:border-[#3A62B0] max-w-[170px]" style={{ borderColor: '#D9DDE9' }}>
+                    <option value="">atau tautkan ke PK yang ada</option>
+                    {(pks || []).filter((x) => !x.sumber_id).sort((a, b) => (norm(b.id) === norm(proj.pk)) - (norm(a.id) === norm(proj.pk))).map((x) => <option key={x.id} value={x.id}>{x.id} · {x.nama}</option>)}
+                  </select>}
+                </>)}
+              </div>
+            </div>)}
+          </div>
+          <div className="max-h-[640px] overflow-y-auto">
+            {!proj && <div className="py-12 text-center px-4" style={{ color: C.mute }}>Pilih pekerjaan di tengah untuk melihat log hariannya.</div>}
+            {proj && canMake && days.length > 1 && (() => {
+              const chosen = days.filter((d) => sel[proj.id + '|' + d.key]).map((d) => d.key);
+              const all = chosen.length === days.length;
+              return (<div className="px-4 py-2 border-b flex flex-wrap items-center gap-3 sticky top-0 bg-[#F9FAFD] z-10" style={{ borderColor: '#EEF0F7' }}>
+                <button className="hover:underline" style={{ color: C.blue }} onClick={() => { const n = { ...sel }; days.forEach((d) => { n[proj.id + '|' + d.key] = !all; }); setSel(n); }}>{all ? 'Kosongkan pilihan' : 'Pilih semua hari'}</button>
+                <span style={{ color: C.mute }}>{chosen.length} hari dipilih</span>
+                <button disabled={chosen.length < 2} onClick={() => buatLh(chosen)} className="btn-grad h-8 px-3.5 rounded-lg font-medium disabled:opacity-40">Gabung jadi 1 LH</button>
+              </div>);
+            })()}
+            {proj && days.length === 0 && <div className="py-12 text-center" style={{ color: C.mute }}>Belum ada log harian untuk pekerjaan ini.</div>}
+            {days.map((d) => {
+              const mt = matsOf(proj, d.key);
+              return (
+                <div key={d.key} className="px-4 py-3 border-b" style={{ borderColor: '#EEF0F7' }}>
+                  <div className="flex items-center justify-between gap-3 mb-2">
+                    <label className="flex items-center gap-2 font-medium cursor-pointer" style={{ color: '#2F8F9D' }}>
+                      {canMake && <input type="checkbox" checked={!!sel[proj.id + '|' + d.key]} onChange={(e) => setSel({ ...sel, [proj.id + '|' + d.key]: e.target.checked })} title="Centang untuk digabung jadi 1 LH" />}
+                      {d.key === 'tanpa-tanggal' ? 'Tanpa tanggal' : hari(d.key)}</label>
+                    {canMake && <button onClick={() => buatLh(d.key)} className="h-8 px-3.5 rounded-lg border bg-white hover:border-[#9FB0D2]" style={{ borderColor: '#D9DDE9' }}>LH hari ini</button>}
+                  </div>
+                  <div className="space-y-1 mb-2">
+                    {d.logs.map((l, i) => (
+                      <div key={i} className="flex gap-3 leading-5"><span className="num w-[44px] shrink-0 !text-left" style={{ color: C.mute }}>{timeOf(l.dt)}</span><span className="flex-1 whitespace-pre-wrap break-words" style={{ color: C.ink }}>{l.text}</span><span className="shrink-0 text-[11px]" style={{ color: '#A3A9B8' }}>{l.author}</span></div>))}
+                  </div>
+                  <div className="grid gap-x-6 gap-y-2 pt-2 border-t" style={{ gridTemplateColumns: 'repeat(auto-fit, minmax(220px,1fr))', borderColor: '#F2F3F8' }}>
+                    <MatList title={'Material MDU terpasang' + (mt.perHari ? '' : ' (seluruh pekerjaan)')} rows={mt.mdu} col={C.purple} />
+                    <MatList title={'Material utama terpasang' + (mt.perHari ? '' : ' (seluruh pekerjaan)')} rows={mt.utama} col={C.blue} />
+                    <MatList title="Material bongkaran" rows={(bongBy[proj.id] || []).filter((r) => !r.date || dayKey(r.date) === d.key)} col="#B7791F" />
+                  </div>
+                </div>);
+            })}
+          </div>
+        </section>
+      </div>
+
+      {showSet && (
+        <UI.Drawer open title="Kolom tabel log harian" onClose={() => setShowSet(false)} width={520}
+          footer={<div className="flex gap-2 justify-end"><UI.Btn onClick={() => setShowSet(false)}>Batal</UI.Btn><UI.Btn kind="primary" onClick={saveSettings}>Simpan pemetaan</UI.Btn></div>}>
+          <p className="mb-3" style={{ color: C.mute }}>Aplikasi menebak kolom dari judulnya. Koreksi di sini kalau ada yang keliru. Berlaku untuk semua admin.</p>
+          <div className="space-y-5">
+            {Object.keys(DEFS).map((tab) => { const t = T[tab]; return (
+              <div key={tab}>
+                <div className="font-medium mb-1.5" style={{ color: C.ink }}>{tab} {!t && <span className="text-[11px]" style={{ color: '#AE4850' }}>(tab tidak ditemukan)</span>}</div>
+                {t && <div className="space-y-1.5">
+                  {DEFS[tab].map(([k, label]) => (
+                    <label key={k} className="grid items-center gap-3" style={{ gridTemplateColumns: '150px 1fr' }}><span>{label}</span>
+                      <select value={t.map[k] === undefined ? '' : t.map[k]} onChange={(e) => setOver({ ...over, [tab]: { ...(over[tab] || {}), [k]: e.target.value === '' ? '' : Number(e.target.value) } })} className="h-8 px-2 border rounded-lg bg-white outline-none focus:border-[#3A62B0]" style={{ borderColor: '#D9DDE9' }}>
+                        <option value="">(tidak ada)</option>{t.headers.map((h, i) => <option key={i} value={i}>{h || 'Kolom ' + (i + 1)}</option>)}
+                      </select></label>))}
+                </div>}
+              </div>); })}
+          </div>
+        </UI.Drawer>
+      )}
+    </div>
+  );
+}
+</script>
