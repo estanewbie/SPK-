@@ -1,0 +1,168 @@
+<!doctype html>
+<html lang="id">
+<head>
+<meta charset="utf-8">
+<title>KTK 71 — rekapitulasi rincian biaya</title>
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&amp;display=swap" rel="stylesheet">
+<style>
+body{margin:0;background:#F6F5F1}
+a{text-decoration:none}
+</style>
+</helmet>
+<div style="width: 1920px; height: 1480px; box-sizing: border-box; background: #F6F5F1; font-family: 'Plus Jakarta Sans', 'Segoe UI', system-ui, sans-serif; color: #16181D; font-variant-numeric: tabular-nums; display: flex; overflow: hidden">
+
+<aside style="width: 248px; flex-shrink: 0; background: #FFFFFF; border-right: 1px solid #E4E2DA; display: flex; flex-direction: column; padding: 16px 12px 14px">
+<dc-import name="Sidebar" active="ktk" hint-size="224px,640px"></dc-import>
+<div style="margin-top: auto; border-top: 1px solid #EFEDE6; padding: 12px 6px 0; display: flex; align-items: center; gap: 10px">
+<div style="width: 32px; height: 32px; border-radius: 50%; background: #0F2E66; color: #FFFFFF; font-size: 11px; font-weight: 700; display: flex; align-items: center; justify-content: center">AS</div>
+<div style="flex-grow: 1; min-width: 0">
+<div style="font-size: 12px; font-weight: 700">Admin SPK</div>
+<div style="font-size: 11px; color: #6B6F78; display: flex; align-items: center; gap: 5px"><span style="width: 6px; height: 6px; border-radius: 50%; background: #3E7BE0"></span>Terhubung</div>
+</div>
+</div>
+</aside>
+
+<div style="flex-grow: 1; display: flex; flex-direction: column; min-width: 0">
+<header style="height: 56px; flex-shrink: 0; background: #FFFFFF; border-bottom: 1px solid #E4E2DA; display: flex; align-items: center; justify-content: space-between; padding: 0 28px">
+<div style="display: flex; align-items: center; gap: 8px; font-size: 12px"><span style="color: #6B6F78">Keuangan</span><span style="color: #C9C6BC">/</span><a href="KtkDaftar.dc.html" style="color: #6B6F78">KTK</a><span style="color: #C9C6BC">/</span><span style="color: #6B6F78">KTK 71 · 0597</span><span style="color: #C9C6BC">/</span><span style="font-weight: 700">Rekapitulasi</span></div>
+<div style="display: flex; align-items: center; gap: 12px">
+<span style="font-size: 11px; font-weight: 600; color: #0F2E66; background: #E7EDF8; padding: 4px 10px; border-radius: 999px">Khusus SPK &amp; Admin</span>
+<div style="font-size: 12px; color: #5B5F68; padding-left: 12px; border-left: 1px solid #E4E2DA">Kamis, 15 Oktober 2026</div>
+</div>
+</header>
+
+<main style="flex-grow: 1; padding: 24px 28px; display: flex; flex-direction: column; gap: 16px; min-width: 0">
+
+<div style="display: flex; align-items: flex-end; justify-content: space-between; gap: 16px">
+<div>
+<a href="KtkDaftar.dc.html" style="font-size: 12px; font-weight: 600; color: #0F2E66; display: inline-flex; align-items: center; gap: 4px"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="#0F2E66" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m15 18-6-6 6-6"></path></svg>Kembali ke daftar KTK</a>
+<h1 style="margin: 4px 0 0; font-size: 22px; font-weight: 800; letter-spacing: -0.01em">Rekapitulasi Rincian Biaya</h1>
+<div style="font-size: 12px; color: #6B6F78; margin-top: 2px">Jumlah dari semua blok RAB, satu baris per lokasi PK, lengkap dengan DPP Lain dan PPN.</div>
+</div>
+<div style="display: flex; gap: 8px">
+<a href="KtkExport.dc.html" style="font-size: 12px; font-weight: 700; height: 38px; padding: 0 14px; border: 1px solid #E4E2DA; border-radius: 9px; background: #FFFFFF; color: #16181D; display: flex; align-items: center; box-sizing: border-box">Export Excel</a>
+<button style="font: inherit; font-size: 12px; font-weight: 700; height: 38px; padding: 0 14px; border: 1px solid #E4E2DA; border-radius: 9px; background: #FFFFFF; color: #16181D; cursor: pointer">Cetak</button>
+<a href="Main.dc.html" style="font-size: 12px; font-weight: 700; height: 38px; padding: 0 16px; border-radius: 9px; background: #0F2E66; color: #FFFFFF; display: flex; align-items: center">Lanjut ke Penagihan</a>
+</div>
+</div>
+
+<div style="display: flex; gap: 0; border-bottom: 1px solid #E4E2DA">
+<a href="KtkLampiran.dc.html" style="font-size: 12px; font-weight: 500; color: #6B6F78; border-bottom: 2px solid transparent; padding: 8px 2px 10px; margin-right: 22px">Lampiran KTK</a>
+<a href="KtkPaket.dc.html" style="font-size: 12px; font-weight: 500; color: #6B6F78; border-bottom: 2px solid transparent; padding: 8px 2px 10px; margin-right: 22px">Paket pekerjaan</a>
+<a href="KtkCek.dc.html" style="font-size: 12px; font-weight: 500; color: #6B6F78; border-bottom: 2px solid transparent; padding: 8px 2px 10px; margin-right: 22px">Cek LH per PK <span style="color: #B42318; font-weight: 700">4</span></a>
+<a href="KtkRab.dc.html" style="font-size: 12px; font-weight: 500; color: #6B6F78; border-bottom: 2px solid transparent; padding: 8px 2px 10px; margin-right: 22px">RAB per PK</a>
+<a href="KtkRekap.dc.html" style="font-size: 12px; font-weight: 700; color: #16181D; border-bottom: 2px solid #0F2E66; padding: 8px 2px 10px; margin-right: 22px">Rekapitulasi</a>
+<a href="KtkInput.dc.html" style="font-size: 12px; font-weight: 500; color: #6B6F78; border-bottom: 2px solid transparent; padding: 8px 2px 10px">Volume kontrak</a>
+</div>
+
+<section style="background: #FFFFFF; border: 1px solid #E4E2DA; border-radius: 14px; padding: 14px 20px; display: grid; grid-template-columns: repeat(5, minmax(0, 1fr)); gap: 18px">
+<div><div style="font-size: 11px; font-weight: 600; color: #6B6F78">Pekerjaan</div><div style="font-size: 12px; font-weight: 700; margin-top: 3px">Rehabilitasi Jaringan Distribusi Paket 17</div></div>
+<div><div style="font-size: 11px; font-weight: 600; color: #6B6F78">Lokasi</div><div style="font-size: 12px; font-weight: 700; margin-top: 3px">Wilayah Kerja PLN UP3 Bali Selatan</div></div>
+<div><div style="font-size: 11px; font-weight: 600; color: #6B6F78">Vendor</div><div style="font-size: 12px; font-weight: 700; margin-top: 3px">PT Nanda Nirwana Elektrik</div></div>
+<div><div style="font-size: 11px; font-weight: 600; color: #6B6F78">Kontrak rinci</div><div style="font-size: 12px; font-weight: 700; margin-top: 3px">0597.SPK/DAN.01.03/F05030000/2025</div></div>
+<div><div style="font-size: 11px; font-weight: 600; color: #6B6F78">Jenis pekerjaan</div><div style="font-size: 12px; font-weight: 700; margin-top: 3px">KTK 71</div></div>
+</section>
+
+<section style="background: #FFFFFF; border: 1px solid #E4E2DA; border-radius: 14px; overflow: hidden">
+<div style="display: grid; grid-template-columns: 44px minmax(0, 1fr) 118px 150px 150px 160px; gap: 10px; padding: 10px 20px; font-size: 10px; font-weight: 700; color: #8C9097; text-transform: uppercase; letter-spacing: 0.06em; background: #FAF9F5; border-bottom: 1px solid #E4E2DA">
+<span>No</span><span>Lokasi</span><span>Status cek LH</span><span style="text-align: right">Material (Rp)</span><span style="text-align: right">Jasa (Rp)</span><span style="text-align: right">Total (Rp)</span>
+</div>
+<sc-for list="{{rows}}" as="r" hint-placeholder-count="12">
+<div style="display: grid; grid-template-columns: 44px minmax(0, 1fr) 118px 150px 150px 160px; gap: 10px; align-items: center; padding: 9px 20px; border-bottom: 1px solid #F3F1EA; font-size: 12px">
+<span style="color: #8C9097; font-weight: 700">{{r.no}}</span>
+<span style="font-weight: 600">{{r.loc}}</span>
+<span style="font-size: 11px; font-weight: 700; color: {{r.fg}}; background: {{r.tint}}; padding: 3px 8px; border-radius: 6px; justify-self: start; white-space: nowrap">{{r.status}}</span>
+<span style="text-align: right">{{r.m}}</span>
+<span style="text-align: right">{{r.j}}</span>
+<span style="text-align: right; font-weight: 700">{{r.t}}</span>
+</div>
+</sc-for>
+<div style="display: grid; grid-template-columns: 44px minmax(0, 1fr) 118px 150px 150px 160px; gap: 10px; align-items: center; padding: 11px 20px; border-bottom: 1px solid #E4E2DA; font-size: 12px; background: #FAF9F5">
+<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#8C9097" stroke-width="2.4" stroke-linecap="round" aria-hidden="true"><path d="m9 6 6 6-6 6"></path></svg>
+<span style="color: #5B5F68">+ 34 lokasi PK lain (nomor 15 sampai 48)</span><span></span>
+<span style="text-align: right">{{rest.m}}</span><span style="text-align: right">{{rest.j}}</span><span style="text-align: right; font-weight: 700">{{rest.t}}</span>
+</div>
+
+<div style="display: flex; justify-content: flex-end; padding: 8px 20px 4px">
+<div style="width: 760px; display: flex; flex-direction: column; font-size: 12px">
+<sc-for list="{{totals}}" as="t" hint-placeholder-count="5">
+<div style="display: grid; grid-template-columns: minmax(0, 1fr) 150px 150px 160px; gap: 10px; padding: 8px 0; border-bottom: 1px solid #EFEDE6; font-weight: {{t.w}}">
+<span>{{t.label}}<span style="font-size: 10px; font-weight: 500; color: #8C9097"> {{t.hint}}</span></span><span style="text-align: right">{{t.m}}</span><span style="text-align: right">{{t.j}}</span><span style="text-align: right">{{t.t}}</span>
+</div>
+</sc-for>
+</div>
+</div>
+
+<div style="display: grid; grid-template-columns: minmax(0, 1fr) 360px; gap: 14px; padding: 12px 20px 22px; align-items: end">
+<div style="font-size: 11px; color: #6B6F78; line-height: 1.6; max-width: 560px">Rumus mengikuti Excel Anda: DPP Lain = jumlah × 11/12, PPN dihitung 12% dari DPP Lain (setara 11% dari jumlah). Material dan jasa dihitung terpisah, total tagihan diambil dari angka pembulatan.</div>
+<div style="background: #0B1730; color: #FFFFFF; border-radius: 12px; padding: 14px 18px">
+<div style="font-size: 11px; color: #A9B8D6; font-weight: 600">TOTAL REKAPITULASI (PEMBULATAN)</div>
+<div style="font-size: 24px; font-weight: 800; letter-spacing: -0.01em; margin-top: 4px">{{grand}}</div>
+</div>
+</div>
+
+<div style="display: flex; justify-content: flex-end; padding: 0 60px 26px">
+<div style="text-align: center; font-size: 12px; line-height: 1.5">
+<div>Denpasar, [tanggal] [bulan] [tahun]</div>
+<div style="font-weight: 700">Manager,</div>
+<div style="height: 54px"></div>
+<div style="font-weight: 800; border-top: 1px solid #16181D; padding-top: 4px">ALEXANDER J. MANUHUWA</div>
+</div>
+</div>
+</section>
+
+</main>
+</div>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props='{"$preview":{"width":1920,"height":1480}}'>
+class Component extends DCLogic {
+  renderVals() {
+    var n0 = function (n) { return Number(n).toLocaleString('id-ID', { minimumFractionDigits: 2, maximumFractionDigits: 2 }); };
+    var LOC = [
+      ['KA2599 - PADANG LINJONG', 0, 3926726.47197291],
+      ['MI0264 - MENGENING', 0, 3186573.7622494604],
+      ['KA0427 - CANGGU', 8551167.74812039, 6044044.842942279],
+      ['KA0788 - BRAWA', 4553151.7049855, 5141707.494795156],
+      ['KA1153 - BUMBAK', 10530084.044500293, 6754379.0234366935],
+      ['P. NYANYI - PANTAI NYANYI', 1407540.6319005908, 1013913.918810709],
+      ['P. PANDAK - BR. ANYAR KEDIRI', 1473703.2658634633, 1351830.5539453253],
+      ['P. JATILUWIH - BR. SANDAN BATURITI', 1290848.8439089756, 1597950.0046998889],
+      ['P. BATURITI - LUWUS', 22382083.4001078, 2031920.4924080335],
+      ['P. JATILUWIH - KESAMBAHAN', 1344478.3469120306, 306758.32631642726],
+      ['P. SURABERATA - DS. ANTAP - SM0064', 115200, 2949571.6397975776],
+      ['P. PANDAK - REC. MENGENING - TABANAN', 0, 1735145.3634150028],
+      ['P. SANGGULAN - JL. BY PASS PESIAPAN - TB0186', 496977.1414871585, 3935316.2419274524],
+      ['P. NYITDAH - KEDUNGU', 8689970.666832738, 6510279.1250574775]
+    ];
+    var TM = 218914530.96959195, TJ = 217860367.2582041;
+    var sm = 0, sj = 0;
+    var rows = LOC.map(function (l, i) {
+      sm += l[1]; sj += l[2];
+      var bad = i === 2;
+      return { no: String(i + 1), loc: l[0], m: n0(l[1]), j: n0(l[2]), t: n0(l[1] + l[2]),
+        status: bad ? '4 perlu cek' : 'Sesuai', fg: bad ? '#B42318' : '#0F2E66', tint: bad ? '#FDECEA' : '#E7EDF8' };
+    });
+    var rest = { m: n0(TM - sm), j: n0(TJ - sj), t: n0(TM - sm + TJ - sj) };
+    var dppM = TM * 11 / 12, dppJ = TJ * 11 / 12;
+    var ppnM = dppM * 0.12, ppnJ = dppJ * 0.12;
+    var totM = TM + ppnM, totJ = TJ + ppnJ;
+    var totals = [
+      { label: 'Jumlah', hint: '', w: 800, m: n0(TM), j: n0(TJ), t: n0(TM + TJ) },
+      { label: 'Nilai DPP Lain', hint: '× 11/12', w: 500, m: n0(dppM), j: n0(dppJ), t: n0(dppM + dppJ) },
+      { label: 'PPN 12%', hint: '12% × DPP Lain', w: 500, m: n0(ppnM), j: n0(ppnJ), t: n0(ppnM + ppnJ) },
+      { label: 'TOTAL', hint: '', w: 800, m: n0(totM), j: n0(totJ), t: n0(totM + totJ) },
+      { label: 'PEMBULATAN', hint: '', w: 800, m: n0(Math.round(totM)), j: n0(Math.round(totJ)), t: n0(Math.round(totM + totJ)) }
+    ];
+    return { rows: rows, rest: rest, totals: totals, grand: 'Rp ' + n0(Math.round(totM + totJ)) };
+  }
+}
+</script>
+</body>
+</html>

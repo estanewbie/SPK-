@@ -1,0 +1,226 @@
+<!doctype html>
+<html lang="id">
+<head>
+<meta charset="utf-8">
+<title>Rancang tagihan — gabung LH per PK</title>
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&amp;display=swap" rel="stylesheet">
+<style>
+body{margin:0;background:#F6F5F1}
+a{text-decoration:none}
+input[type=checkbox]{accent-color:#0F2E66;width:16px;height:16px;margin:0;cursor:pointer}
+input[type=checkbox]:disabled{cursor:not-allowed}
+</style>
+</helmet>
+<div style="width: 1920px; height: 1120px; box-sizing: border-box; background: #F6F5F1; font-family: 'Plus Jakarta Sans', 'Segoe UI', system-ui, sans-serif; color: #16181D; font-variant-numeric: tabular-nums; display: flex; overflow: hidden">
+
+<aside style="width: 248px; flex-shrink: 0; background: #FFFFFF; border-right: 1px solid #E4E2DA; display: flex; flex-direction: column; padding: 16px 12px 14px">
+<dc-import name="Sidebar" active="tagih" hint-size="224px,640px"></dc-import>
+<div style="margin-top: auto; border-top: 1px solid #EFEDE6; padding: 12px 6px 0; display: flex; align-items: center; gap: 10px">
+<div style="width: 32px; height: 32px; border-radius: 50%; background: #0F2E66; color: #FFFFFF; font-size: 11px; font-weight: 700; display: flex; align-items: center; justify-content: center">AS</div>
+<div style="flex-grow: 1; min-width: 0">
+<div style="font-size: 12px; font-weight: 700">Admin SPK</div>
+<div style="font-size: 11px; color: #6B6F78; display: flex; align-items: center; gap: 5px"><span style="width: 6px; height: 6px; border-radius: 50%; background: #3E7BE0"></span>Terhubung</div>
+</div>
+</div>
+</aside>
+
+<div style="flex-grow: 1; display: flex; flex-direction: column; min-width: 0">
+<header style="height: 56px; flex-shrink: 0; background: #FFFFFF; border-bottom: 1px solid #E4E2DA; display: flex; align-items: center; justify-content: space-between; padding: 0 28px">
+<div style="display: flex; align-items: center; gap: 8px; font-size: 12px"><span style="color: #6B6F78">Keuangan</span><span style="color: #C9C6BC">/</span><a href="Main.dc.html" style="color: #6B6F78">Penagihan</a><span style="color: #C9C6BC">/</span><span style="font-weight: 700">Rancang tagihan</span></div>
+<div style="display: flex; align-items: center; gap: 12px">
+<span style="font-size: 11px; font-weight: 600; color: #0F2E66; background: #E7EDF8; padding: 4px 10px; border-radius: 999px">Khusus SPK &amp; Admin</span>
+<div style="font-size: 12px; color: #5B5F68; padding-left: 12px; border-left: 1px solid #E4E2DA">Rabu, 14 Oktober 2026</div>
+</div>
+</header>
+
+<main style="flex-grow: 1; padding: 24px 28px; display: flex; flex-direction: column; gap: 16px; min-width: 0">
+
+<div style="display: flex; align-items: center; justify-content: space-between; gap: 16px">
+<div>
+<a href="Main.dc.html" style="font-size: 12px; font-weight: 600; color: #0F2E66; display: inline-flex; align-items: center; gap: 4px"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="#0F2E66" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m15 18-6-6 6-6"></path></svg>Kembali ke daftar PK</a>
+<h1 style="margin: 4px 0 0; font-size: 22px; font-weight: 800; letter-spacing: -0.01em">Rancang tagihan</h1>
+<div style="font-size: 12px; color: #6B6F78; margin-top: 2px">Pilih LH dari PK yang sudah KTK, gabungkan jadi satu tagihan, lalu ajukan pengesahan RAB.</div>
+</div>
+<div style="display: flex; align-items: center; gap: 10px">
+<div style="display: flex; flex-direction: column; gap: 3px">
+<span style="font-size: 10px; font-weight: 700; color: #8C9097; text-transform: uppercase; letter-spacing: 0.08em">SPK</span>
+<button style="font: inherit; font-size: 12px; font-weight: 600; height: 38px; padding: 0 14px; border: 1px solid #E4E2DA; border-radius: 9px; background: #FFFFFF; color: #16181D; display: flex; align-items: center; gap: 10px; cursor: pointer">0294.SPK/DAN.01.03/F05030000/2026<svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="#8C9097" stroke-width="2.4" stroke-linecap="round" aria-hidden="true"><path d="m6 9 6 6 6-6"></path></svg></button>
+</div>
+</div>
+</div>
+
+<div style="display: grid; grid-template-columns: minmax(0, 1fr) 392px; gap: 16px; align-items: start">
+
+<section style="background: #FFFFFF; border: 1px solid #E4E2DA; border-radius: 14px; overflow: hidden">
+<div style="padding: 16px 20px; display: flex; justify-content: space-between; align-items: center; border-bottom: 1px solid #E4E2DA">
+<div>
+<h2 style="margin: 0; font-size: 14px; font-weight: 800">Daftar LH tersedia</h2>
+<div style="font-size: 12px; color: #6B6F78; margin-top: 2px">{{readyCount}} LH siap digabung dari 2 PK. LH dari PK yang belum KTK tidak bisa dipilih.</div>
+</div>
+<div style="display: flex; align-items: center; gap: 8px; height: 34px; padding: 0 12px; border: 1px solid #E4E2DA; border-radius: 9px; background: #FAF9F5; font-size: 12px; color: #8C9097; width: 220px; box-sizing: border-box"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#8C9097" stroke-width="2" stroke-linecap="round" aria-hidden="true"><circle cx="11" cy="11" r="7"></circle><path d="m20 20-3.5-3.5"></path></svg>Cari nomor LH</div>
+</div>
+<div style="display: grid; grid-template-columns: 24px 82px minmax(0, 1fr) 58px 112px 104px; gap: 12px; padding: 9px 20px; font-size: 11px; font-weight: 600; color: #8C9097; background: #FAF9F5; border-bottom: 1px solid #EFEDE6">
+<span></span><span>No. LH</span><span>Uraian pekerjaan</span><span>Tanggal</span><span style="text-align: right">Material</span><span style="text-align: right">Jasa</span>
+</div>
+<sc-for list="{{groups}}" as="g" hint-placeholder-count="4">
+<div style="display: flex; align-items: center; gap: 10px; padding: 10px 20px; background: {{g.headBg}}; border-bottom: 1px solid #EFEDE6">
+<span style="font-size: 12px; font-weight: 700; color: #0F2E66">{{g.pk}}</span>
+<span style="font-size: 12px; font-weight: 600; flex-grow: 1">{{g.title}}</span>
+<span style="font-size: 11px; font-weight: 700; color: {{g.chipFg}}; background: {{g.chipBg}}; padding: 3px 9px; border-radius: 6px">{{g.chip}}</span>
+<button onClick="{{g.pickAll}}" disabled="{{g.locked}}" style="font: inherit; font-size: 11.5px; font-weight: 700; color: {{g.allFg}}; background: #FFFFFF; border: 1px solid #E4E2DA; border-radius: 7px; height: 26px; padding: 0 10px; cursor: pointer">{{g.allLabel}}</button>
+</div>
+<sc-for list="{{g.rows}}" as="r" hint-placeholder-count="3">
+<label style="display: grid; grid-template-columns: 24px 82px minmax(0, 1fr) 58px 112px 104px; gap: 12px; align-items: center; padding: 11px 20px; border-bottom: 1px solid #EFEDE6; background: {{r.bg}}; opacity: {{r.opacity}}; cursor: pointer">
+<input type="checkbox" checked="{{r.checked}}" disabled="{{r.locked}}" onChange="{{r.pick}}" aria-label="{{r.aria}}">
+<span style="font-size: 12px; font-weight: 700">{{r.id}}</span>
+<span style="font-size: 12px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis">{{r.desc}}</span>
+<span style="font-size: 12px; color: #5B5F68">{{r.date}}</span>
+<span style="font-size: 12px; text-align: right">{{r.material}}</span>
+<span style="font-size: 12px; text-align: right">{{r.jasa}}</span>
+</label>
+</sc-for>
+</sc-for>
+<div style="padding: 12px 20px; font-size: 11px; color: #6B6F78">LH yang sudah masuk tagihan lain otomatis disembunyikan agar tidak ditagih dua kali.</div>
+</section>
+
+<aside style="background: #FFFFFF; border: 1px solid #E4E2DA; border-radius: 14px; display: flex; flex-direction: column">
+<div style="padding: 16px 20px; border-bottom: 1px solid #E4E2DA">
+<div style="display: flex; justify-content: space-between; align-items: center">
+<h2 style="margin: 0; font-size: 14px; font-weight: 800">Rancangan tagihan</h2>
+<span style="font-size: 11px; font-weight: 700; color: #0F2E66; background: #E7EDF8; padding: 3px 9px; border-radius: 6px">Draf</span>
+</div>
+<div style="font-size: 11px; font-weight: 600; color: #6B6F78; margin-top: 12px; margin-bottom: 4px">Nama tagihan</div>
+<div style="height: 36px; display: flex; align-items: center; padding: 0 12px; border: 1px solid #E4E2DA; border-radius: 9px; font-size: 12px; font-weight: 600; background: #FFFFFF">Tagihan 02 · SPK 0294 · Okt 2026</div>
+</div>
+<div style="padding: 6px 20px 10px; min-height: 150px">
+<sc-if value="{{isEmpty}}" hint-placeholder-val="{{false}}">
+<div style="padding: 34px 0; text-align: center; font-size: 12px; color: #6B6F78">Centang LH di kiri untuk mulai menyusun tagihan.</div>
+</sc-if>
+<sc-for list="{{tray}}" as="p" hint-placeholder-count="2">
+<div style="padding: 10px 0 4px">
+<div style="display: flex; justify-content: space-between; align-items: baseline">
+<span style="font-size: 12px; font-weight: 700"><span style="color: #0F2E66">{{p.pk}}</span> · {{p.count}} LH</span>
+<span style="font-size: 12px; font-weight: 700">{{p.total}}</span>
+</div>
+<div style="font-size: 11px; color: #6B6F78; margin-top: 1px">{{p.title}}</div>
+<div style="margin-top: 6px; border-left: 2px solid #E4E2DA; padding-left: 10px; display: flex; flex-direction: column; gap: 3px">
+<sc-for list="{{p.items}}" as="it" hint-placeholder-count="3">
+<div style="display: flex; justify-content: space-between; font-size: 11.5px"><span style="color: #5B5F68">{{it.id}} · {{it.short}}</span><span style="font-weight: 600">{{it.total}}</span></div>
+</sc-for>
+</div>
+</div>
+</sc-for>
+</div>
+<div style="margin: 0 20px; padding: 14px 0; border-top: 1px solid #E4E2DA; display: flex; flex-direction: column; gap: 8px; font-size: 12px">
+<div style="display: flex; justify-content: space-between"><span style="color: #5B5F68">Total material</span><span style="font-weight: 600">{{sumMaterial}}</span></div>
+<div style="display: flex; justify-content: space-between"><span style="color: #5B5F68">Total jasa</span><span style="font-weight: 600">{{sumJasa}}</span></div>
+<div style="display: flex; justify-content: space-between"><span style="color: #5B5F68">Subtotal</span><span style="font-weight: 600">{{subtotal}}</span></div>
+<div style="display: flex; justify-content: space-between"><span style="color: #5B5F68">PPN 11%</span><span style="font-weight: 600">{{ppn}}</span></div>
+</div>
+<div style="margin: 0 20px 16px; padding: 14px 16px; border-radius: 12px; background: #0B1730; color: #FFFFFF; display: flex; justify-content: space-between; align-items: baseline">
+<span style="font-size: 12px; color: #A9B8D6; font-weight: 600">Total tagihan</span>
+<span style="font-size: 20px; font-weight: 800; letter-spacing: -0.01em">{{grand}}</span>
+</div>
+<div style="margin: 0 20px; padding: 0 0 14px; display: flex; flex-direction: column; gap: 7px; font-size: 11.5px; color: #5B5F68">
+<div style="display: flex; align-items: center; gap: 8px"><span style="width: 16px; height: 16px; border-radius: 50%; background: #0F2E66; display: inline-flex; align-items: center; justify-content: center; flex-shrink: 0"><svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="#FFFFFF" stroke-width="3.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m5 12 5 5 9-10"></path></svg></span>KTK semua PK terpilih sudah ditandai</div>
+<div style="display: flex; align-items: center; gap: 8px"><span style="width: 16px; height: 16px; border-radius: 50%; background: #0F2E66; display: inline-flex; align-items: center; justify-content: center; flex-shrink: 0"><svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="#FFFFFF" stroke-width="3.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m5 12 5 5 9-10"></path></svg></span>Semua LH dari satu SPK yang sama</div>
+<div style="display: flex; align-items: center; gap: 8px"><span style="width: 16px; height: 16px; border-radius: 50%; border: 1.5px solid #B54708; box-sizing: border-box; flex-shrink: 0"></span>Lampirkan berkas pendukung sebelum diajukan</div>
+</div>
+<div style="display: flex; gap: 8px; padding: 14px 20px 18px; border-top: 1px solid #E4E2DA">
+<button style="font: inherit; flex: 1; height: 38px; border-radius: 9px; border: 1px solid #E4E2DA; background: #FFFFFF; color: #16181D; font-size: 12px; font-weight: 700; cursor: pointer">Simpan draf</button>
+<button disabled="{{cannotSubmit}}" style="font: inherit; flex: 1.5; height: 38px; border-radius: 9px; border: none; background: {{submitBg}}; color: #FFFFFF; font-size: 12px; font-weight: 700; cursor: pointer">Ajukan pengesahan RAB</button>
+</div>
+</aside>
+
+</div>
+</main>
+</div>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props='{"$preview":{"width":1920,"height":1120}}'>
+class Component extends DCLogic {
+  constructor(props) {
+    super(props);
+    this.state = { sel: { 'LH-0412': true, 'LH-0413': true, 'LH-0414': true, 'LH-0431': true } };
+  }
+  renderVals() {
+    var self = this;
+    var sel = this.state.sel;
+    var rp = function (n) { return 'Rp ' + Number(n).toLocaleString('id-ID', { minimumFractionDigits: 2, maximumFractionDigits: 2 }); };
+    var PKS = [
+      { pk: 'PK 0071', title: 'Perluasan JTR Br. Kerobokan', ktk: '02/10', lhs: [
+        { id: 'LH-0412', desc: 'Galian dan pasang tiang besi 9 m', date: '14/09', m: 18400000, j: 6200000 },
+        { id: 'LH-0413', desc: 'Tarik kabel NFA2X 2×10 mm²', date: '15/09', m: 24750000, j: 8900000 },
+        { id: 'LH-0414', desc: 'Pasang SR 12 pelanggan', date: '17/09', m: 9180000, j: 5400000 } ] },
+      { pk: 'PK 0079', title: 'Penggantian trafo Br. Abian Base', ktk: '06/10', lhs: [
+        { id: 'LH-0431', desc: 'Penggantian trafo 100 kVA 3 fasa', date: '24/09', m: 42600000, j: 9800000 },
+        { id: 'LH-0432', desc: 'Pasang PHB dan grounding', date: '25/09', m: 11350000, j: 4100000 } ] },
+      { pk: 'PK 0088', title: 'Pasang JTR Br. Sempidi', ktk: null, lhs: [
+        { id: 'LH-0455', desc: 'Pasang tiang dan stringing JTR', date: '28/09', m: 31200000, j: 12500000 } ] },
+      { pk: 'PK 0091', title: 'Gardu sisipan 160 kVA Br. Dalung', ktk: null, lhs: [
+        { id: 'LH-0467', desc: 'Pasang gardu portal 160 kVA', date: '02/10', m: 58900000, j: 14300000 } ] }
+    ];
+    var readyCount = 0, sumM = 0, sumJ = 0;
+    var groups = PKS.map(function (g) {
+      var locked = !g.ktk;
+      var ids = g.lhs.map(function (l) { return l.id; });
+      var allOn = !locked && ids.every(function (id) { return !!sel[id]; });
+      if (!locked) readyCount += g.lhs.length;
+      return {
+        pk: g.pk, title: g.title, locked: locked,
+        headBg: locked ? '#FAF9F5' : '#FFFFFF',
+        chip: locked ? 'Menunggu KTK' : 'KTK ' + g.ktk,
+        chipFg: locked ? '#B54708' : '#0F2E66',
+        chipBg: locked ? '#FEF0E1' : '#E7EDF8',
+        allLabel: allOn ? 'Lepas semua' : 'Pilih semua',
+        allFg: locked ? '#B8BBC2' : '#0F2E66',
+        pickAll: function () {
+          if (locked) return;
+          var next = Object.assign({}, self.state.sel);
+          ids.forEach(function (id) { if (allOn) { delete next[id]; } else { next[id] = true; } });
+          self.setState({ sel: next });
+        },
+        rows: g.lhs.map(function (l) {
+          var on = !locked && !!sel[l.id];
+          return {
+            id: l.id, desc: l.desc, date: l.date, material: rp(l.m), jasa: rp(l.j),
+            checked: on, locked: locked, aria: 'Pilih ' + l.id,
+            bg: on ? '#F1F5FC' : '#FFFFFF', opacity: locked ? 0.5 : 1,
+            pick: function () {
+              if (locked) return;
+              var next = Object.assign({}, self.state.sel);
+              if (next[l.id]) { delete next[l.id]; } else { next[l.id] = true; }
+              self.setState({ sel: next });
+            }
+          };
+        })
+      };
+    });
+    var tray = [];
+    PKS.forEach(function (g) {
+      if (!g.ktk) return;
+      var picked = g.lhs.filter(function (l) { return !!sel[l.id]; });
+      if (!picked.length) return;
+      var tot = 0;
+      var items = picked.map(function (l) { sumM += l.m; sumJ += l.j; tot += l.m + l.j; return { id: l.id, short: l.desc.length > 24 ? l.desc.slice(0, 24) + '…' : l.desc, total: rp(l.m + l.j) }; });
+      tray.push({ pk: g.pk, title: g.title, count: picked.length, total: rp(tot), items: items });
+    });
+    var sub = sumM + sumJ;
+    var ppn = Math.round(sub * 0.11);
+    var none = tray.length === 0;
+    return {
+      groups: groups, readyCount: readyCount, tray: tray, isEmpty: none,
+      sumMaterial: rp(sumM), sumJasa: rp(sumJ), subtotal: rp(sub), ppn: rp(ppn), grand: rp(sub + ppn),
+      cannotSubmit: none, submitBg: none ? '#9AA6BF' : '#0F2E66'
+    };
+  }
+}
+</script>
+</body>
+</html>

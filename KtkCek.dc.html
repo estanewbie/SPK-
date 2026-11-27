@@ -1,0 +1,229 @@
+<!doctype html>
+<html lang="id">
+<head>
+<meta charset="utf-8">
+<title>KTK 71 — cek LH per PK terhadap kontrak</title>
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&amp;display=swap" rel="stylesheet">
+<style>
+body{margin:0;background:#F6F5F1}
+a{text-decoration:none}
+</style>
+</helmet>
+<div style="width: 1920px; height: 1200px; box-sizing: border-box; background: #F6F5F1; font-family: 'Plus Jakarta Sans', 'Segoe UI', system-ui, sans-serif; color: #16181D; font-variant-numeric: tabular-nums; display: flex; overflow: hidden">
+
+<aside style="width: 248px; flex-shrink: 0; background: #FFFFFF; border-right: 1px solid #E4E2DA; display: flex; flex-direction: column; padding: 16px 12px 14px">
+<dc-import name="Sidebar" active="ktk" hint-size="224px,640px"></dc-import>
+<div style="margin-top: auto; border-top: 1px solid #EFEDE6; padding: 12px 6px 0; display: flex; align-items: center; gap: 10px">
+<div style="width: 32px; height: 32px; border-radius: 50%; background: #0F2E66; color: #FFFFFF; font-size: 11px; font-weight: 700; display: flex; align-items: center; justify-content: center">AS</div>
+<div style="flex-grow: 1; min-width: 0">
+<div style="font-size: 12px; font-weight: 700">Admin SPK</div>
+<div style="font-size: 11px; color: #6B6F78; display: flex; align-items: center; gap: 5px"><span style="width: 6px; height: 6px; border-radius: 50%; background: #3E7BE0"></span>Terhubung</div>
+</div>
+</div>
+</aside>
+
+<div style="flex-grow: 1; display: flex; flex-direction: column; min-width: 0">
+<header style="height: 56px; flex-shrink: 0; background: #FFFFFF; border-bottom: 1px solid #E4E2DA; display: flex; align-items: center; justify-content: space-between; padding: 0 28px">
+<div style="display: flex; align-items: center; gap: 8px; font-size: 12px"><span style="color: #6B6F78">Keuangan</span><span style="color: #C9C6BC">/</span><a href="KtkDaftar.dc.html" style="color: #6B6F78">KTK</a><span style="color: #C9C6BC">/</span><span style="color: #6B6F78">KTK 71 · 0597</span><span style="color: #C9C6BC">/</span><span style="font-weight: 700">Cek LH per PK</span></div>
+<div style="display: flex; align-items: center; gap: 12px">
+<span style="font-size: 11px; font-weight: 600; color: #0F2E66; background: #E7EDF8; padding: 4px 10px; border-radius: 999px">Khusus SPK &amp; Admin</span>
+<div style="font-size: 12px; color: #5B5F68; padding-left: 12px; border-left: 1px solid #E4E2DA">Kamis, 15 Oktober 2026</div>
+</div>
+</header>
+
+<main style="flex-grow: 1; padding: 24px 28px; display: flex; flex-direction: column; gap: 16px; min-width: 0">
+
+<div style="display: flex; align-items: flex-end; justify-content: space-between; gap: 16px">
+<div>
+<a href="KtkDaftar.dc.html" style="font-size: 12px; font-weight: 600; color: #0F2E66; display: inline-flex; align-items: center; gap: 4px"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="#0F2E66" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m15 18-6-6 6-6"></path></svg>Kembali ke daftar KTK</a>
+<h1 style="margin: 4px 0 0; font-size: 22px; font-weight: 800; letter-spacing: -0.01em">Cek LH terhadap kontrak</h1>
+<div style="font-size: 12px; color: #6B6F78; margin-top: 2px">Volume LH di setiap PK dibandingkan dengan volume kontrak PLN, setelah dikurangi pemakaian PK lain.</div>
+</div>
+</div>
+
+<div style="display: flex; gap: 0; border-bottom: 1px solid #E4E2DA">
+<a href="KtkLampiran.dc.html" style="font-size: 12px; font-weight: 500; color: #6B6F78; border-bottom: 2px solid transparent; padding: 8px 2px 10px; margin-right: 22px">Lampiran KTK</a>
+<a href="KtkPaket.dc.html" style="font-size: 12px; font-weight: 500; color: #6B6F78; border-bottom: 2px solid transparent; padding: 8px 2px 10px; margin-right: 22px">Paket pekerjaan</a>
+<a href="KtkCek.dc.html" style="font-size: 12px; font-weight: 700; color: #16181D; border-bottom: 2px solid #0F2E66; padding: 8px 2px 10px; margin-right: 22px">Cek LH per PK <span style="color: #B42318; font-weight: 700">4</span></a>
+<a href="KtkRab.dc.html" style="font-size: 12px; font-weight: 500; color: #6B6F78; border-bottom: 2px solid transparent; padding: 8px 2px 10px; margin-right: 22px">RAB per PK</a>
+<a href="KtkRekap.dc.html" style="font-size: 12px; font-weight: 500; color: #6B6F78; border-bottom: 2px solid transparent; padding: 8px 2px 10px; margin-right: 22px">Rekapitulasi</a>
+<a href="KtkInput.dc.html" style="font-size: 12px; font-weight: 500; color: #6B6F78; border-bottom: 2px solid transparent; padding: 8px 2px 10px">Volume kontrak</a>
+</div>
+
+<div style="display: grid; grid-template-columns: 290px minmax(0, 1fr); gap: 16px; align-items: start">
+
+<section style="background: #FFFFFF; border: 1px solid #E4E2DA; border-radius: 14px; overflow: hidden">
+<div style="padding: 14px 16px; border-bottom: 1px solid #E4E2DA">
+<h2 style="margin: 0; font-size: 13px; font-weight: 800">PK pada kontrak ini</h2>
+<div style="font-size: 11px; color: #6B6F78; margin-top: 2px">3 dari 48 PK ditampilkan</div>
+</div>
+<sc-for list="{{pks}}" as="p" hint-placeholder-count="3">
+<button onClick="{{p.pick}}" style="font: inherit; width: 100%; text-align: left; border: none; border-bottom: 1px solid #EFEDE6; border-left: 3px solid {{p.edge}}; background: {{p.bg}}; padding: 12px 14px; cursor: pointer; display: flex; flex-direction: column; gap: 5px; color: #16181D">
+<span style="font-size: 12px; font-weight: 700">{{p.name}}</span>
+<span style="display: flex; justify-content: space-between; align-items: center"><span style="font-size: 11px; color: #6B6F78">{{p.lh}} LH · {{p.mat}} material</span><span style="font-size: 11px; font-weight: 700; color: {{p.fg}}; background: {{p.tint}}; padding: 2px 8px; border-radius: 6px">{{p.badge}}</span></span>
+</button>
+</sc-for>
+</section>
+
+<div style="display: flex; flex-direction: column; gap: 16px; min-width: 0">
+
+<section style="background: #FFFFFF; border: 1px solid #E4E2DA; border-radius: 14px; padding: 16px 20px; display: flex; justify-content: space-between; align-items: center; gap: 16px">
+<div>
+<div style="font-size: 11px; font-weight: 600; color: #6B6F78">PK dipilih</div>
+<div style="font-size: 16px; font-weight: 800; margin-top: 2px">{{sel.name}}</div>
+</div>
+<div style="display: flex; gap: 22px">
+<div><div style="font-size: 11px; color: #6B6F78">Sesuai kontrak</div><div style="font-size: 20px; font-weight: 800; color: #0F2E66">{{sel.ok}}</div></div>
+<div><div style="font-size: 11px; color: #6B6F78">Melebihi kontrak</div><div style="font-size: 20px; font-weight: 800; color: #B42318">{{sel.over}}</div></div>
+<div><div style="font-size: 11px; color: #6B6F78">Tidak ada di kontrak</div><div style="font-size: 20px; font-weight: 800; color: #B54708">{{sel.missing}}</div></div>
+</div>
+<button style="font: inherit; font-size: 12px; font-weight: 700; height: 38px; padding: 0 16px; border: none; border-radius: 9px; background: {{sel.btnBg}}; color: #FFFFFF; cursor: pointer">Tandai PK sudah dicek</button>
+</section>
+
+<section style="background: #FFFFFF; border: 1px solid #E4E2DA; border-radius: 14px; overflow: hidden">
+<div style="padding: 14px 20px; border-bottom: 1px solid #E4E2DA"><h2 style="margin: 0; font-size: 13px; font-weight: 800">Volume LH dibanding kontrak</h2></div>
+<div style="display: grid; grid-template-columns: minmax(0, 1fr) 62px 62px 62px 62px 130px 112px; gap: 10px; padding: 9px 20px; font-size: 11px; font-weight: 600; color: #8C9097; background: #FAF9F5; border-bottom: 1px solid #EFEDE6">
+<span>Material (nama di kontrak PLN)</span><span style="text-align: right">Kontrak</span><span style="text-align: right">PK lain</span><span style="text-align: right">PK ini</span><span style="text-align: right">Sisa</span><span>Pemakaian</span><span>Status</span>
+</div>
+<sc-for list="{{rows}}" as="r" hint-placeholder-count="6">
+<div style="display: grid; grid-template-columns: minmax(0, 1fr) 62px 62px 62px 62px 130px 112px; gap: 10px; align-items: center; padding: 10px 20px; border-bottom: 1px solid #EFEDE6; background: {{r.bg}}">
+<div style="min-width: 0"><div style="font-size: 12px; font-weight: 600; line-height: 1.35">{{r.name}}</div><div style="font-size: 10px; color: #8C9097; margin-top: 1px">{{r.note}}</div></div>
+<span style="font-size: 12px; text-align: right">{{r.kontrak}}</span>
+<span style="font-size: 12px; text-align: right; color: #5B5F68">{{r.lain}}</span>
+<span style="font-size: 12px; text-align: right; font-weight: 800; color: #0F2E66">{{r.ini}}</span>
+<span style="font-size: 12px; text-align: right; font-weight: 700; color: {{r.sisaFg}}">{{r.sisa}}</span>
+<div style="position: relative; height: 8px; background: #EFEDE6; border-radius: 4px; overflow: visible">
+<div style="position: absolute; left: 0; top: 0; height: 8px; width: {{r.wLain}}%; background: #9DB0D3; border-radius: 4px 0 0 4px"></div>
+<div style="position: absolute; left: {{r.wLain}}%; top: 0; height: 8px; width: {{r.wIni}}%; background: {{r.iniColor}}; border-radius: 0 4px 4px 0"></div>
+<div style="position: absolute; left: {{r.mark}}%; top: -3px; width: 2px; height: 14px; background: #16181D"></div>
+</div>
+<span style="font-size: 11px; font-weight: 700; color: {{r.fg}}; background: {{r.tint}}; padding: 3px 8px; border-radius: 6px; justify-self: start; white-space: nowrap">{{r.status}}</span>
+</div>
+</sc-for>
+<div style="padding: 10px 20px; display: flex; gap: 18px; font-size: 11px; color: #6B6F78">
+<span style="display: flex; align-items: center; gap: 6px"><span style="width: 10px; height: 6px; border-radius: 2px; background: #9DB0D3"></span>Dipakai PK lain</span>
+<span style="display: flex; align-items: center; gap: 6px"><span style="width: 10px; height: 6px; border-radius: 2px; background: #0F2E66"></span>Dipakai PK ini</span>
+<span style="display: flex; align-items: center; gap: 6px"><span style="width: 2px; height: 10px; background: #16181D"></span>Batas volume kontrak</span>
+</div>
+</section>
+
+<section style="background: #FFFFFF; border: 1px solid #E4E2DA; border-radius: 14px; overflow: hidden">
+<div style="padding: 14px 20px; border-bottom: 1px solid #E4E2DA"><h2 style="margin: 0; font-size: 13px; font-weight: 800">LH di PK ini</h2><div style="font-size: 11px; color: #6B6F78; margin-top: 2px">Koreksi LH kalau volumenya salah input. Kalau memang di lapangan lebih, ajukan sebagai kerja tambah.</div></div>
+<sc-for list="{{lhs}}" as="l" hint-placeholder-count="3">
+<div style="display: grid; grid-template-columns: 78px 54px minmax(0, 1fr) 132px 168px; gap: 12px; align-items: center; padding: 11px 20px; border-bottom: 1px solid #EFEDE6">
+<span style="font-size: 12px; font-weight: 700; color: #0F2E66">{{l.id}}</span>
+<span style="font-size: 12px; color: #5B5F68">{{l.date}}</span>
+<span style="font-size: 12px; line-height: 1.4">{{l.items}}</span>
+<span style="font-size: 11px; font-weight: 700; color: {{l.fg}}; background: {{l.tint}}; padding: 3px 8px; border-radius: 6px; justify-self: start; white-space: nowrap">{{l.status}}</span>
+<div style="display: flex; gap: 6px; justify-content: flex-end">
+<button style="font: inherit; height: 28px; padding: 0 10px; border-radius: 8px; font-size: 11.5px; font-weight: 700; background: #FFFFFF; color: #16181D; border: 1px solid #E4E2DA; cursor: pointer">Koreksi LH</button>
+<button style="font: inherit; height: 28px; padding: 0 10px; border-radius: 8px; font-size: 11.5px; font-weight: 700; background: {{l.btnBg}}; color: {{l.btnFg}}; border: 1px solid {{l.btnEdge}}; cursor: pointer; white-space: nowrap">Ajukan tambah</button>
+</div>
+</div>
+</sc-for>
+</section>
+
+</div>
+</div>
+
+</main>
+</div>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props='{"$preview":{"width":1920,"height":1200}}'>
+class Component extends DCLogic {
+  constructor(props) {
+    super(props);
+    this.state = { pk: 0 };
+  }
+  renderVals() {
+    var self = this;
+    var sel = this.state.pk;
+    var PKS = [
+      { name: 'KA0427 - CANGGU', lh: 3, mat: [
+        ['AAACS uk. 70 mm2', 'ms', 60, 40, 32],
+        ['Arrester 18 kV-24 kV; 5-10 kA Polimer/porselin +ACC', 'bh', 6, 5, 3],
+        ['Cross arm type A.2 2000 hot dip galv.70-100 + steel plate', 'set', 1, 1, 1],
+        ['Isolator tarik/tension 20 kV porselin/polimer + ACC (Dead End)', 'bh', 6, 1, 3],
+        ['Fuse Cut Out 24 KV 100 A Porselin/polimer +ACC', 'bh', 6, 3, 3],
+        ['Sepatu kabel AL/CU 70mm2', 'bh', null, 0, 8]
+      ], lhs: [
+        { id: 'LH-0412', date: '14/09', items: 'AAACS 70 mm2 32 ms · Fuse Cut Out 2 bh · Arrester 3 bh', flag: 'over' },
+        { id: 'LH-0413', date: '15/09', items: 'Cross arm A.2 1 set · Isolator tarik 3 bh · Fuse Cut Out 1 bh', flag: 'over' },
+        { id: 'LH-0414', date: '17/09', items: 'Sepatu kabel AL/CU 70 mm2 8 bh', flag: 'missing' }
+      ] },
+      { name: 'KA0788 - BRAWA', lh: 2, mat: [
+        ['AAAC-AAACS uk. 95-150mm2', 'ms', 100, 70, 30],
+        ['Live line connector (LLC) 150-240 mm2', 'bh', 6, 3, 3],
+        ['Pengangkutan material dari/ke gudang', 'ton', 1, 0, 1]
+      ], lhs: [
+        { id: 'LH-0431', date: '24/09', items: 'AAAC-AAACS 95-150 mm2 30 ms · LLC 3 bh', flag: 'ok' },
+        { id: 'LH-0432', date: '25/09', items: 'Pengangkutan material 1 ton', flag: 'ok' }
+      ] },
+      { name: 'P. KERAMBITAN - CURAH', lh: 4, mat: [
+        ['Isolator tumpu/pinpost 20 kV porselin/polimer +ACC (Line Post)', 'bh', 6, 3, 3],
+        ['Dudukan Cut Out / Arrester 2000 mm UNP 100 Gal Komplit 1 Tiang', 'set', 1, 0, 1],
+        ['Cross arm type A.1 2000 hot dip galv.70-100 + steel plate', 'set', 1, 0, 1]
+      ], lhs: [
+        { id: 'LH-0455', date: '28/09', items: 'Isolator tumpu 3 bh · Cross arm A.1 1 set', flag: 'ok' },
+        { id: 'LH-0456', date: '29/09', items: 'Dudukan Cut Out/Arrester 1 tiang 1 set', flag: 'ok' }
+      ] }
+    ];
+    var fmt = function (n) { return String(n).replace('.', ','); };
+    var data = PKS.map(function (p) {
+      var rows = p.mat.map(function (m) {
+        var k = m[2], lain = m[3], ini = m[4];
+        var missing = k === null;
+        var sisa = missing ? null : k - lain - ini;
+        var over = !missing && sisa < 0;
+        var scale = Math.max(missing ? ini : k, lain + ini) || 1;
+        var kind = missing ? 'missing' : (over ? 'over' : 'ok');
+        return {
+          name: m[0], note: m[1] === 'ms' ? 'satuan: meter' : 'satuan: ' + m[1],
+          kontrak: missing ? '–' : fmt(k), lain: fmt(lain), ini: fmt(ini),
+          sisa: missing ? '–' : (sisa < 0 ? '−' + fmt(-sisa) : fmt(sisa)),
+          sisaFg: over ? '#B42318' : '#16181D',
+          wLain: Math.min(100, lain / scale * 100), wIni: Math.min(100 - Math.min(100, lain / scale * 100), ini / scale * 100),
+          iniColor: kind === 'ok' ? '#0F2E66' : (kind === 'over' ? '#B42318' : '#B54708'),
+          mark: missing ? 0 : Math.min(98, k / scale * 100),
+          status: kind === 'ok' ? 'Sesuai' : (kind === 'over' ? 'Melebihi ' + fmt(-sisa) : 'Tidak ada di kontrak'),
+          fg: kind === 'ok' ? '#0F2E66' : (kind === 'over' ? '#B42318' : '#B54708'),
+          tint: kind === 'ok' ? '#E7EDF8' : (kind === 'over' ? '#FDECEA' : '#FEF0E1'),
+          bg: kind === 'ok' ? '#FFFFFF' : (kind === 'over' ? '#FFF8F7' : '#FFFBF5'), kind: kind
+        };
+      });
+      return { name: p.name, lh: p.lh, mat: p.mat.length, rows: rows, lhs: p.lhs };
+    });
+    var pks = data.map(function (d, i) {
+      var bad = d.rows.filter(function (r) { return r.kind !== 'ok'; }).length;
+      var on = i === sel;
+      return {
+        name: d.name, lh: d.lh, mat: d.mat, edge: on ? '#0F2E66' : 'transparent', bg: on ? '#F1F5FC' : '#FFFFFF',
+        badge: bad ? bad + ' masalah' : 'Sesuai', fg: bad ? '#B42318' : '#0F2E66', tint: bad ? '#FDECEA' : '#E7EDF8',
+        pick: function () { self.setState({ pk: i }); }
+      };
+    });
+    var cur = data[sel];
+    var cnt = function (k) { return cur.rows.filter(function (r) { return r.kind === k; }).length; };
+    var bad = cur.rows.length - cnt('ok');
+    var FLAG = {
+      ok: { status: 'Sesuai kontrak', fg: '#0F2E66', tint: '#E7EDF8', btnBg: '#F6F5F1', btnFg: '#B8BBC2', btnEdge: '#EFEDE6' },
+      over: { status: 'Ada yang melebihi', fg: '#B42318', tint: '#FDECEA', btnBg: '#FFFFFF', btnFg: '#0F2E66', btnEdge: '#C9D3E8' },
+      missing: { status: 'Material tidak ada di kontrak', fg: '#B54708', tint: '#FEF0E1', btnBg: '#FFFFFF', btnFg: '#0F2E66', btnEdge: '#C9D3E8' }
+    };
+    var lhs = cur.lhs.map(function (l) { var f = FLAG[l.flag]; return { id: l.id, date: l.date, items: l.items, status: f.status, fg: f.fg, tint: f.tint, btnBg: f.btnBg, btnFg: f.btnFg, btnEdge: f.btnEdge }; });
+    return {
+      pks: pks, rows: cur.rows, lhs: lhs,
+      sel: { name: cur.name, ok: cnt('ok'), over: cnt('over'), missing: cnt('missing'), btnBg: bad ? '#9AA6BF' : '#0F2E66' }
+    };
+  }
+}
+</script>
+</body>
+</html>

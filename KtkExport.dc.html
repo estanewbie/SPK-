@@ -1,0 +1,133 @@
+<!doctype html>
+<html lang="id">
+<head>
+<meta charset="utf-8">
+<title>KTK 71 — export Excel</title>
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&amp;display=swap" rel="stylesheet">
+<style>
+body{margin:0;background:#F6F5F1}
+a{text-decoration:none}
+code{font-family: ui-monospace, 'SF Mono', Menlo, Consolas, monospace; font-size: 11.5px; background: #F1F5FC; color: #0F2E66; padding: 2px 6px; border-radius: 5px}
+</style>
+</helmet>
+<div style="width: 1920px; height: 1280px; box-sizing: border-box; background: #F6F5F1; font-family: 'Plus Jakarta Sans', 'Segoe UI', system-ui, sans-serif; color: #16181D; font-variant-numeric: tabular-nums; display: flex; overflow: hidden">
+
+<aside style="width: 248px; flex-shrink: 0; background: #FFFFFF; border-right: 1px solid #E4E2DA; display: flex; flex-direction: column; padding: 16px 12px 14px">
+<dc-import name="Sidebar" active="ktk" hint-size="224px,640px"></dc-import>
+<div style="margin-top: auto; border-top: 1px solid #EFEDE6; padding: 12px 6px 0; display: flex; align-items: center; gap: 10px">
+<div style="width: 32px; height: 32px; border-radius: 50%; background: #0F2E66; color: #FFFFFF; font-size: 11px; font-weight: 700; display: flex; align-items: center; justify-content: center">AS</div>
+<div style="flex-grow: 1; min-width: 0"><div style="font-size: 12px; font-weight: 700">Admin SPK</div><div style="font-size: 11px; color: #6B6F78">Terhubung</div></div>
+</div>
+</aside>
+
+<div style="flex-grow: 1; display: flex; flex-direction: column; min-width: 0">
+<header style="height: 56px; flex-shrink: 0; background: #FFFFFF; border-bottom: 1px solid #E4E2DA; display: flex; align-items: center; justify-content: space-between; padding: 0 28px">
+<div style="display: flex; align-items: center; gap: 8px; font-size: 12px"><span style="color: #6B6F78">Keuangan</span><span style="color: #C9C6BC">/</span><a href="KtkDaftar.dc.html" style="color: #6B6F78">KTK</a><span style="color: #C9C6BC">/</span><span style="color: #6B6F78">KTK 71 · 0597</span><span style="color: #C9C6BC">/</span><span style="font-weight: 700">Export Excel</span></div>
+<span style="font-size: 11px; font-weight: 600; color: #0F2E66; background: #E7EDF8; padding: 4px 10px; border-radius: 999px">Khusus SPK &amp; Admin</span>
+</header>
+
+<main style="flex-grow: 1; padding: 24px 28px; display: flex; flex-direction: column; gap: 16px; min-width: 0">
+<div style="display: flex; align-items: flex-end; justify-content: space-between">
+<div>
+<a href="KtkLampiran.dc.html" style="font-size: 12px; font-weight: 600; color: #0F2E66">‹ Kembali ke Lampiran KTK</a>
+<h1 style="margin: 4px 0 0; font-size: 22px; font-weight: 800; letter-spacing: -0.01em">Export Excel</h1>
+<div style="font-size: 12px; color: #6B6F78; margin-top: 2px">Semua total di file Excel berupa rumus SUM, jadi angkanya selalu sama dengan layar ini dan ikut berubah bila Anda mengedit sel.</div>
+</div>
+<button style="font: inherit; height: 40px; padding: 0 20px; border: none; border-radius: 10px; background: #0F2E66; color: #FFFFFF; font-size: 13px; font-weight: 700; cursor: pointer">Unduh KTK_71_0597.xlsx</button>
+</div>
+
+<div style="display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 14px">
+<div style="background: #0B1730; color: #FFFFFF; border-radius: 14px; padding: 16px 18px"><div style="font-size: 12px; color: #A9B8D6; font-weight: 600">Total nilai kontrak awal</div><div style="font-size: 24px; font-weight: 800; margin-top: 4px">Rp 251.194.349,00</div></div>
+<div style="background: #FFFFFF; border: 1px solid #E4E2DA; border-radius: 14px; padding: 16px 18px"><div style="font-size: 12px; color: #5B5F68; font-weight: 600">Total nilai amandemen (realisasi)</div><div style="font-size: 24px; font-weight: 800; margin-top: 4px">Rp 16.365.302,00</div></div>
+<div style="background: #FFFFFF; border: 1px solid #E4E2DA; border-radius: 14px; padding: 16px 18px"><div style="font-size: 12px; color: #5B5F68; font-weight: 600">Total rekapitulasi RAB</div><div style="font-size: 24px; font-weight: 800; margin-top: 4px">Rp 484.820.137,00</div></div>
+<div style="background: #FFFFFF; border: 1px solid #E4E2DA; border-radius: 14px; padding: 16px 18px"><div style="font-size: 12px; color: #5B5F68; font-weight: 600">Pemeriksaan angka</div><div style="font-size: 24px; font-weight: 800; margin-top: 4px; color: #1B7F4B">6 dari 6 cocok</div></div>
+</div>
+
+<div style="display: grid; grid-template-columns: minmax(0, 1fr) 430px; gap: 16px; align-items: start">
+
+<div style="display: flex; flex-direction: column; gap: 16px">
+<section style="background: #FFFFFF; border: 1px solid #E4E2DA; border-radius: 14px; overflow: hidden">
+<div style="padding: 14px 20px; border-bottom: 1px solid #E4E2DA"><h2 style="margin: 0; font-size: 14px; font-weight: 800">Pemeriksaan sebelum export</h2></div>
+<div style="display: grid; grid-template-columns: minmax(0, 1fr) 150px 150px 70px; gap: 12px; padding: 9px 20px; font-size: 11px; font-weight: 600; color: #8C9097; background: #FAF9F5; border-bottom: 1px solid #EFEDE6"><span>Pemeriksaan</span><span style="text-align: right">Layar</span><span style="text-align: right">Excel (SUM)</span><span style="text-align: right">Status</span></div>
+<sc-for list="{{checks}}" as="c" hint-placeholder-count="6">
+<div style="display: grid; grid-template-columns: minmax(0, 1fr) 150px 150px 70px; gap: 12px; align-items: center; padding: 11px 20px; border-bottom: 1px solid #EFEDE6; font-size: 12px">
+<span style="font-weight: 600">{{c.label}}</span><span style="text-align: right">{{c.a}}</span><span style="text-align: right">{{c.b}}</span>
+<span style="text-align: right; font-size: 11px; font-weight: 700; color: #1B7F4B">COCOK</span>
+</div>
+</sc-for>
+<div style="padding: 12px 20px; background: #FFF8E6; display: flex; gap: 10px; align-items: center; font-size: 12px; color: #7A5200"><b>1 LH di luar kontrak</b> tetap diexport di sheet Data LH dan diberi tanda, tetapi tidak masuk realisasi sebelum material ditambahkan ke paket.</div>
+</section>
+
+<section style="background: #FFFFFF; border: 1px solid #E4E2DA; border-radius: 14px; overflow: hidden">
+<div style="padding: 14px 20px; border-bottom: 1px solid #E4E2DA"><h2 style="margin: 0; font-size: 14px; font-weight: 800">Contoh rumus di file hasil export</h2></div>
+<sc-for list="{{formulas}}" as="f" hint-placeholder-count="8">
+<div style="display: grid; grid-template-columns: 200px minmax(0, 1fr); gap: 12px; align-items: center; padding: 9px 20px; border-bottom: 1px solid #EFEDE6; font-size: 12px"><span style="color: #5B5F68">{{f.label}}</span><span><code>{{f.code}}</code></span></div>
+</sc-for>
+</section>
+</div>
+
+<div style="display: flex; flex-direction: column; gap: 16px">
+<section style="background: #FFFFFF; border: 1px solid #E4E2DA; border-radius: 14px; padding: 16px 20px">
+<h2 style="margin: 0 0 10px; font-size: 14px; font-weight: 800">Isi file</h2>
+<sc-for list="{{sheets}}" as="s" hint-placeholder-count="5">
+<div style="display: flex; align-items: center; gap: 10px; padding: 8px 0; border-bottom: 1px solid #EFEDE6"><input type="checkbox" checked style="accent-color: #0F2E66; width: 16px; height: 16px; margin: 0"><div><div style="font-size: 12px; font-weight: 700">{{s.name}}</div><div style="font-size: 11px; color: #6B6F78">{{s.desc}}</div></div></div>
+</sc-for>
+</section>
+<section style="background: #F1F5FC; border: 1px solid #C9D3E8; border-radius: 14px; padding: 16px 20px">
+<h2 style="margin: 0 0 8px; font-size: 14px; font-weight: 800; color: #0F2E66">Kenapa lebih aman dari Excel lama</h2>
+<ul style="margin: 0; padding-left: 18px; font-size: 12px; line-height: 1.7; color: #1F2F55">
+<li>Setiap baris material punya rumus. Di file lama ada puluhan sel kosong tanpa rumus.</li>
+<li>SUM tiap paket persis mencakup barisnya sendiri. Di file lama rentang G, H, I dan M, N, O berbeda.</li>
+<li>Total akhir menjumlahkan sel JUMLAH tiap paket, bukan SUMIF rentang tetap yang melewatkan paket pertama dan paket di bawah baris 431.</li>
+<li>Terbilang dan label PPN ikut nilai terbaru, tidak tertinggal.</li>
+<li>Sheet Cek hitungan membandingkan total dari dua jalur hitung.</li>
+</ul>
+</section>
+</div>
+</div>
+</main>
+</div>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props='{"$preview":{"width":1920,"height":1280}}'>
+class Component extends DCLogic {
+  renderVals() {
+    return {
+      checks: [
+        { label: 'Jumlah material semua paket', a: 'Rp 67.895.763,26', b: 'Rp 67.895.763,26' },
+        { label: 'Jumlah jasa semua paket', a: 'Rp 158.405.451,77', b: 'Rp 158.405.451,77' },
+        { label: 'Total kontrak awal (setelah DPP, PPN, bulat)', a: 'Rp 251.194.349,00', b: 'Rp 251.194.349,00' },
+        { label: 'Total nilai amandemen', a: 'Rp 16.365.302,00', b: 'Rp 16.365.302,00' },
+        { label: 'Realisasi LH vs Data LH', a: 'Sama', b: 'Sama' },
+        { label: 'Rekapitulasi vs jumlah RAB per PK', a: 'Rp 484.820.137,00', b: 'Rp 484.820.137,00' }
+      ],
+      formulas: [
+        { label: 'Nilai awal material (baris)', code: '=D13*E13' },
+        { label: 'Jumlah baris', code: '=G13+H13' },
+        { label: 'Realisasi dari Data LH', code: "=ROUND(SUMIFS('Data LH'!$E:$E,'Data LH'!$D:$D,$P13),6)" },
+        { label: 'Kerja tambah', code: '=MAX(J13-D13,0)' },
+        { label: 'JUMLAH paket', code: '=SUM(G13:G62)' },
+        { label: 'Total semua paket', code: '=G63+G88+…+G497' },
+        { label: 'DPP Lain-lain', code: '=G499*11/12' },
+        { label: 'PPN 12%', code: '=G500*12%' },
+        { label: 'Dibulatkan', code: '=ROUND(G502,0)' }
+      ],
+      sheets: [
+        { name: 'Lampiran KTK', desc: 'Semua paket terpilih, lengkap dengan rumus' },
+        { name: 'RAB', desc: 'Satu blok per PK' },
+        { name: 'Rekapitulasi', desc: 'Per lokasi: material, jasa, total, DPP, PPN' },
+        { name: 'Data LH', desc: 'Sumber realisasi, dibaca oleh SUMIFS' },
+        { name: 'Cek hitungan', desc: 'Pembanding total dari dua jalur' }
+      ]
+    };
+  }
+}
+</script>
+</body>
+</html>
