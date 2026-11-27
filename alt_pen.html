@@ -1,0 +1,139 @@
+<!doctype html>
+<html lang="id">
+<head>
+<meta charset="utf-8">
+<title>Penagihan — alternatif papan tahapan</title>
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&amp;display=swap" rel="stylesheet">
+<style>
+body{margin:0;background:#F6F5F1}
+a{text-decoration:none}
+button{font: inherit; cursor: pointer}
+.card:hover{border-color: #0F2E66 !important}
+</style>
+</helmet>
+<div style="width: 1920px; height: 1000px; box-sizing: border-box; background: #F6F5F1; font-family: 'Plus Jakarta Sans', 'Segoe UI', system-ui, sans-serif; font-size: 12px; color: #16181D; font-variant-numeric: tabular-nums; display: flex; overflow: hidden">
+
+<aside style="width: 56px; flex-shrink: 0; background: #FFFFFF; border-right: 1px solid #E4E2DA; display: flex; flex-direction: column; align-items: center; padding: 12px 0; gap: 6px">
+<div style="width: 32px; height: 32px; border-radius: 8px; background: #0B1730; display: flex; align-items: center; justify-content: center; margin-bottom: 8px"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#8DB2F2" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M14 3H7a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2V8z"></path><path d="M14 3v5h5M9 15l2 2 4-4"></path></svg></div>
+<a href="KtkDaftar.dc.html" title="KTK" style="width: 36px; height: 36px; border-radius: 9px; display: flex; align-items: center; justify-content: center"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#8C9097" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 6h18M3 12h18M3 18h18"></path><path d="M7 3v6M17 9v6M12 15v6"></path></svg></a>
+<a href="Main.dc.html" title="Penagihan" style="width: 36px; height: 36px; border-radius: 9px; background: #E7EDF8; display: flex; align-items: center; justify-content: center"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#0F2E66" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="2" y="5" width="20" height="14" rx="2"></rect><path d="M2 10h20M6 15h4"></path></svg></a>
+</aside>
+
+<div style="flex-grow: 1; display: flex; flex-direction: column; min-width: 0">
+<header style="height: 44px; flex-shrink: 0; background: #FFFFFF; border-bottom: 1px solid #E4E2DA; display: flex; align-items: center; justify-content: space-between; padding: 0 24px">
+<div style="display: flex; align-items: center; gap: 8px"><span style="color: #6B6F78">Keuangan</span><span style="color: #C9C6BC">/</span><span style="font-weight: 700">Penagihan · Alternatif B (papan tahapan)</span></div>
+<span style="font-size: 10px; font-weight: 600; color: #0F2E66; background: #E7EDF8; padding: 3px 9px; border-radius: 999px">Khusus SPK &amp; Admin</span>
+</header>
+
+<div style="display: flex; flex-grow: 1; min-height: 0">
+<main style="flex-grow: 1; min-width: 0; padding: 14px 20px; display: flex; flex-direction: column; gap: 12px">
+
+<div style="display: flex; align-items: center; justify-content: space-between">
+<div style="display: flex; align-items: baseline; gap: 14px"><h1 style="margin: 0; font-size: 18px; font-weight: 800">Papan penagihan</h1><span style="color: #6B6F78">Tiap PK bergerak dari kiri ke kanan. Klik kartu untuk melihat isi dan langkah berikutnya.</span></div>
+<div style="display: flex; gap: 10px; align-items: center">
+<span style="color: #6B6F78">SPK</span>
+<select style="height: 28px; border: 1px solid #E4E2DA; border-radius: 7px; padding: 0 10px; font: inherit; background: #FFFFFF"><option>Semua SPK</option><option>SPK 0294 · PT Nanda Nirwana</option><option>SPK-1/2026 MENGWI</option></select>
+<div style="padding: 6px 14px; background: #0B1730; color: #FFFFFF; border-radius: 8px"><span style="color: #A9B8D6; font-size: 10px">Belum tertagih</span> <b style="font-size: 14px">{{sumOpen}}</b></div>
+</div>
+</div>
+
+<div style="flex-grow: 1; min-height: 0; display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 12px">
+<sc-for list="{{cols}}" as="c" hint-placeholder-count="4">
+<section style="background: #ECEAE3; border-radius: 12px; display: flex; flex-direction: column; min-height: 0">
+<div style="padding: 12px 14px 8px; flex-shrink: 0">
+<div style="display: flex; justify-content: space-between; align-items: center"><div style="display: flex; align-items: center; gap: 8px"><span style="width: 22px; height: 22px; border-radius: 50%; background: {{c.dot}}; color: #FFFFFF; font-size: 11px; font-weight: 800; display: flex; align-items: center; justify-content: center">{{c.no}}</span><span style="font-size: 13px; font-weight: 800">{{c.title}}</span></div><span style="font-weight: 700; color: #5B5F68">{{c.count}} PK</span></div>
+<div style="margin-top: 4px; color: #6B6F78">{{c.hint}}</div>
+<div style="margin-top: 6px; font-size: 13px; font-weight: 800; color: {{c.dot}}">{{c.total}}</div>
+</div>
+<div style="padding: 0 10px 10px; overflow-y: auto; flex-grow: 1; display: flex; flex-direction: column; gap: 8px">
+<sc-for list="{{c.cards}}" as="k" hint-placeholder-count="2">
+<button class="card" onClick="{{k.pick}}" style="text-align: left; background: #FFFFFF; border: 2px solid {{k.edge}}; border-radius: 10px; padding: 11px 12px; display: block">
+<div style="display: flex; justify-content: space-between; align-items: center"><span style="font-weight: 800; font-size: 13px">{{k.pk}}</span><span style="font-size: 10.5px; color: #6B6F78">tutup {{k.closed}}</span></div>
+<div style="margin-top: 3px; line-height: 1.35; font-weight: 600">{{k.title}}</div>
+<div style="margin-top: 3px; color: #6B6F78; font-size: 11px">{{k.spk}}</div>
+<div style="margin-top: 8px; display: flex; justify-content: space-between; align-items: center"><span style="font-size: 11px; color: #5B5F68">{{k.lh}} LH</span><b>{{k.value}}</b></div>
+</button>
+</sc-for>
+<div style="padding: 18px 8px; text-align: center; color: #8C9097; display: {{c.dEmpty}}">Tidak ada PK di tahap ini</div>
+</div>
+</section>
+</sc-for>
+</div>
+</main>
+
+<aside style="width: 420px; flex-shrink: 0; background: #FFFFFF; border-left: 1px solid #E4E2DA; display: flex; flex-direction: column; min-height: 0">
+<div style="padding: 14px 18px; border-bottom: 1px solid #E4E2DA; flex-shrink: 0">
+<div style="font-size: 10px; font-weight: 700; color: #8C9097; letter-spacing: 0.08em">PK TERPILIH</div>
+<div style="font-size: 16px; font-weight: 800; margin-top: 2px">{{sel.pk}}</div>
+<div style="margin-top: 2px; line-height: 1.4">{{sel.title}}</div>
+<div style="margin-top: 2px; color: #6B6F78">{{sel.spk}}</div>
+</div>
+<div style="padding: 12px 18px; border-bottom: 1px solid #EFEDE6; flex-shrink: 0">
+<div style="display: flex; gap: 4px; align-items: center">
+<sc-for list="{{sel.steps}}" as="s" hint-placeholder-count="4">
+<div style="flex: 1"><div style="height: 5px; border-radius: 3px; background: {{s.fill}}"></div><div style="margin-top: 4px; font-size: 10px; font-weight: {{s.w}}; color: {{s.fg}}">{{s.label}}</div></div>
+</sc-for>
+</div>
+</div>
+<div style="padding: 10px 18px; flex-shrink: 0; display: grid; grid-template-columns: 1fr 1fr; gap: 10px; border-bottom: 1px solid #EFEDE6">
+<div><div style="color: #6B6F78; font-size: 10.5px">Nilai LH</div><div style="font-weight: 800; font-size: 14px">{{sel.value}}</div></div>
+<div><div style="color: #6B6F78; font-size: 10.5px">Jumlah LH</div><div style="font-weight: 800; font-size: 14px">{{sel.lh}}</div></div>
+</div>
+<div style="padding: 8px 18px 4px; font-weight: 800; flex-shrink: 0">Isi LH</div>
+<div style="overflow-y: auto; flex-grow: 1; min-height: 0">
+<sc-for list="{{sel.lhs}}" as="l" hint-placeholder-count="5">
+<div style="display: grid; grid-template-columns: 74px minmax(0, 1fr) auto; gap: 8px; padding: 6px 18px; border-bottom: 1px solid #F2F0EA; align-items: center"><span style="color: #6B6F78">{{l.date}}</span><span style="line-height: 1.3">{{l.name}}</span><b>{{l.value}}</b></div>
+</sc-for>
+</div>
+<div style="padding: 14px 18px; border-top: 1px solid #E4E2DA; flex-shrink: 0; display: flex; flex-direction: column; gap: 8px">
+<div style="color: #6B6F78; font-size: 11px">{{sel.why}}</div>
+<a href="{{sel.href}}" style="height: 38px; border-radius: 9px; background: #0F2E66; color: #FFFFFF; font-weight: 700; display: flex; align-items: center; justify-content: center; font-size: 13px">{{sel.action}}</a>
+</div>
+</aside>
+</div>
+</div>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props='{"$preview":{"width":1920,"height":1000}}'>
+class Component extends DCLogic {
+  constructor(props) { super(props); this.state = { sel: 'PK 0071' }; }
+  renderVals() {
+    var self = this, st = this.state;
+    var STG = [
+      { t: 'Menunggu KTK', hint: 'LH sudah verifikasi, KTK belum dibuat', dot: '#B54708', act: 'Buka KTK', href: 'KtkLampiran.dc.html', why: 'Isi volume kontrak dan cek LH terhadap kontrak PLN sebelum LH bisa digabung.' },
+      { t: 'Gabung LH', hint: 'KTK selesai, tagihan sedang dirancang', dot: '#0F2E66', act: 'Rancang tagihan', href: 'Rancang.dc.html', why: 'Pilih LH yang masuk tagihan dan lihat total material, jasa, dan PPN.' },
+      { t: 'Pengesahan RAB', hint: 'RAB diajukan, menunggu disahkan', dot: '#0F2E66', act: 'Tandai disahkan', href: '#', why: 'Tandai setelah RAB ditandatangani dan disahkan.' },
+      { t: 'Tertagih', hint: 'Tagihan sudah dikirim ke PLN', dot: '#1B7F4B', act: 'Lihat di arsip', href: '#', why: 'Sudah selesai. Dokumen tersimpan di Arsip RAB.' }
+    ];
+    var D = [
+      { pk: 'PK 0088', title: 'Pasang JTR Br. Sempidi', spk: 'SPK 0294 · PT Nanda Nirwana', closed: '03/10', lh: 6, v: 148320000, s: 0 },
+      { pk: 'PK 0091', title: 'Gardu sisipan 160 kVA Br. Dalung', spk: 'SPK 0294 · PT Nanda Nirwana', closed: '08/10', lh: 8, v: 129400000, s: 0 },
+      { pk: 'PK 0071', title: 'Perluasan JTR Br. Kerobokan', spk: 'SPK 0294 · PT Nanda Nirwana', closed: '26/09', lh: 9, v: 212640000, s: 1 },
+      { pk: 'PK 0079', title: 'Penggantian trafo Br. Abian Base', spk: 'SPK 0294 · PT Nanda Nirwana', closed: '01/10', lh: 4, v: 96480000, s: 1 },
+      { pk: 'PK 0002', title: 'Perbaikan konstruksi TM Br. Pandak', spk: 'SPK 0294 · PT Nanda Nirwana', closed: '22/09', lh: 7, v: 187050000, s: 2 },
+      { pk: 'PK 0065', title: 'Uprating JTM Penyulang Barat', spk: 'SPK-1/2026 MENGWI', closed: '12/09', lh: 11, v: 305770000, s: 3 },
+      { pk: 'PK 0003', title: 'Pindah tiang TM Jl. Gatsu', spk: 'SPK 0294 · PT Nanda Nirwana', closed: '18/09', lh: 5, v: 74900000, s: 3 }
+    ];
+    var LH = [['02/09', 'Pasang tiang beton 11 m', 0.22], ['04/09', 'Pasang cross arm dan isolator', 0.17], ['09/09', 'Tarik kabel AAACS 150 mm2', 0.2], ['12/09', 'Pasang arrester dan fuse cut out', 0.11], ['16/09', 'Pasang gardu portal', 0.18], ['20/09', 'Bongkar jaringan lama', 0.12]];
+    var rp = function (n) { return 'Rp ' + Math.round(n).toLocaleString('id-ID') + ',00'; };
+    var cols = STG.map(function (g, gi) {
+      var items = D.filter(function (d) { return d.s === gi; });
+      return { no: String(gi + 1), title: g.t, hint: g.hint, dot: g.dot, count: items.length, total: rp(items.reduce(function (a, d) { return a + d.v; }, 0)), dEmpty: items.length ? 'none' : 'block',
+        cards: items.map(function (d) { return { pk: d.pk, title: d.title, spk: d.spk, closed: d.closed, lh: d.lh, value: rp(d.v), edge: st.sel === d.pk ? '#0F2E66' : 'transparent', pick: function () { self.setState({ sel: d.pk }); } }; }) };
+    });
+    var d = D.filter(function (x) { return x.pk === st.sel; })[0] || D[0], g = STG[d.s];
+    var lhs = LH.slice(0, Math.min(6, d.lh)).map(function (l) { return { date: l[0], name: l[1], value: rp(d.v * l[2]) }; });
+    var steps = STG.map(function (x, i) { return { label: x.t, fill: i <= d.s ? '#0F2E66' : '#E4E2DA', w: i === d.s ? 800 : 500, fg: i === d.s ? '#16181D' : '#6B6F78' }; });
+    var open = D.filter(function (x) { return x.s < 3; }).reduce(function (a, x) { return a + x.v; }, 0);
+    return { cols: cols, sumOpen: rp(open), sel: { pk: d.pk, title: d.title, spk: d.spk, value: rp(d.v), lh: d.lh, lhs: lhs, steps: steps, action: g.act, href: g.href, why: g.why } };
+  }
+}
+</script>
+</body>
+</html>

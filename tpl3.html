@@ -1,0 +1,393 @@
+<!doctype html>
+<html lang="id">
+<head>
+<meta charset="utf-8">
+<title>KTK 71 — __TITLE__</title>
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&amp;display=swap" rel="stylesheet">
+<style>
+body{margin:0;background:#F6F5F1}
+a{text-decoration:none}
+button{font: inherit; cursor: pointer}
+input.cell{font: inherit; font-size: 11px; font-weight: 600; width: 100%; height: 24px; box-sizing: border-box; border: 1px solid #C9D3E8; border-radius: 5px; padding: 0 7px; background: #F1F5FC; color: #16181D; outline: none}
+input.cell.r{text-align: right}
+input.cell:focus{border-color: #0F2E66; background: #FFFFFF}
+input.chk{accent-color: #0F2E66; width: 14px; height: 14px; margin: 0; cursor: pointer}
+.hit:hover{background: #E7EDF8}
+.row:hover{background: #F8F9FC}
+</style>
+</helmet>
+<div style="width: 1920px; height: 1200px; box-sizing: border-box; background: #F6F5F1; font-family: 'Plus Jakarta Sans', 'Segoe UI', system-ui, sans-serif; font-size: 11px; color: #16181D; font-variant-numeric: tabular-nums; display: flex; overflow: hidden">
+
+<aside style="width: 56px; flex-shrink: 0; background: #FFFFFF; border-right: 1px solid #E4E2DA; display: flex; flex-direction: column; align-items: center; padding: 12px 0; gap: 6px">
+<div style="width: 32px; height: 32px; border-radius: 8px; background: #0B1730; display: flex; align-items: center; justify-content: center; margin-bottom: 8px"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#8DB2F2" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M14 3H7a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2V8z"></path><path d="M14 3v5h5M9 15l2 2 4-4"></path></svg></div>
+<a href="KtkDaftar.dc.html" title="KTK" style="width: 36px; height: 36px; border-radius: 9px; background: #E7EDF8; display: flex; align-items: center; justify-content: center"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#0F2E66" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 6h18M3 12h18M3 18h18"></path><path d="M7 3v6M17 9v6M12 15v6"></path></svg></a>
+<a href="Main.dc.html" title="Penagihan" style="width: 36px; height: 36px; border-radius: 9px; display: flex; align-items: center; justify-content: center"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#8C9097" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="2" y="5" width="20" height="14" rx="2"></rect><path d="M2 10h20M6 15h4"></path></svg></a>
+</aside>
+
+<div style="flex-grow: 1; display: flex; flex-direction: column; min-width: 0">
+<header style="height: 40px; flex-shrink: 0; background: #FFFFFF; border-bottom: 1px solid #E4E2DA; display: flex; align-items: center; justify-content: space-between; padding: 0 20px">
+<div style="display: flex; align-items: center; gap: 7px; font-size: 11px"><a href="KtkDaftar.dc.html" style="color: #6B6F78">KTK</a><span style="color: #C9C6BC">/</span><span style="color: #6B6F78">Jenis 71 · Kontrak 0597 · PT Nanda Nirwana Elektrik</span><span style="color: #C9C6BC">/</span><span style="font-weight: 700">{{crumb}}</span></div>
+<span style="font-size: 10px; font-weight: 600; color: #0F2E66; background: #E7EDF8; padding: 3px 9px; border-radius: 999px">Khusus SPK &amp; Admin</span>
+</header>
+
+<main style="flex-grow: 1; min-height: 0; padding: 10px 20px 14px; display: flex; flex-direction: column; gap: 8px; min-width: 0">
+
+<div style="display: flex; align-items: center; justify-content: space-between; flex-shrink: 0">
+<div style="display: flex; gap: 0">
+<button onClick="{{goKontrak}}" style="border: none; background: transparent; font-size: 12px; font-weight: {{tk.w}}; color: {{tk.c}}; border-bottom: 2px solid {{tk.b}}; padding: 6px 2px 8px; margin-right: 22px">Volume kontrak</button>
+<button onClick="{{goPaket}}" style="border: none; background: transparent; font-size: 12px; font-weight: {{tp.w}}; color: {{tp.c}}; border-bottom: 2px solid {{tp.b}}; padding: 6px 2px 8px; margin-right: 22px">Template paket</button>
+<a href="KtkLampiran.dc.html" style="font-size: 12px; color: #6B6F78; border-bottom: 2px solid transparent; padding: 6px 2px 8px; margin-right: 22px">Lampiran KTK</a>
+<a href="KtkCek.dc.html" style="font-size: 12px; color: #6B6F78; border-bottom: 2px solid transparent; padding: 6px 2px 8px; margin-right: 22px">Cek LH per PK</a>
+<a href="KtkRab.dc.html" style="font-size: 12px; color: #6B6F78; border-bottom: 2px solid transparent; padding: 6px 2px 8px; margin-right: 22px">RAB per PK</a>
+<a href="KtkRekap.dc.html" style="font-size: 12px; color: #6B6F78; border-bottom: 2px solid transparent; padding: 6px 2px 8px">Rekapitulasi</a>
+</div>
+<div style="display: flex; align-items: center; gap: 18px; font-size: 11px">
+<span><span style="color: #6B6F78">Paket di kontrak</span> <b>{{tot.count}}</b></span>
+<span><span style="color: #6B6F78">Material</span> <b>{{tot.vm}}</b></span>
+<span><span style="color: #6B6F78">Jasa</span> <b>{{tot.vj}}</b></span>
+<span><span style="color: #6B6F78">PPN 12%</span> <b>{{tot.ppn}}</b></span>
+<span style="background: #0B1730; color: #FFFFFF; padding: 5px 12px; border-radius: 7px; font-size: 12px"><span style="color: #A9B8D6; font-size: 10px">Total kontrak awal</span> <b>{{tot.total}}</b></span>
+<a href="KtkExport.dc.html" style="height: 28px; padding: 0 12px; border-radius: 7px; background: #0F2E66; color: #FFFFFF; font-size: 11px; font-weight: 700; display: flex; align-items: center">Export Excel</a>
+</div>
+</div>
+
+<div style="flex-grow: 1; min-height: 0; display: grid; grid-template-columns: 340px minmax(0, 1fr); gap: 10px">
+
+<!-- KIRI -->
+<section style="background: #FFFFFF; border: 1px solid #E4E2DA; border-radius: 10px; overflow: hidden; display: flex; flex-direction: column; min-height: 0">
+
+<div style="display: {{dCon}}; flex-direction: column; min-height: 0; flex: 1 1 50%; border-bottom: 2px solid #0B1730">
+<div style="padding: 7px 10px; background: #E7EDF8; border-bottom: 1px solid #C9D3E8; flex-shrink: 0; display: flex; justify-content: space-between; align-items: center"><span style="font-size: 11px; font-weight: 800; color: #0B1730">Paket di kontrak ini ({{tot.count}})</span><button onClick="{{clearCon}}" style="border: none; background: transparent; color: #B42318; font-size: 10px; font-weight: 700">Kosongkan</button></div>
+<div style="overflow-y: auto; flex-grow: 1; min-height: 0">
+<sc-for list="{{conList}}" as="c" hint-placeholder-count="8">
+<div class="row" style="display: grid; grid-template-columns: minmax(0, 1fr) auto 20px; gap: 6px; align-items: center; padding: 5px 10px; border-bottom: 1px solid #EFEDE6; border-left: 3px solid {{c.bar}}">
+<button onClick="{{c.act}}" title="{{c.full}}" style="border: none; background: transparent; text-align: left; padding: 0; min-width: 0"><div style="font-size: 11px; font-weight: 700; line-height: 1.3">{{c.name}}</div></button>
+<span style="font-size: 10px; color: #5B5F68; white-space: nowrap">{{c.val}}</span>
+<button onClick="{{c.del}}" title="Keluarkan paket dari kontrak" style="border: none; background: transparent; color: #B42318; padding: 0; font-size: 13px; line-height: 1">×</button>
+</div>
+</sc-for>
+<div style="padding: 14px; text-align: center; color: #6B6F78; display: {{dConEmpty}}">Kontrak masih kosong. Tambahkan paket dari template di bawah.</div>
+</div>
+</div>
+
+<div style="display: flex; flex-direction: column; min-height: 0; flex: 1 1 50%">
+<div style="padding: 7px 10px; background: #FAF9F5; border-bottom: 1px solid #E4E2DA; flex-shrink: 0; display: flex; gap: 6px; align-items: center">
+<span style="font-size: 11px; font-weight: 800; white-space: nowrap">Template paket</span>
+<input class="cell" style="height: 24px" value="{{pq}}" onInput="{{setPq}}" placeholder="Cari template…">
+<button onClick="{{newPkg}}" style="height: 24px; padding: 0 9px; border: none; border-radius: 6px; background: #0F2E66; color: #FFFFFF; font-size: 10.5px; font-weight: 700; white-space: nowrap; display: {{dNewBtn}}">+ Baru</button>
+</div>
+<div style="padding: 4px 10px; font-size: 10px; color: #6B6F78; border-bottom: 1px solid #EFEDE6; flex-shrink: 0">{{libHint}}</div>
+<div style="overflow-y: auto; flex-grow: 1; min-height: 0">
+<sc-for list="{{lib}}" as="l" hint-placeholder-count="10">
+<div class="row" style="display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: 8px; align-items: center; padding: 5px 10px; border-bottom: 1px solid #EFEDE6; background: {{l.bg}}; border-left: 3px solid {{l.bar}}">
+<button onClick="{{l.act}}" title="{{l.full}}" style="border: none; background: transparent; text-align: left; padding: 0; min-width: 0"><div style="font-size: 11px; font-weight: 700; line-height: 1.3">{{l.name}}</div><div style="font-size: 10px; color: #8C9097">{{l.meta}}</div></button>
+<button onClick="{{l.add}}" style="height: 22px; padding: 0 9px; border: 1px solid #C9D3E8; border-radius: 5px; background: #FFFFFF; color: #0F2E66; font-size: 10.5px; font-weight: 700; display: {{l.dAdd}}">+ Pakai</button>
+</div>
+</sc-for>
+</div>
+</div>
+</section>
+
+<!-- TAB VOLUME KONTRAK -->
+<section style="background: #FFFFFF; border: 1px solid #E4E2DA; border-radius: 10px; overflow: hidden; display: {{dKontrak}}; flex-direction: column; min-height: 0">
+<div style="padding: 6px 12px; border-bottom: 1px solid #E4E2DA; display: flex; justify-content: space-between; align-items: center; flex-shrink: 0">
+<div style="display: flex; align-items: center; gap: 16px"><span style="font-size: 12px; font-weight: 800">Material dan volume kontrak dari PLN</span>
+<label style="display: flex; align-items: center; gap: 5px; color: #5B5F68; cursor: pointer"><input class="chk" type="checkbox" checked="{{hideZero}}" onChange="{{toggleZero}}">Sembunyikan volume kosong</label>
+<span style="color: #6B6F78">Harga tampil 2 desimal. Klik sel harga untuk melihat dan mengubah semua digit (dihitung 10 desimal)</span></div>
+<div style="display: flex; gap: 6px"><button onClick="{{openAll}}" style="height: 24px; padding: 0 10px; border: 1px solid #E4E2DA; border-radius: 6px; background: #FFFFFF; font-size: 11px; font-weight: 600">Buka semua</button><button onClick="{{closeAll}}" style="height: 24px; padding: 0 10px; border: 1px solid #E4E2DA; border-radius: 6px; background: #FFFFFF; font-size: 11px; font-weight: 600">Tutup semua</button></div>
+</div>
+<div style="overflow: auto; flex-grow: 1; min-height: 0">
+<div style="min-width: 1500px">
+<div style="position: sticky; top: 0; z-index: 2; background: #0B1730; color: #FFFFFF; font-size: 10px; font-weight: 700; display: grid; grid-template-columns: 40px minmax(0, 1fr) 46px 80px 150px 150px 164px 164px 170px 76px; gap: 8px; padding: 6px 12px"><span>NO</span><span>URAIAN (NAMA MATERIAL KONTRAK PLN)</span><span>SAT</span><span style="text-align: right">VOLUME</span><span style="text-align: right">HARGA MATERIAL · KOL E</span><span style="text-align: right">HARGA JASA · KOL F</span><span style="text-align: right">NILAI MATERIAL</span><span style="text-align: right">NILAI JASA</span><span style="text-align: right">JUMLAH</span><span style="text-align: center">AKSI</span></div>
+<sc-for list="{{rowsK}}" as="r" hint-placeholder-count="14">
+<div style="border-bottom: 1px solid #EFEDE6; background: {{r.bg}}; color: {{r.color}}">
+<div onClick="{{r.click}}" class="row" style="display: {{r.dRow}}; grid-template-columns: 40px minmax(0, 1fr) 46px 80px 150px 150px 164px 164px 170px 76px; gap: 8px; align-items: center; padding: {{r.pad}}; font-weight: {{r.fw}}; cursor: {{r.cur}}">
+<span style="color: #6B6F78">{{r.no}}</span>
+<div><span style="display: {{r.dTxt}}; line-height: 1.3">{{r.name}}</span><input class="cell" style="display: {{r.dIn}}" value="{{r.nameV}}" onInput="{{r.nameSet}}" placeholder="Ketik nama material sesuai kontrak PLN"><div style="display: {{r.dRef}}; font-size: 10px; color: #8C9097; margin-top: 2px">Master_Data: {{r.refName}} · harga mengikuti master</div></div>
+<span style="color: #5B5F68">{{r.sat}}</span>
+<div><input class="cell r" style="display: {{r.dIn}}" value="{{r.volV}}" onInput="{{r.volSet}}" inputmode="decimal" placeholder="0"></div>
+<div style="text-align: right"><span style="display: {{r.dPrice}}; font-weight: 700">{{r.pm}}</span><input class="cell r" title="Klik untuk melihat dan mengubah harga lengkap" style="display: {{r.dManual}}" value="{{r.pmV}}" onInput="{{r.pmSet}}" onFocus="{{r.pmFocus}}" onBlur="{{r.pmBlur}}" inputmode="decimal"></div>
+<div style="text-align: right"><span style="display: {{r.dPrice}}; font-weight: 700">{{r.pj}}</span><input class="cell r" title="Klik untuk melihat dan mengubah harga lengkap" style="display: {{r.dManual}}" value="{{r.pjV}}" onInput="{{r.pjSet}}" onFocus="{{r.pjFocus}}" onBlur="{{r.pjBlur}}" inputmode="decimal"></div>
+<span style="text-align: right">{{r.vm}}</span><span style="text-align: right">{{r.vj}}</span><span style="text-align: right; font-weight: 700">{{r.vt}}</span>
+<span style="display: {{r.dAct}}; gap: 4px; justify-content: center"><button onClick="{{r.master}}" title="Pilih dari Master_Data" style="width: 22px; height: 22px; border: 1px solid #C9D3E8; border-radius: 5px; background: #FFFFFF; color: #0F2E66; font-size: 10px; font-weight: 700">▾</button><button onClick="{{r.del}}" title="Hapus material" style="width: 22px; height: 22px; border: 1px solid #E4E2DA; border-radius: 5px; background: #FFFFFF; color: #B42318; font-size: 12px; line-height: 1">×</button></span>
+<span style="display: {{r.dTool}}; grid-column: 2 / span 9; gap: 8px; align-items: center"><button onClick="{{r.addMat}}" style="height: 22px; padding: 0 12px; border: 1px dashed #0F2E66; border-radius: 5px; background: #FFFFFF; color: #0F2E66; font-size: 10.5px; font-weight: 700">+ Tambah material dari Master_Data</button><span style="color: #6B6F78">{{r.toolNote}}</span></span>
+</div>
+<div style="display: {{r.dPick}}; padding: 8px 12px 10px; background: #F1F5FC; border-top: 1px solid #C9D3E8">
+<div style="display: flex; gap: 8px; align-items: center; margin-bottom: 6px"><span style="font-weight: 700; color: #0F2E66; white-space: nowrap">{{r.pickTitle}}</span><input class="cell" style="height: 26px; max-width: 520px" value="{{mq}}" onInput="{{setMq}}" placeholder="Cari di Master_Data, mis. arrester, kabel, cross arm"><span style="color: #6B6F78">{{hitCount}} material cocok</span><button onClick="{{closePick}}" style="margin-left: auto; height: 24px; padding: 0 12px; border: 1px solid #C9D3E8; border-radius: 6px; background: #FFFFFF; font-size: 11px; font-weight: 700">Tutup</button></div>
+<div style="background: #FFFFFF; border: 1px solid #C9D3E8; border-radius: 6px; max-height: 232px; overflow-y: auto">
+<div style="display: grid; grid-template-columns: minmax(0, 1fr) 52px 150px 150px; gap: 8px; padding: 4px 10px; font-size: 10px; font-weight: 700; color: #8C9097; background: #FAF9F5; border-bottom: 1px solid #EFEDE6; position: sticky; top: 0"><span>NAMA ITEM (MASTER_DATA KOL C)</span><span>SAT</span><span style="text-align: right">HARGA MATERIAL · KOL E</span><span style="text-align: right">HARGA JASA · KOL F</span></div>
+<sc-for list="{{r.hits}}" as="h" hint-placeholder-count="6">
+<button class="hit" title="{{h.full}}" onClick="{{h.pick}}" style="display: grid; grid-template-columns: minmax(0, 1fr) 52px 150px 150px; gap: 8px; width: 100%; text-align: left; padding: 5px 10px; border: none; border-bottom: 1px solid #F2F0EA; background: transparent; font-size: 11px"><span style="font-weight: 600">{{h.name}}</span><span style="color: #5B5F68">{{h.sat}}</span><span style="text-align: right">{{h.pm}}</span><span style="text-align: right">{{h.pj}}</span></button>
+</sc-for>
+</div>
+</div>
+</div>
+</sc-for>
+<div style="background: #FAF9F5; border-top: 2px solid #0B1730; font-size: 11px">
+<div style="display: grid; grid-template-columns: minmax(0, 1fr) 164px 164px 170px 84px; gap: 8px; padding: 5px 12px; font-weight: 700; border-bottom: 1px solid #EFEDE6"><span style="text-align: right">JUMLAH</span><span style="text-align: right">{{tot.vm2}}</span><span style="text-align: right">{{tot.vj2}}</span><span style="text-align: right">{{tot.jum2}}</span><span></span></div>
+<div style="display: grid; grid-template-columns: minmax(0, 1fr) 170px 84px; gap: 8px; padding: 4px 12px; border-bottom: 1px solid #EFEDE6"><span style="text-align: right; color: #5B5F68">DPP Lain-lain (JUMLAH × 11/12)</span><span style="text-align: right">{{tot.dpp}}</span><span></span></div>
+<div style="display: grid; grid-template-columns: minmax(0, 1fr) 170px 84px; gap: 8px; padding: 4px 12px; border-bottom: 1px solid #EFEDE6"><span style="text-align: right; color: #5B5F68">PPN 12% (DPP Lain-lain × 12%)</span><span style="text-align: right">{{tot.ppnx}}</span><span></span></div>
+<div style="display: grid; grid-template-columns: minmax(0, 1fr) 170px 84px; gap: 8px; padding: 4px 12px; font-weight: 700; border-bottom: 1px solid #EFEDE6"><span style="text-align: right">JUMLAH + PPN</span><span style="text-align: right">{{tot.gross}}</span><span></span></div>
+<div style="display: grid; grid-template-columns: minmax(0, 1fr) 170px 84px; gap: 8px; padding: 7px 12px; font-size: 12px; font-weight: 800; background: #E7EDF8; color: #0F2E66"><span style="text-align: right">DIBULATKAN · TOTAL NILAI KONTRAK AWAL</span><span style="text-align: right">{{tot.bulat}}</span><span></span></div>
+<div style="padding: 6px 12px; color: #5B5F68; line-height: 1.5">{{tot.drift}}</div>
+</div>
+</div>
+</div>
+</section>
+
+<!-- TAB TEMPLATE PAKET -->
+<section style="background: #FFFFFF; border: 1px solid #E4E2DA; border-radius: 10px; overflow: hidden; display: {{dPaket}}; flex-direction: column; min-height: 0">
+<div style="padding: 8px 12px; border-bottom: 1px solid #E4E2DA; flex-shrink: 0; display: flex; align-items: center; gap: 10px; background: #F1F5FC">
+<span style="font-size: 10px; font-weight: 700; color: #0F2E66; white-space: nowrap">NAMA TEMPLATE</span>
+<input class="cell" style="height: 28px; font-size: 12px; font-weight: 700; max-width: 760px" value="{{selName}}" onInput="{{setSelName}}" placeholder="Nama paket">
+<span style="color: #5B5F68; white-space: nowrap">{{selCount}} material</span>
+<span style="margin-left: auto; display: flex; gap: 6px">
+<button onClick="{{useSel}}" style="height: 26px; padding: 0 12px; border: none; border-radius: 6px; background: #0F2E66; color: #FFFFFF; font-size: 11px; font-weight: 700">+ Pakai di kontrak ini</button>
+<button onClick="{{dupPkg}}" style="height: 26px; padding: 0 10px; border: 1px solid #C9D3E8; border-radius: 6px; background: #FFFFFF; color: #0F2E66; font-size: 11px; font-weight: 700">Duplikat</button>
+<button onClick="{{delPkg}}" style="height: 26px; padding: 0 10px; border: 1px solid #F1C4BF; border-radius: 6px; background: #FFFFFF; color: #B42318; font-size: 11px; font-weight: 700">Hapus template</button>
+</span>
+</div>
+<div style="padding: 5px 12px; background: #FAF9F5; border-bottom: 1px solid #EFEDE6; font-size: 10px; color: #6B6F78; flex-shrink: 0">Template hanya berisi daftar material dari Master_Data (harga material kolom E, harga jasa kolom F). Belum ada volume dan realisasi. Setelah template dipakai di kontrak, nama material boleh diganti sesuai kontrak PLN, harganya tetap mengikuti material master. Harga di kontrak disalin saat paket dipakai, jadi kontrak lama tidak berubah bila master diperbarui.</div>
+<div style="overflow: auto; flex-grow: 1; min-height: 0">
+<div style="min-width: 960px">
+<div style="position: sticky; top: 0; z-index: 2; background: #0B1730; color: #FFFFFF; font-size: 10px; font-weight: 700; display: grid; grid-template-columns: 44px minmax(0, 1fr) 52px 160px 160px 96px; gap: 8px; padding: 6px 12px"><span>NO</span><span>NAMA MATERIAL (MASTER_DATA)</span><span>SAT</span><span style="text-align: right">HARGA MATERIAL · KOL E</span><span style="text-align: right">HARGA JASA · KOL F</span><span style="text-align: center">AKSI</span></div>
+<sc-for list="{{rowsP}}" as="r" hint-placeholder-count="14">
+<div style="border-bottom: 1px solid #EFEDE6; background: {{r.bg}}">
+<div class="row" style="display: {{r.dRow}}; grid-template-columns: 44px minmax(0, 1fr) 52px 160px 160px 96px; gap: 8px; align-items: center; padding: 4px 12px; font-weight: {{r.fw}}">
+<span style="color: #6B6F78">{{r.no}}</span><span style="line-height: 1.3">{{r.name}}</span><span style="color: #5B5F68">{{r.sat}}</span>
+<div><input class="cell r" style="display: {{r.dAct}}" value="{{r.pmV}}" onInput="{{r.pmSet}}" onFocus="{{r.pmFocus}}" onBlur="{{r.pmBlur}}" inputmode="decimal"></div><div><input class="cell r" style="display: {{r.dAct}}" value="{{r.pjV}}" onInput="{{r.pjSet}}" onFocus="{{r.pjFocus}}" onBlur="{{r.pjBlur}}" inputmode="decimal"></div>
+<span style="display: {{r.dAct}}; gap: 5px; justify-content: center"><button onClick="{{r.swap}}" style="height: 22px; padding: 0 9px; border: 1px solid #C9D3E8; border-radius: 5px; background: #FFFFFF; color: #0F2E66; font-size: 10.5px; font-weight: 700">Ganti</button><button onClick="{{r.del}}" aria-label="Hapus material" style="width: 22px; height: 22px; border: 1px solid #E4E2DA; border-radius: 5px; background: #FFFFFF; color: #B42318; font-size: 12px; line-height: 1">×</button></span>
+</div>
+<div style="display: {{r.dPick}}; padding: 8px 12px 10px; background: #F1F5FC; border-top: 1px solid #C9D3E8">
+<div style="display: flex; gap: 8px; align-items: center; margin-bottom: 6px"><span style="font-weight: 700; color: #0F2E66; white-space: nowrap">{{r.pickTitle}}</span><input class="cell" style="height: 26px; max-width: 520px" value="{{mq}}" onInput="{{setMq}}" placeholder="Cari di Master_Data"><span style="color: #6B6F78">{{hitCount}} material cocok</span><button onClick="{{closePick}}" style="margin-left: auto; height: 24px; padding: 0 12px; border: 1px solid #C9D3E8; border-radius: 6px; background: #FFFFFF; font-size: 11px; font-weight: 700">Tutup</button></div>
+<div style="background: #FFFFFF; border: 1px solid #C9D3E8; border-radius: 6px; max-height: 232px; overflow-y: auto">
+<sc-for list="{{r.hits}}" as="h" hint-placeholder-count="6">
+<button class="hit" title="{{h.full}}" onClick="{{h.pick}}" style="display: grid; grid-template-columns: minmax(0, 1fr) 52px 160px 160px; gap: 8px; width: 100%; text-align: left; padding: 5px 10px; border: none; border-bottom: 1px solid #F2F0EA; background: transparent; font-size: 11px"><span style="font-weight: 600">{{h.name}}</span><span style="color: #5B5F68">{{h.sat}}</span><span style="text-align: right">{{h.pm}}</span><span style="text-align: right">{{h.pj}}</span></button>
+</sc-for>
+</div>
+</div>
+</div>
+</sc-for>
+<div style="padding: 8px 12px"><button onClick="{{addMat}}" style="height: 26px; padding: 0 14px; border: 1px dashed #0F2E66; border-radius: 6px; background: #FFFFFF; color: #0F2E66; font-size: 11px; font-weight: 700">+ Tambah material dari Master_Data</button></div>
+</div>
+</div>
+</section>
+
+</div>
+</main>
+</div>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props='{"$preview":{"width":1920,"height":1200}}'>
+class Component extends DCLogic {
+  constructor(props) {
+    super(props);
+    var P10 = function (n) { return Number(n).toFixed(10); };
+    var base = this.base();
+    var tpl = base.map(function (p) {
+      return { n: p.n, it: p.it.map(function (r) { return r[0] === 'S' ? { t: 's', name: r[1] } : { t: 'i', name: r[1], sat: r[2], pm: P10(r[4]), pj: P10(r[5]) }; }) };
+    });
+    var con = base.map(function (p, i) {
+      return { n: p.n, open: i === 0, it: p.it.map(function (r) { return r[0] === 'S' ? { t: 's', name: r[1] } : { t: 'i', name: r[1], sat: r[2], vol: String(r[3] || 0), pm: P10(r[4]), pj: P10(r[5]), man: false, ref: r[1] }; }) };
+    });
+    this.state = { tab: '__TAB__', tpl: tpl, con: con, sel: 0, pq: '', hideZero: false, pick: null, mq: '' };
+  }
+  base() {
+    if (!this._d) { this._d = __DATA__; }
+    return this._d;
+  }
+  /* ---------- hitung desimal eksak (BigInt): harga skala 1e10, volume skala 1e4 ---------- */
+  S() { return BigInt('10000000000'); }
+  norm(val) {
+    var s = String(val).replace(/[^0-9.,]/g, '');
+    if (s.indexOf(',') >= 0) { s = s.replace(/\./g, '').replace(',', '.'); }
+    var i = s.indexOf('.'); if (i >= 0) { s = s.slice(0, i + 1) + s.slice(i + 1).replace(/\./g, ''); }
+    return s;
+  }
+  trimmed(s) { s = String(s); return s.indexOf('.') >= 0 ? s.replace(/0+$/, '').replace(/\.$/, '') : s; }
+  D(v) {
+    var s = String(v === undefined || v === null ? '' : v).trim().replace(',', '.');
+    if (!/^\d*\.?\d*$/.test(s) || s === '' || s === '.') { return BigInt(0); }
+    var parts = s.split('.'), ip = parts[0] || '0', fp = ((parts[1] || '') + '0000000000').slice(0, 10);
+    return BigInt(ip + fp);
+  }
+  V4(v) {
+    var s = String(v === undefined || v === null ? '' : v).trim().replace(',', '.');
+    if (!/^\d*\.?\d*$/.test(s) || s === '' || s === '.') { return BigInt(0); }
+    var parts = s.split('.'), ip = parts[0] || '0', fp = ((parts[1] || '') + '0000').slice(0, 4);
+    return BigInt(ip + fp);
+  }
+  mul(p, v4) { return (p * v4 + BigInt(5000)) / BigInt(10000); }
+  fmt(b, dec) {
+    var q = BigInt(10) ** BigInt(10 - dec), r = (b + q / BigInt(2)) / q, s = r.toString();
+    while (s.length <= dec) { s = '0' + s; }
+    var ip = s.slice(0, s.length - dec), fp = s.slice(s.length - dec);
+    ip = ip.replace(/\B(?=(\d{3})+(?!\d))/g, '.');
+    return dec > 0 ? ip + ',' + fp : ip;
+  }
+  line(e) { var v = this.V4(e.vol); return { m: this.mul(this.D(e.pm), v), j: this.mul(this.D(e.pj), v) }; }
+  sum(p) {
+    var self = this, m = BigInt(0), j = BigInt(0);
+    p.it.forEach(function (e) { if (e.t === 'i') { var l = self.line(e); m += l.m; j += l.j; } });
+    return { m: m, j: j };
+  }
+  catalog() {
+    if (!this._c) {
+      var seen = {}, out = [];
+      this.base().forEach(function (p) { p.it.forEach(function (r) { if (r[0] === 'S') { return; } var k = r[1] + '|' + r[4] + '|' + r[5]; if (!seen[k]) { seen[k] = true; out.push({ name: r[1], sat: r[2], pm: Number(r[4]).toFixed(10), pj: Number(r[5]).toFixed(10) }); } }); });
+      out.sort(function (a, b) { return a.name.localeCompare(b.name); });
+      this._c = out;
+    }
+    return this._c;
+  }
+  renderVals() {
+    var self = this, st = this.state, TP = st.tpl, CN = st.con;
+    var set = function (o) { self.setState(o); };
+    var short = function (n) { return n.replace(/^PEKERJAAN\s+/, ''); };
+    var isK = st.tab === 'kontrak';
+    var F2 = function (b) { return self.fmt(b, 2); }, F10 = function (b) { return self.fmt(b, 10); };
+    var editC = function (fn) { var c = JSON.parse(JSON.stringify(self.state.con)); fn(c); set({ con: c }); };
+    var editT = function (fn) { var c = JSON.parse(JSON.stringify(self.state.tpl)); fn(c); set({ tpl: c }); };
+    var S = this.S(), Z = BigInt(0);
+    var pf = function (key, cur, setter) {
+      var foc = self.state.fk === key;
+      return { show: foc ? String(cur).replace('.', ',') : F2(self.D(cur)),
+        input: function (ev) { setter(self.norm(ev.target.value)); },
+        focus: function () { setter(self.trimmed(cur)); set({ fk: key }); },
+        blur: function () { set({ fk: null }); } };
+    };
+
+    /* total kontrak */
+    var vm = Z, vj = Z, drift2 = Z;
+    CN.forEach(function (p) { p.it.forEach(function (e) { if (e.t === 'i') { var l = self.line(e); vm += l.m; vj += l.j; var q = BigInt(100000000); drift2 += ((l.m + q / BigInt(2)) / q) * q + ((l.j + q / BigInt(2)) / q) * q; } }); });
+    var jum = vm + vj;
+    var dpp = (jum * BigInt(11) * BigInt(2) + BigInt(12)) / BigInt(24);
+    var ppn = (dpp * BigInt(12) * BigInt(2) + BigInt(100)) / BigInt(200);
+    var gross = jum + ppn;
+    var bulat = (gross + S / BigInt(2)) / S;
+    var driftAbs = drift2 > jum ? drift2 - jum : jum - drift2;
+    var driftTxt = 'Kenapa 10 desimal: jika setiap baris dibulatkan 2 desimal lalu dijumlahkan, hasilnya berbeda ' + F2(driftAbs) + ' dari jumlah yang dihitung eksak. Di sini setiap baris dihitung 10 desimal, dibulatkan sekali di total, dan Excel memakai ROUND(…;10) yang sama.';
+
+    /* daftar kiri */
+    var conList = CN.map(function (p, pi) {
+      var s = self.sum(p);
+      return { name: short(p.n), full: p.n, val: F2(s.m + s.j), bar: p.open ? '#0F2E66' : 'transparent',
+        act: function () { editC(function (c) { c[pi].open = !c[pi].open; }); },
+        del: function () { editC(function (c) { c.splice(pi, 1); }); } };
+    });
+    var q = st.pq.trim().toLowerCase();
+    var addPkg = function (ti) {
+      editC(function (c) {
+        c.push({ n: TP[ti].n, open: true, it: TP[ti].it.map(function (e) { return e.t === 's' ? { t: 's', name: e.name } : { t: 'i', name: e.name, sat: e.sat, vol: '', pm: e.pm, pj: e.pj, man: false, ref: e.name }; }) });
+      });
+    };
+    var lib = [];
+    TP.forEach(function (p, ti) {
+      if (q && p.n.toLowerCase().indexOf(q) < 0) { return; }
+      var n = p.it.filter(function (e) { return e.t === 'i'; }).length, selected = !isK && st.sel === ti;
+      lib.push({ name: short(p.n), full: p.n, meta: n + ' material · tanpa volume', dAdd: isK ? 'block' : 'none', bg: selected ? '#E7EDF8' : '#FFFFFF', bar: selected ? '#0F2E66' : 'transparent',
+        act: function () { if (!isK) { set({ sel: ti, pick: null, mq: '' }); } },
+        add: function () { addPkg(ti); } });
+    });
+
+    /* pencarian Master_Data */
+    var cat = this.catalog(), words = st.mq.trim().toLowerCase().split(/\s+/).filter(Boolean);
+    var matched = cat.filter(function (c) { var n = c.name.toLowerCase(); return words.every(function (w) { return n.indexOf(w) >= 0; }); });
+    var mkHits = function (apply) {
+      return matched.slice(0, 40).map(function (c) { return { name: c.name, sat: c.sat, pm: F2(self.D(c.pm)), pj: F2(self.D(c.pj)), full: 'Material ' + F10(self.D(c.pm)) + '  |  Jasa ' + F10(self.D(c.pj)), pick: function () { apply(c); } }; });
+    };
+
+    /* baris kontrak */
+    var rowsK = [], blank = function (o) { return Object.assign({ dRow: 'grid', bg: '#FFFFFF', color: '#16181D', fw: 500, pad: '2px 12px', cur: 'default', no: '', name: '', nameV: '', sat: '', volV: '', pm: '', pj: '', pmV: '', pjV: '', vm: '', vj: '', vt: '',
+      dRef: 'none', refName: '', dTxt: 'block', dIn: 'none', dPrice: 'block', dManual: 'none', dAct: 'none', dTool: 'none', toolNote: '', dPick: 'none', pickTitle: '', hits: [], manBd: '#E4E2DA', manBg: '#FFFFFF',
+      pmFocus: function () {}, pmBlur: function () {}, pjFocus: function () {}, pjBlur: function () {}, click: function () {}, nameSet: function () {}, volSet: function () {}, pmSet: function () {}, pjSet: function () {}, master: function () {}, manual: function () {}, del: function () {}, addMat: function () {} }, o); };
+    if (isK) {
+      var ord = 0;
+      CN.forEach(function (p, pi) {
+        ord++;
+        var s = self.sum(p);
+        rowsK.push(blank({ bg: '#E7EDF8', fw: 800, color: '#0B1730', pad: '6px 12px', cur: 'pointer', no: String(ord), name: short(p.n) + '  ' + (p.open ? '▾' : '▸'), vm: F2(s.m), vj: F2(s.j), vt: F2(s.m + s.j), click: function () { editC(function (c) { c[pi].open = !c[pi].open; }); } }));
+        if (!p.open) { return; }
+        var seq = 0, hiddenN = 0;
+        p.it.forEach(function (e, ii) {
+          if (e.t === 's') { rowsK.push(blank({ bg: '#FAF9F5', fw: 700, pad: '3px 12px', name: e.name })); return; }
+          var v4 = self.V4(e.vol);
+          if (st.hideZero && v4 === Z) { hiddenN++; return; }
+          seq++;
+          var pk1 = pf('c' + pi + '_' + ii + 'm', e.pm, function (v) { editC(function (c) { c[pi].it[ii].pm = v; }); }), pk2 = pf('c' + pi + '_' + ii + 'j', e.pj, function (v) { editC(function (c) { c[pi].it[ii].pj = v; }); });
+          var l = self.line(e), isPick = st.pick && st.pick.scope === 'con' && st.pick.mode === 'swap' && st.pick.pi === pi && st.pick.ii === ii;
+          rowsK.push(blank({ dRef: (e.ref && e.ref !== e.name) ? 'block' : 'none', refName: e.ref || '', color: v4 === Z ? '#8C9097' : '#16181D', bg: isPick ? '#F1F5FC' : '#FFFFFF', no: String(seq), nameV: e.name, dTxt: 'none', dIn: 'block', sat: e.sat, volV: e.vol,
+            pmV: pk1.show, pjV: pk2.show, dPrice: 'none', dManual: 'block', pmFocus: pk1.focus, pmBlur: pk1.blur, pjFocus: pk2.focus, pjBlur: pk2.blur,
+            vm: F10(l.m), vj: F10(l.j), vt: F10(l.m + l.j), dAct: 'flex', manBd: e.man ? '#0F2E66' : '#E4E2DA', manBg: e.man ? '#E7EDF8' : '#FFFFFF',
+            dPick: isPick ? 'block' : 'none', pickTitle: 'Ganti dengan item Master_Data:', hits: isPick ? mkHits(function (c) { editC(function (cc) { var it = cc[pi].it[ii]; it.name = c.name; it.sat = c.sat; it.pm = c.pm; it.pj = c.pj; it.man = false; it.ref = c.name; }); set({ pick: null, mq: '' }); }) : [],
+            nameSet: function (ev) { var val = ev.target.value; editC(function (c) { c[pi].it[ii].name = val; }); },
+            volSet: function (ev) { var val = ev.target.value; editC(function (c) { c[pi].it[ii].vol = val; }); },
+            pmSet: pk1.input,
+            pjSet: pk2.input,
+            master: function () { set({ pick: { scope: 'con', mode: 'swap', pi: pi, ii: ii }, mq: e.name.split(/\s+/).slice(0, 2).join(' ') }); },
+            manual: function () { editC(function (c) { c[pi].it[ii].man = !c[pi].it[ii].man; }); },
+            del: function () { editC(function (c) { c[pi].it.splice(ii, 1); }); set({ pick: null }); } }));
+        });
+        var addOpen = st.pick && st.pick.scope === 'con' && st.pick.mode === 'add' && st.pick.pi === pi;
+        rowsK.push(blank({ bg: '#FAF9F5', pad: '5px 12px', dTool: 'flex', toolNote: hiddenN ? hiddenN + ' material volume kosong disembunyikan' : '', dPick: addOpen ? 'block' : 'none', pickTitle: 'Tambah material ke paket ini:',
+          hits: addOpen ? mkHits(function (c) { editC(function (cc) { cc[pi].it.push({ t: 'i', name: c.name, sat: c.sat, vol: '', pm: c.pm, pj: c.pj, man: false, ref: c.name }); }); set({ mq: '' }); }) : [],
+          addMat: function () { set({ pick: { scope: 'con', mode: 'add', pi: pi }, mq: '' }); } }));
+      });
+    }
+
+    /* baris template */
+    var rowsP = [], sp = TP[st.sel], selCount = 0;
+    if (!isK && sp) {
+      var seqP = 0;
+      sp.it.forEach(function (e, ii) {
+        var isPick = st.pick && st.pick.scope === 'tpl' && st.pick.mode === 'swap' && st.pick.pi === st.sel && st.pick.ii === ii;
+        if (e.t === 's') { rowsP.push({ bg: '#FAF9F5', fw: 700, dRow: 'grid', dAct: 'none', dPick: 'none', no: '', name: e.name, sat: '', pmV: '', pjV: '', pmSet: function () {}, pjSet: function () {}, pmFocus: function () {}, pmBlur: function () {}, pjFocus: function () {}, pjBlur: function () {}, swap: function () {}, del: function () {}, pickTitle: '', hits: [] }); return; }
+        seqP++; selCount++;
+        var tp1 = pf('t' + st.sel + '_' + ii + 'm', e.pm, function (v) { editT(function (c) { c[st.sel].it[ii].pm = v; }); }), tp2 = pf('t' + st.sel + '_' + ii + 'j', e.pj, function (v) { editT(function (c) { c[st.sel].it[ii].pj = v; }); });
+        rowsP.push({ bg: isPick ? '#F1F5FC' : '#FFFFFF', fw: 500, dRow: 'grid', dAct: 'flex', dPick: isPick ? 'block' : 'none', no: String(seqP), name: e.name, sat: e.sat, pmV: tp1.show, pjV: tp2.show, pmSet: tp1.input, pjSet: tp2.input, pmFocus: tp1.focus, pmBlur: tp1.blur, pjFocus: tp2.focus, pjBlur: tp2.blur,
+          pickTitle: 'Ganti dengan:', hits: isPick ? mkHits(function (c) { editT(function (cc) { cc[st.sel].it[ii] = { t: 'i', name: c.name, sat: c.sat, pm: c.pm, pj: c.pj }; }); set({ pick: null, mq: '' }); }) : [],
+          swap: function () { set({ pick: { scope: 'tpl', mode: 'swap', pi: st.sel, ii: ii }, mq: '' }); },
+          del: function () { editT(function (c) { c[st.sel].it.splice(ii, 1); }); set({ pick: null }); } });
+      });
+      if (st.pick && st.pick.scope === 'tpl' && st.pick.mode === 'add') {
+        rowsP.push({ bg: '#F1F5FC', fw: 500, dRow: 'none', dAct: 'none', dPick: 'block', no: '', name: '', sat: '', pmV: '', pjV: '', pmSet: function () {}, pjSet: function () {}, pmFocus: function () {}, pmBlur: function () {}, pjFocus: function () {}, pjBlur: function () {}, swap: function () {}, del: function () {}, pickTitle: 'Tambah material:',
+          hits: mkHits(function (c) { editT(function (cc) { cc[st.sel].it.push({ t: 'i', name: c.name, sat: c.sat, pm: c.pm, pj: c.pj }); }); set({ mq: '' }); }) });
+      }
+    }
+    var tab = function (on) { return on ? { w: 800, c: '#16181D', b: '#0F2E66' } : { w: 500, c: '#6B6F78', b: 'transparent' }; };
+    return {
+      crumb: isK ? 'Volume kontrak' : 'Template paket',
+      tk: tab(isK), tp: tab(!isK),
+      goKontrak: function () { set({ tab: 'kontrak', pick: null }); }, goPaket: function () { set({ tab: 'paket', pick: null }); },
+      dKontrak: isK ? 'flex' : 'none', dPaket: isK ? 'none' : 'flex', dNewBtn: isK ? 'none' : 'block', dCon: isK ? 'flex' : 'none',
+      libHint: isK ? 'Klik + Pakai untuk menambahkan paket ke kontrak (tanpa volume).' : 'Klik template untuk melihat dan mengubah daftar materialnya.',
+      pq: st.pq, setPq: function (ev) { set({ pq: ev.target.value }); },
+      conList: conList, dConEmpty: CN.length ? 'none' : 'block', clearCon: function () { set({ con: [], pick: null }); },
+      lib: lib, rowsK: rowsK, rowsP: rowsP,
+      hideZero: st.hideZero, toggleZero: function () { set({ hideZero: !self.state.hideZero }); },
+      openAll: function () { editC(function (c) { c.forEach(function (p) { p.open = true; }); }); },
+      closeAll: function () { editC(function (c) { c.forEach(function (p) { p.open = false; }); }); },
+      tot: { count: CN.length, vm: 'Rp ' + F2(vm), vj: 'Rp ' + F2(vj), ppn: 'Rp ' + F2(ppn), total: 'Rp ' + F2(bulat * S),
+        vm2: F2(vm), vj2: F2(vj), jum2: F2(jum), dpp: F2(dpp), ppnx: F2(ppn), gross: F2(gross), bulat: F2(bulat * S), drift: driftTxt },
+      selName: sp ? sp.n : '', selCount: selCount,
+      setSelName: function (ev) { var v = ev.target.value; editT(function (c) { if (c[st.sel]) { c[st.sel].n = v; } }); },
+      newPkg: function () { editT(function (c) { c.push({ n: 'Template baru', it: [] }); }); set({ sel: TP.length, pick: { scope: 'tpl', mode: 'add', pi: TP.length }, mq: '', pq: '' }); },
+      dupPkg: function () { editT(function (c) { var p = JSON.parse(JSON.stringify(c[st.sel])); p.n = 'Salinan ' + p.n; c.push(p); }); set({ sel: TP.length, pick: null }); },
+      delPkg: function () { if (TP.length < 2) { return; } editT(function (c) { c.splice(st.sel, 1); }); set({ sel: Math.max(0, st.sel - 1), pick: null }); },
+      useSel: function () { addPkg(st.sel); set({ tab: 'kontrak', pick: null }); },
+      addMat: function () { set({ pick: { scope: 'tpl', mode: 'add', pi: st.sel }, mq: '' }); },
+      closePick: function () { set({ pick: null, mq: '' }); },
+      mq: st.mq, setMq: function (ev) { set({ mq: ev.target.value }); },
+      hitCount: matched.length
+    };
+  }
+}
+</script>
+</body>
+</html>

@@ -1,0 +1,322 @@
+<!doctype html>
+<html lang="id">
+<head>
+<meta charset="utf-8">
+<title>KTK 71 — __TITLE__</title>
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&amp;display=swap" rel="stylesheet">
+<style>
+body{margin:0;background:#F6F5F1}
+a{text-decoration:none}
+input.cell{font: inherit; font-size: 12px; font-weight: 600; width: 100%; height: 28px; box-sizing: border-box; border: 1px solid #C9D3E8; border-radius: 6px; padding: 0 8px; background: #F1F5FC; color: #16181D; outline: none}
+input.cell.r{text-align: right}
+input.cell:focus{border-color: #0F2E66; background: #FFFFFF}
+input.chk{accent-color: #0F2E66; width: 16px; height: 16px; margin: 0; cursor: pointer}
+button{font: inherit; cursor: pointer}
+</style>
+</helmet>
+<div style="width: 1920px; height: 1200px; box-sizing: border-box; background: #F6F5F1; font-family: 'Plus Jakarta Sans', 'Segoe UI', system-ui, sans-serif; color: #16181D; font-variant-numeric: tabular-nums; display: flex; overflow: hidden">
+
+<aside style="width: 64px; flex-shrink: 0; background: #FFFFFF; border-right: 1px solid #E4E2DA; display: flex; flex-direction: column; align-items: center; padding: 14px 0; gap: 6px">
+<div style="width: 36px; height: 36px; border-radius: 9px; background: #0B1730; display: flex; align-items: center; justify-content: center; margin-bottom: 10px"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#8DB2F2" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M14 3H7a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2V8z"></path><path d="M14 3v5h5M9 15l2 2 4-4"></path></svg></div>
+<a href="KtkDaftar.dc.html" title="KTK" style="width: 40px; height: 40px; border-radius: 10px; background: #E7EDF8; display: flex; align-items: center; justify-content: center"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#0F2E66" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 6h18M3 12h18M3 18h18"></path><path d="M7 3v6M17 9v6M12 15v6"></path></svg></a>
+<a href="Main.dc.html" title="Penagihan" style="width: 40px; height: 40px; border-radius: 10px; display: flex; align-items: center; justify-content: center"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#8C9097" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="2" y="5" width="20" height="14" rx="2"></rect><path d="M2 10h20M6 15h4"></path></svg></a>
+<div style="margin-top: auto; width: 32px; height: 32px; border-radius: 50%; background: #0F2E66; color: #FFFFFF; font-size: 11px; font-weight: 700; display: flex; align-items: center; justify-content: center">AS</div>
+</aside>
+
+<div style="flex-grow: 1; display: flex; flex-direction: column; min-width: 0">
+<header style="height: 52px; flex-shrink: 0; background: #FFFFFF; border-bottom: 1px solid #E4E2DA; display: flex; align-items: center; justify-content: space-between; padding: 0 28px">
+<div style="display: flex; align-items: center; gap: 8px; font-size: 12px"><span style="color: #6B6F78">Keuangan</span><span style="color: #C9C6BC">/</span><a href="KtkDaftar.dc.html" style="color: #6B6F78">KTK</a><span style="color: #C9C6BC">/</span><span style="color: #6B6F78">Jenis pekerjaan 71 · Kontrak 0597</span><span style="color: #C9C6BC">/</span><span style="font-weight: 700">{{crumb}}</span></div>
+<div style="display: flex; align-items: center; gap: 12px"><span style="font-size: 11px; font-weight: 600; color: #0F2E66; background: #E7EDF8; padding: 4px 10px; border-radius: 999px">Khusus SPK &amp; Admin</span><span style="font-size: 12px; color: #5B5F68; padding-left: 12px; border-left: 1px solid #E4E2DA">Kamis, 15 Oktober 2026</span></div>
+</header>
+
+<main style="flex-grow: 1; min-height: 0; padding: 16px 28px 20px; display: flex; flex-direction: column; gap: 12px; min-width: 0">
+
+<div style="display: flex; align-items: flex-end; justify-content: space-between; gap: 16px">
+<div>
+<h1 style="margin: 0; font-size: 20px; font-weight: 800; letter-spacing: -0.01em">KTK 71 · PT Nanda Nirwana Elektrik · SPK 0597</h1>
+<div style="font-size: 12px; color: #6B6F78; margin-top: 2px">Pilih paket pekerjaan, sesuaikan isi dan volumenya dari PLN. Semua angka di bawah sama persis dengan yang ditulis ke Excel.</div>
+</div>
+<div style="display: flex; gap: 8px">
+<a href="KtkExport.dc.html" style="height: 36px; padding: 0 16px; border-radius: 9px; background: #0F2E66; color: #FFFFFF; font-size: 12px; font-weight: 700; display: flex; align-items: center">Export Excel</a>
+</div>
+</div>
+
+<div style="display: flex; gap: 0; border-bottom: 1px solid #E4E2DA; flex-shrink: 0">
+<button onClick="{{goKontrak}}" style="border: none; background: transparent; font-size: 12px; font-weight: {{tk.w}}; color: {{tk.c}}; border-bottom: 2px solid {{tk.b}}; padding: 8px 2px 10px; margin-right: 24px">Volume kontrak</button>
+<button onClick="{{goPaket}}" style="border: none; background: transparent; font-size: 12px; font-weight: {{tp.w}}; color: {{tp.c}}; border-bottom: 2px solid {{tp.b}}; padding: 8px 2px 10px; margin-right: 24px">Paket pekerjaan</button>
+<a href="KtkLampiran.dc.html" style="font-size: 12px; font-weight: 500; color: #6B6F78; border-bottom: 2px solid transparent; padding: 8px 2px 10px; margin-right: 24px">Lampiran KTK</a>
+<a href="KtkCek.dc.html" style="font-size: 12px; font-weight: 500; color: #6B6F78; border-bottom: 2px solid transparent; padding: 8px 2px 10px; margin-right: 24px">Cek LH per PK</a>
+<a href="KtkRab.dc.html" style="font-size: 12px; font-weight: 500; color: #6B6F78; border-bottom: 2px solid transparent; padding: 8px 2px 10px; margin-right: 24px">RAB per PK</a>
+<a href="KtkRekap.dc.html" style="font-size: 12px; font-weight: 500; color: #6B6F78; border-bottom: 2px solid transparent; padding: 8px 2px 10px">Rekapitulasi</a>
+</div>
+
+<div style="display: grid; grid-template-columns: repeat(6, minmax(0, 1fr)); gap: 12px; flex-shrink: 0">
+<div style="background: #FFFFFF; border: 1px solid #E4E2DA; border-radius: 12px; padding: 10px 16px"><div style="font-size: 11px; color: #5B5F68; font-weight: 600">Paket dipakai</div><div style="font-size: 18px; font-weight: 800; margin-top: 2px">{{tot.count}} <span style="font-size: 12px; color: #6B6F78; font-weight: 600">dari {{tot.all}}</span></div></div>
+<div style="background: #FFFFFF; border: 1px solid #E4E2DA; border-radius: 12px; padding: 10px 16px"><div style="font-size: 11px; color: #5B5F68; font-weight: 600">Jumlah material</div><div style="font-size: 18px; font-weight: 800; margin-top: 2px">{{tot.vm}}</div></div>
+<div style="background: #FFFFFF; border: 1px solid #E4E2DA; border-radius: 12px; padding: 10px 16px"><div style="font-size: 11px; color: #5B5F68; font-weight: 600">Jumlah jasa</div><div style="font-size: 18px; font-weight: 800; margin-top: 2px">{{tot.vj}}</div></div>
+<div style="background: #FFFFFF; border: 1px solid #E4E2DA; border-radius: 12px; padding: 10px 16px"><div style="font-size: 11px; color: #5B5F68; font-weight: 600">Jumlah</div><div style="font-size: 18px; font-weight: 800; margin-top: 2px">{{tot.jum}}</div></div>
+<div style="background: #FFFFFF; border: 1px solid #E4E2DA; border-radius: 12px; padding: 10px 16px"><div style="font-size: 11px; color: #5B5F68; font-weight: 600">PPN 12% dari DPP lain</div><div style="font-size: 18px; font-weight: 800; margin-top: 2px">{{tot.ppn}}</div></div>
+<div style="background: #0B1730; color: #FFFFFF; border-radius: 12px; padding: 10px 16px"><div style="font-size: 11px; color: #A9B8D6; font-weight: 600">Total nilai kontrak awal</div><div style="font-size: 18px; font-weight: 800; margin-top: 2px">{{tot.total}}</div></div>
+</div>
+
+<div style="flex-grow: 1; min-height: 0; display: grid; grid-template-columns: 380px minmax(0, 1fr); gap: 14px">
+
+<section style="background: #FFFFFF; border: 1px solid #E4E2DA; border-radius: 12px; overflow: hidden; display: flex; flex-direction: column; min-height: 0">
+<div style="padding: 12px 16px; border-bottom: 1px solid #E4E2DA; flex-shrink: 0"><h2 style="margin: 0; font-size: 13px; font-weight: 800">Daftar paket pekerjaan</h2><div style="font-size: 11px; color: #6B6F78; margin-top: 2px">{{libHint}}</div></div>
+<div style="overflow-y: auto; flex-grow: 1; min-height: 0">
+<sc-for list="{{lib}}" as="l" hint-placeholder-count="12">
+<div style="display: grid; grid-template-columns: 22px minmax(0, 1fr) auto; gap: 10px; align-items: center; padding: 9px 16px; border-bottom: 1px solid #EFEDE6; background: {{l.bg}}">
+<input class="chk" type="checkbox" checked="{{l.inc}}" onChange="{{l.toggle}}" aria-label="Pakai paket">
+<button onClick="{{l.act}}" style="border: none; background: transparent; text-align: left; padding: 0; min-width: 0"><div style="font-size: 11.5px; font-weight: 700; color: {{l.fg}}; line-height: 1.35">{{l.name}}</div><div style="font-size: 10.5px; color: #8C9097; margin-top: 2px">{{l.meta}}</div></button>
+<span style="font-size: 11.5px; font-weight: 700; color: {{l.fg}}; text-align: right">{{l.value}}</span>
+</div>
+</sc-for>
+</div>
+</section>
+
+<section style="background: #FFFFFF; border: 1px solid #E4E2DA; border-radius: 12px; overflow: hidden; display: {{dKontrak}}; flex-direction: column; min-height: 0">
+<div style="padding: 10px 16px; border-bottom: 1px solid #E4E2DA; display: flex; justify-content: space-between; align-items: center; flex-shrink: 0">
+<div style="display: flex; align-items: center; gap: 18px"><h2 style="margin: 0; font-size: 13px; font-weight: 800">Lampiran volume kontrak</h2>
+<label style="display: flex; align-items: center; gap: 6px; font-size: 11.5px; color: #5B5F68; cursor: pointer"><input class="chk" type="checkbox" checked="{{hideZero}}" onChange="{{toggleZero}}">Sembunyikan material volume 0</label></div>
+<div style="display: flex; gap: 8px"><button onClick="{{openAll}}" style="height: 28px; padding: 0 12px; border: 1px solid #E4E2DA; border-radius: 7px; background: #FFFFFF; font-size: 11.5px; font-weight: 600">Buka semua paket</button><button onClick="{{closeAll}}" style="height: 28px; padding: 0 12px; border: 1px solid #E4E2DA; border-radius: 7px; background: #FFFFFF; font-size: 11.5px; font-weight: 600">Tutup semua</button></div>
+</div>
+<div style="overflow: auto; flex-grow: 1; min-height: 0">
+<div style="min-width: 1380px">
+<div style="position: sticky; top: 0; z-index: 2; background: #0B1730; color: #FFFFFF; font-size: 11px; font-weight: 700">
+<div style="display: grid; grid-template-columns: 56px minmax(0, 1fr) 56px 104px 130px 130px 150px 150px 164px 44px; gap: 8px; padding: 8px 16px 2px"><span style="grid-row: span 2">NO</span><span style="grid-row: span 2">URAIAN</span><span style="grid-row: span 2">SAT</span><span style="grid-row: span 2; text-align: right">VOL</span><span style="grid-column: span 2; text-align: center; border-bottom: 1px solid #3A4E7A; padding-bottom: 2px">HARGA SATUAN</span><span style="grid-column: span 3; text-align: center; border-bottom: 1px solid #3A4E7A; padding-bottom: 2px">NILAI AWAL (Rp)</span><span></span></div>
+<div style="display: grid; grid-template-columns: 56px minmax(0, 1fr) 56px 104px 130px 130px 150px 150px 164px 44px; gap: 8px; padding: 2px 16px 8px"><span></span><span></span><span></span><span></span><span style="text-align: right">Material</span><span style="text-align: right">Jasa</span><span style="text-align: right">Material</span><span style="text-align: right">Jasa</span><span style="text-align: right">Jumlah</span><span></span></div>
+</div>
+<sc-for list="{{rows}}" as="r" hint-placeholder-count="14">
+<div onClick="{{r.click}}" style="display: grid; grid-template-columns: 56px minmax(0, 1fr) 56px 104px 130px 130px 150px 150px 164px 44px; gap: 8px; align-items: center; padding: {{r.pad}}; border-bottom: 1px solid #EFEDE6; background: {{r.bg}}; color: {{r.color}}; font-size: 12px; font-weight: {{r.fw}}; cursor: {{r.cur}}">
+<span style="color: #6B6F78">{{r.no}}</span>
+<div style="min-width: 0"><span style="display: {{r.nameT}}; line-height: 1.35">{{r.name}}</span><input class="cell" style="display: {{r.nameI}}" value="{{r.nameV}}" onInput="{{r.nameSet}}" placeholder="Nama material"><div style="display: {{r.dTools}}; gap: 8px"><button onClick="{{r.t1c}}" style="height: 26px; padding: 0 12px; border: 1px solid #C9D3E8; border-radius: 999px; background: #FFFFFF; color: #0F2E66; font-size: 11.5px; font-weight: 700">{{r.t1}}</button><button onClick="{{r.t2c}}" style="height: 26px; padding: 0 12px; border: 1px solid #E4E2DA; border-radius: 999px; background: #FFFFFF; color: #5B5F68; font-size: 11.5px; font-weight: 600; display: {{r.dT2}}">{{r.t2}}</button></div></div>
+<div><span style="display: {{r.satT}}; color: #5B5F68">{{r.sat}}</span><input class="cell" style="display: {{r.satI}}" value="{{r.satV}}" onInput="{{r.satSet}}" placeholder="Sat"></div>
+<div><span style="display: {{r.volT}}; display: {{r.volT}}; text-align: right">{{r.vol}}</span><input class="cell r" style="display: {{r.volI}}" value="{{r.volV}}" onInput="{{r.volSet}}" inputmode="decimal" placeholder="0"></div>
+<div style="text-align: right"><span style="display: {{r.pmT}}">{{r.pm}}</span><input class="cell r" style="display: {{r.pmI}}" value="{{r.pmV}}" onInput="{{r.pmSet}}" inputmode="decimal" placeholder="0"></div>
+<div style="text-align: right"><span style="display: {{r.pjT}}">{{r.pj}}</span><input class="cell r" style="display: {{r.pjI}}" value="{{r.pjV}}" onInput="{{r.pjSet}}" inputmode="decimal" placeholder="0"></div>
+<span style="text-align: right">{{r.vm}}</span>
+<span style="text-align: right">{{r.vj}}</span>
+<span style="text-align: right; font-weight: 700">{{r.vt}}</span>
+<div style="text-align: center"><span style="display: {{r.dChev}}; color: #0F2E66; font-size: 13px">{{r.chev}}</span><button onClick="{{r.rmc}}" aria-label="Hapus material" style="display: {{r.dRm}}; width: 26px; height: 26px; border-radius: 7px; border: 1px solid #E4E2DA; background: #FFFFFF; align-items: center; justify-content: center"><svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="#B42318" stroke-width="2.4" stroke-linecap="round" aria-hidden="true"><path d="M18 6 6 18M6 6l12 12"></path></svg></button><button onClick="{{r.addc}}" style="display: {{r.dAdd}}; height: 26px; padding: 0 8px; border-radius: 7px; border: none; background: #0F2E66; color: #FFFFFF; font-size: 11px; font-weight: 700">Tambah</button></div>
+</div>
+</sc-for>
+<div style="background: #FAF9F5; border-top: 2px solid #0B1730">
+<div style="display: grid; grid-template-columns: minmax(0, 1fr) 150px 150px 164px 52px; gap: 8px; padding: 8px 16px; font-size: 12px; font-weight: 700; border-bottom: 1px solid #EFEDE6"><span style="text-align: right">JUMLAH</span><span style="text-align: right">{{tot.vm}}</span><span style="text-align: right">{{tot.vj}}</span><span style="text-align: right">{{tot.jum}}</span><span></span></div>
+<div style="display: grid; grid-template-columns: minmax(0, 1fr) 164px 52px; gap: 8px; padding: 6px 16px; font-size: 12px; border-bottom: 1px solid #EFEDE6"><span style="text-align: right; color: #5B5F68">DPP Lain-lain (JUMLAH × 11/12)</span><span style="text-align: right">{{tot.dpp}}</span><span></span></div>
+<div style="display: grid; grid-template-columns: minmax(0, 1fr) 164px 52px; gap: 8px; padding: 6px 16px; font-size: 12px; border-bottom: 1px solid #EFEDE6"><span style="text-align: right; color: #5B5F68">PPN 12% (DPP Lain-lain × 12%)</span><span style="text-align: right">{{tot.ppn}}</span><span></span></div>
+<div style="display: grid; grid-template-columns: minmax(0, 1fr) 164px 52px; gap: 8px; padding: 6px 16px; font-size: 12px; font-weight: 700; border-bottom: 1px solid #EFEDE6"><span style="text-align: right">JUMLAH + PPN</span><span style="text-align: right">{{tot.gross}}</span><span></span></div>
+<div style="display: grid; grid-template-columns: minmax(0, 1fr) 164px 52px; gap: 8px; padding: 9px 16px; font-size: 13px; font-weight: 800; background: #E7EDF8; color: #0F2E66"><span style="text-align: right">DIBULATKAN · TOTAL NILAI KONTRAK AWAL</span><span style="text-align: right">{{tot.total}}</span><span></span></div>
+</div>
+</div>
+</div>
+</section>
+
+<section style="background: #FFFFFF; border: 1px solid #C9D3E8; border-radius: 12px; overflow: hidden; display: {{dPaket}}; flex-direction: column; min-height: 0">
+<div style="padding: 12px 20px; background: #F1F5FC; border-bottom: 1px solid #C9D3E8; flex-shrink: 0; display: flex; justify-content: space-between; align-items: flex-start; gap: 16px">
+<div><h2 style="margin: 0; font-size: 14px; font-weight: 800; color: #0F2E66">Buat paket pekerjaan baru</h2><div style="font-size: 11.5px; color: #3B4F7A; margin-top: 3px">Salin dari paket di kiri (tombol nama paket), atau cari material dari katalog harga dan susun sendiri.</div></div>
+<span style="font-size: 11.5px; font-weight: 700; color: #1B7F4B; display: {{dSaved}}">{{saved}}</span>
+</div>
+<div style="padding: 12px 20px; display: grid; grid-template-columns: minmax(0, 1fr) 420px; gap: 16px; border-bottom: 1px solid #EFEDE6; flex-shrink: 0">
+<div><div style="font-size: 11px; font-weight: 600; color: #6B6F78; margin-bottom: 4px">Nama paket</div><input class="cell" style="height: 34px; font-size: 13px" value="{{dn}}" onInput="{{setDn}}" placeholder="Contoh: Pemasangan SUTM tanpa kontramast"></div>
+<div><div style="font-size: 11px; font-weight: 600; color: #6B6F78; margin-bottom: 4px">Cari material di katalog harga ({{catCount}} material)</div><input class="cell" style="height: 34px; font-size: 13px" value="{{dq}}" onInput="{{setDq}}" placeholder="Ketik nama material, mis. arrester, kabel, isolator"></div>
+</div>
+<div style="padding: 8px 20px; border-bottom: 1px solid #EFEDE6; display: {{dHits}}; flex-wrap: wrap; gap: 6px; flex-shrink: 0; background: #FAF9F5">
+<sc-for list="{{hits}}" as="h" hint-placeholder-count="4">
+<button onClick="{{h.add}}" style="font-size: 11px; font-weight: 600; color: #0F2E66; background: #FFFFFF; border: 1px solid #C9D3E8; border-radius: 999px; padding: 5px 10px">+ {{h.name}}</button>
+</sc-for>
+</div>
+<div style="overflow: auto; flex-grow: 1; min-height: 0">
+<div style="min-width: 1000px">
+<div style="position: sticky; top: 0; z-index: 2; background: #0B1730; color: #FFFFFF; font-size: 11px; font-weight: 700; display: grid; grid-template-columns: 44px minmax(0, 1fr) 56px 104px 130px 130px 150px 150px 164px 44px; gap: 8px; padding: 9px 20px"><span>NO</span><span>URAIAN</span><span>SAT</span><span style="text-align: right">VOL</span><span style="text-align: right">HARGA MATERIAL</span><span style="text-align: right">HARGA JASA</span><span style="text-align: right">NILAI MATERIAL</span><span style="text-align: right">NILAI JASA</span><span style="text-align: right">JUMLAH</span><span></span></div>
+<sc-for list="{{draft}}" as="d" hint-placeholder-count="6">
+<div style="display: grid; grid-template-columns: 44px minmax(0, 1fr) 56px 104px 130px 130px 150px 150px 164px 44px; gap: 8px; align-items: center; padding: 6px 20px; border-bottom: 1px solid #EFEDE6; font-size: 12px">
+<span style="color: #6B6F78">{{d.no}}</span><span style="font-weight: 600; line-height: 1.35">{{d.name}}</span><span style="color: #5B5F68">{{d.sat}}</span>
+<input class="cell r" value="{{d.vol}}" onInput="{{d.set}}" inputmode="decimal" placeholder="0">
+<span style="text-align: right">{{d.pm}}</span><span style="text-align: right">{{d.pj}}</span><span style="text-align: right">{{d.vm}}</span><span style="text-align: right">{{d.vj}}</span><span style="text-align: right; font-weight: 700">{{d.vt}}</span>
+<button onClick="{{d.rm}}" aria-label="Kurangi material" style="width: 26px; height: 26px; border-radius: 7px; border: 1px solid #E4E2DA; background: #FFFFFF; display: flex; align-items: center; justify-content: center"><svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="#B42318" stroke-width="2.4" stroke-linecap="round" aria-hidden="true"><path d="M18 6 6 18M6 6l12 12"></path></svg></button>
+</div>
+</sc-for>
+<div style="padding: 28px 20px; text-align: center; font-size: 12px; color: #6B6F78; display: {{dEmpty}}">Draf masih kosong. Klik nama paket di kiri untuk menyalin isinya, atau cari material di atas.</div>
+</div>
+</div>
+<div style="flex-shrink: 0; border-top: 2px solid #0B1730; background: #FAF9F5; padding: 10px 20px; display: flex; justify-content: space-between; align-items: center; gap: 16px">
+<div style="display: flex; gap: 28px; font-size: 12px"><span><span style="color: #5B5F68">Material</span> <b>{{dsum.vm}}</b></span><span><span style="color: #5B5F68">Jasa</span> <b>{{dsum.vj}}</b></span><span style="font-size: 13px"><span style="color: #5B5F68">Nilai paket</span> <b>{{dsum.vt}}</b></span><span style="color: #6B6F78">{{dsum.n}} material</span></div>
+<div style="display: flex; gap: 8px"><button onClick="{{clearDraft}}" style="height: 36px; padding: 0 16px; border: 1px solid #E4E2DA; border-radius: 9px; background: #FFFFFF; font-size: 12px; font-weight: 700">Kosongkan draf</button><button onClick="{{saveOnly}}" style="height: 36px; padding: 0 16px; border: 1px solid #0F2E66; border-radius: 9px; background: #FFFFFF; color: #0F2E66; font-size: 12px; font-weight: 700">Simpan ke daftar paket</button><button onClick="{{saveUse}}" style="height: 36px; padding: 0 18px; border: none; border-radius: 9px; background: #0F2E66; color: #FFFFFF; font-size: 12px; font-weight: 700">Simpan dan pakai di kontrak</button></div>
+</div>
+</section>
+
+</div>
+</main>
+</div>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props='{"$preview":{"width":1920,"height":1200}}'>
+class Component extends DCLogic {
+  constructor(props) {
+    super(props);
+    this.state = { tab: '__TAB__', exc: {}, open: { 0: true }, vols: {}, rm: {}, add: {}, adding: {}, nf: { name: '', sat: '', pm: '', pj: '', vol: '' }, custom: [], hideZero: false, dn: '', dq: '', ditems: [], saved: '' };
+  }
+  data() {
+    if (!this._d) { this._d = __DATA__; }
+    return this._d;
+  }
+  pk() { return this.data().concat(this.state.custom); }
+  num(s) { var v = parseFloat(String(s).replace(',', '.')); return isNaN(v) ? 0 : v; }
+  f2(n) { return Number(n).toLocaleString('id-ID', { minimumFractionDigits: 2, maximumFractionDigits: 2 }); }
+  rp(n) { return 'Rp ' + Math.round(n).toLocaleString('id-ID'); }
+  eff(pi) {
+    var self = this, st = this.state, p = this.pk()[pi], out = [];
+    p.it.forEach(function (r, i) { var k = 'p' + pi + 'i' + i; if (!st.rm[k]) { out.push({ k: k, r: r }); } });
+    (st.add[pi] || []).forEach(function (r, i) { var k = 'p' + pi + 'a' + i; if (!st.rm[k]) { out.push({ k: k, r: r, added: true }); } });
+    return out;
+  }
+  volOf(e) { var v = this.state.vols[e.k]; return v !== undefined ? this.num(v) : (e.r[3] || 0); }
+  volRaw(e) { var v = this.state.vols[e.k]; return v !== undefined ? v : String(e.r[3] || 0); }
+  sum(items) {
+    var self = this, vm = 0, vj = 0;
+    items.forEach(function (e) { if (e.r[0] === 'S') { return; } var v = self.volOf(e); vm += v * e.r[4]; vj += v * e.r[5]; });
+    return { vm: vm, vj: vj };
+  }
+  totals() {
+    var self = this, st = this.state, P = this.pk(), vm = 0, vj = 0, cnt = 0;
+    P.forEach(function (p, pi) { if (st.exc[pi]) { return; } cnt++; var s = self.sum(self.eff(pi)); vm += s.vm; vj += s.vj; });
+    var jum = vm + vj, dpp = jum * 11 / 12, ppn = dpp * 0.12, gross = jum + ppn;
+    return { count: cnt, all: P.length, vm: vm, vj: vj, jum: jum, dpp: dpp, ppn: ppn, gross: gross, total: Math.round(gross) };
+  }
+  catalog() {
+    if (!this._c) {
+      var seen = {}, out = [];
+      this.data().forEach(function (p) { p.it.forEach(function (r) { if (r[0] !== 'S' && !seen[r[1]]) { seen[r[1]] = true; out.push(r); } }); });
+      this._c = out;
+    }
+    return this._c;
+  }
+  mk(o) {
+    var d = { type: '', bg: '#FFFFFF', color: '#16181D', fw: 500, pad: '6px 16px', cur: 'default', no: '', name: '', sat: '', vol: '', pm: '', pj: '', vm: '', vj: '', vt: '',
+      nameT: 'block', nameI: 'none', satT: 'block', satI: 'none', volT: 'block', volI: 'none', pmT: 'block', pmI: 'none', pjT: 'block', pjI: 'none',
+      nameV: '', satV: '', volV: '', pmV: '', pjV: '', dTools: 'none', dT2: 'inline-block', t1: '', t2: '', dChev: 'none', chev: '', dRm: 'none', dAdd: 'none' };
+    var noop = function () {};
+    ['click', 'nameSet', 'satSet', 'volSet', 'pmSet', 'pjSet', 't1c', 't2c', 'rmc', 'addc'].forEach(function (k) { d[k] = noop; });
+    return Object.assign(d, o);
+  }
+  renderVals() {
+    var self = this, st = this.state, P = this.pk(), T = this.totals();
+    var f2 = function (n) { return self.f2(n); }, rp = function (n) { return self.rp(n); };
+    var set = function (patch) { self.setState(patch); };
+    var short = function (n) { return n.replace(/^PEKERJAAN\s+/, ''); };
+    var isK = st.tab === 'kontrak';
+
+    var lib = P.map(function (p, pi) {
+      var inc = !st.exc[pi], s = self.sum(self.eff(pi)), n = 0;
+      self.eff(pi).forEach(function (e) { if (e.r[0] !== 'S') { n++; } });
+      return {
+        name: short(p.n), meta: (p.custom ? 'Paket saya · ' : 'Paket ' + (pi + 1) + ' · ') + n + ' material',
+        value: rp(s.vm + s.vj), inc: inc, fg: inc ? '#16181D' : '#A3A6AD', bg: inc ? '#FFFFFF' : '#FAF9F5',
+        toggle: function () { var e = Object.assign({}, self.state.exc); if (e[pi]) { delete e[pi]; } else { e[pi] = true; } set({ exc: e }); },
+        act: function () {
+          if (isK) { var o = Object.assign({}, self.state.open); if (o[pi]) { delete o[pi]; } else { o[pi] = true; } var e2 = Object.assign({}, self.state.exc); delete e2[pi]; set({ open: o, exc: e2 }); }
+          else {
+            var items = self.eff(pi).filter(function (e) { return e.r[0] !== 'S'; }).map(function (e) { return { name: e.r[1], sat: e.r[2], pm: e.r[4], pj: e.r[5], vol: String(self.volOf(e)) }; });
+            set({ ditems: items, dn: 'Salinan ' + short(p.n), saved: '' });
+          }
+        }
+      };
+    });
+
+    var rows = [];
+    if (isK) {
+      var ord = 0;
+      P.forEach(function (p, pi) {
+        if (st.exc[pi]) { return; }
+        ord++;
+        var items = self.eff(pi), s = self.sum(items), open = !!st.open[pi];
+        rows.push(self.mk({ type: 'grp', bg: '#E7EDF8', fw: 800, color: '#0B1730', pad: '9px 16px', cur: 'pointer', no: String(ord), name: short(p.n), vm: f2(s.vm), vj: f2(s.vj), vt: f2(s.vm + s.vj), dChev: 'block', chev: open ? '▾' : '▸',
+          click: function () { var o = Object.assign({}, self.state.open); if (o[pi]) { delete o[pi]; } else { o[pi] = true; } set({ open: o }); } }));
+        if (!open) { return; }
+        var seq = 0, hidden = 0, removed = 0;
+        items.forEach(function (e) {
+          if (e.r[0] === 'S') { rows.push(self.mk({ type: 'sub', bg: '#FAF9F5', fw: 700, name: e.r[1] })); return; }
+          var v = self.volOf(e);
+          if (st.hideZero && v === 0) { hidden++; return; }
+          seq++;
+          rows.push(self.mk({ type: 'item', color: v === 0 ? '#9A9DA4' : '#16181D', no: String(seq), name: e.r[1], sat: e.r[2], volT: 'none', volI: 'block', volV: self.volRaw(e), pm: f2(e.r[4]), pj: f2(e.r[5]),
+            vm: f2(v * e.r[4]), vj: f2(v * e.r[5]), vt: f2(v * (e.r[4] + e.r[5])), dRm: 'flex',
+            volSet: function (ev) { var o = Object.assign({}, self.state.vols); o[e.k] = ev.target.value; set({ vols: o }); },
+            rmc: function () { var r = Object.assign({}, self.state.rm); r[e.k] = true; set({ rm: r }); } }));
+        });
+        P[pi].it.forEach(function (r, i) { if (st.rm['p' + pi + 'i' + i]) { removed++; } });
+        (st.add[pi] || []).forEach(function (r, i) { if (st.rm['p' + pi + 'a' + i]) { removed++; } });
+        var adding = !!st.adding[pi];
+        rows.push(self.mk({ type: 'tools', bg: '#FAF9F5', pad: '7px 16px', dTools: 'flex', t1: adding ? 'Batal tambah' : '+ Tambah material', t2: removed ? 'Pulihkan ' + removed + ' material dihapus' : '', dT2: removed ? 'inline-block' : 'none',
+          name: '', nameT: 'none',
+          vt: hidden ? hidden + ' disembunyikan' : '',
+          t1c: function () { var a = Object.assign({}, self.state.adding); a[pi] = !a[pi]; set({ adding: a }); },
+          t2c: function () { var r = Object.assign({}, self.state.rm); Object.keys(r).forEach(function (k) { if (k.indexOf('p' + pi + 'i') === 0 || k.indexOf('p' + pi + 'a') === 0) { delete r[k]; } }); set({ rm: r }); } }));
+        if (adding) {
+          var nf = st.nf;
+          var sv = function (f) { return function (ev) { var o = Object.assign({}, self.state.nf); o[f] = ev.target.value; set({ nf: o }); }; };
+          var v2 = self.num(nf.vol), pm2 = self.num(nf.pm), pj2 = self.num(nf.pj);
+          rows.push(self.mk({ type: 'form', bg: '#F1F5FC', pad: '8px 16px', no: 'Baru', nameT: 'none', nameI: 'block', nameV: nf.name, nameSet: sv('name'), satT: 'none', satI: 'block', satV: nf.sat, satSet: sv('sat'),
+            volT: 'none', volI: 'block', volV: nf.vol, volSet: sv('vol'), pmT: 'none', pmI: 'block', pmV: nf.pm, pmSet: sv('pm'), pjT: 'none', pjI: 'block', pjV: nf.pj, pjSet: sv('pj'),
+            vm: f2(v2 * pm2), vj: f2(v2 * pj2), vt: f2(v2 * (pm2 + pj2)), dAdd: 'block',
+            addc: function () {
+              if (!nf.name.trim()) { return; }
+              var a = Object.assign({}, self.state.add); a[pi] = (a[pi] || []).concat([[null, nf.name.trim(), nf.sat.trim() || 'bh', self.num(nf.vol), pm2, pj2]]);
+              set({ add: a, nf: { name: '', sat: '', pm: '', pj: '', vol: '' } });
+            } }));
+        }
+        rows.push(self.mk({ type: 'jum', bg: '#FAF9F5', fw: 800, pad: '8px 16px', name: 'JUMLAH ' + short(p.n).slice(0, 48), vm: f2(s.vm), vj: f2(s.vj), vt: f2(s.vm + s.vj) }));
+      });
+    }
+
+    var cat = this.catalog(), q = st.dq.trim().toLowerCase();
+    var hits = q.length < 2 ? [] : cat.filter(function (r) { return r[1].toLowerCase().indexOf(q) >= 0; }).slice(0, 10).map(function (r) {
+      return { name: r[1], add: function () { set({ ditems: self.state.ditems.concat([{ name: r[1], sat: r[2], pm: r[4], pj: r[5], vol: '1' }]), dq: '' }); } };
+    });
+    var dm = 0, dj = 0;
+    var draft = st.ditems.map(function (d, i) {
+      var v = self.num(d.vol); dm += v * d.pm; dj += v * d.pj;
+      return { no: String(i + 1), name: d.name, sat: d.sat, vol: d.vol, pm: f2(d.pm), pj: f2(d.pj), vm: f2(v * d.pm), vj: f2(v * d.pj), vt: f2(v * (d.pm + d.pj)),
+        set: function (ev) { var a = self.state.ditems.slice(); a[i] = Object.assign({}, a[i], { vol: ev.target.value }); set({ ditems: a }); },
+        rm: function () { var a = self.state.ditems.slice(); a.splice(i, 1); set({ ditems: a }); } };
+    });
+    var save = function (use) {
+      if (!self.state.ditems.length) { return; }
+      var name = (self.state.dn || '').trim() || 'Paket baru ' + (self.state.custom.length + 1);
+      var it = self.state.ditems.map(function (d) { return [null, d.name, d.sat, self.num(d.vol), d.pm, d.pj]; });
+      var idx = self.data().length + self.state.custom.length;
+      var exc = Object.assign({}, self.state.exc); if (!use) { exc[idx] = true; }
+      set({ custom: self.state.custom.concat([{ n: name, it: it, custom: true }]), exc: exc, ditems: [], dn: '', saved: 'Tersimpan: ' + name + (use ? ' (dipakai di kontrak)' : '') });
+    };
+    var tab = function (on) { return on ? { w: 700, c: '#16181D', b: '#0F2E66' } : { w: 500, c: '#6B6F78', b: 'transparent' }; };
+    return {
+      crumb: isK ? 'Volume kontrak' : 'Paket pekerjaan',
+      tk: tab(isK), tp: tab(!isK),
+      goKontrak: function () { set({ tab: 'kontrak' }); }, goPaket: function () { set({ tab: 'paket' }); },
+      dKontrak: isK ? 'flex' : 'none', dPaket: isK ? 'none' : 'flex',
+      libHint: isK ? 'Centang paket yang dipakai. Klik nama paket untuk membuka isinya.' : 'Klik nama paket untuk menyalin isinya ke draf paket baru.',
+      lib: lib, rows: rows,
+      hideZero: st.hideZero, toggleZero: function () { set({ hideZero: !self.state.hideZero }); },
+      openAll: function () { var o = {}; P.forEach(function (p, i) { o[i] = true; }); set({ open: o }); },
+      closeAll: function () { set({ open: {} }); },
+      tot: { count: T.count, all: T.all, vm: rp(T.vm), vj: rp(T.vj), jum: rp(T.jum), dpp: f2(T.dpp), ppn: rp(T.ppn), gross: f2(T.gross), total: rp(T.total) },
+      dn: st.dn, setDn: function (ev) { set({ dn: ev.target.value }); },
+      dq: st.dq, setDq: function (ev) { set({ dq: ev.target.value }); },
+      catCount: cat.length, hits: hits, dHits: hits.length ? 'flex' : 'none',
+      draft: draft, dEmpty: draft.length ? 'none' : 'block',
+      dsum: { vm: rp(dm), vj: rp(dj), vt: rp(dm + dj), n: draft.length },
+      saved: st.saved, dSaved: st.saved ? 'block' : 'none',
+      clearDraft: function () { set({ ditems: [], dn: '' }); },
+      saveOnly: function () { save(false); }, saveUse: function () { save(true); }
+    };
+  }
+}
+</script>
+</body>
+</html>

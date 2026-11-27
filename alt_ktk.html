@@ -1,0 +1,183 @@
+<!doctype html>
+<html lang="id">
+<head>
+<meta charset="utf-8">
+<title>KTK — alternatif lembar kerja</title>
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&amp;display=swap" rel="stylesheet">
+<style>
+body{margin:0;background:#F6F5F1}
+a{text-decoration:none}
+button{font: inherit; cursor: pointer}
+input.g{font: inherit; font-size: 11px; font-weight: 700; width: 100%; height: 22px; box-sizing: border-box; border: 1px solid transparent; border-radius: 0; padding: 0 6px; background: #FFF9E5; color: #16181D; outline: none; text-align: right}
+input.g:focus{border-color: #0F2E66; background: #FFFFFF}
+.gr:hover{background: #F3F6FC}
+</style>
+</helmet>
+<div style="width: 1920px; height: 1200px; box-sizing: border-box; background: #F6F5F1; font-family: 'Plus Jakarta Sans', 'Segoe UI', system-ui, sans-serif; font-size: 11px; color: #16181D; font-variant-numeric: tabular-nums; display: flex; flex-direction: column; overflow: hidden">
+
+<header style="height: 40px; flex-shrink: 0; background: #FFFFFF; border-bottom: 1px solid #E4E2DA; display: flex; align-items: center; justify-content: space-between; padding: 0 20px">
+<div style="display: flex; align-items: center; gap: 12px"><a href="KtkDaftar.dc.html" style="font-weight: 700; color: #0F2E66">‹ KTK</a><span style="color: #C9C6BC">/</span><span style="font-weight: 800; font-size: 12px">Alternatif B · Lembar kerja · KTK 71 · 0597</span></div>
+<div style="display: flex; align-items: center; gap: 14px">
+<span><span style="color: #6B6F78">Total kontrak awal</span> <b style="font-size: 13px">{{tot.total}}</b></span>
+<a href="KtkExport.dc.html" style="height: 26px; padding: 0 12px; border-radius: 6px; background: #0F2E66; color: #FFFFFF; font-weight: 700; display: flex; align-items: center">Export Excel</a>
+</div>
+</header>
+
+<div style="height: 34px; flex-shrink: 0; background: #FFFFFF; border-bottom: 1px solid #E4E2DA; display: flex; align-items: center; gap: 10px; padding: 0 12px">
+<span style="width: 90px; height: 22px; border: 1px solid #E4E2DA; display: flex; align-items: center; justify-content: center; font-weight: 700; color: #0F2E66; background: #FAF9F5">{{cellRef}}</span>
+<span style="font-style: italic; font-weight: 700; color: #8C9097">fx</span>
+<div style="flex-grow: 1; height: 22px; border: 1px solid #E4E2DA; display: flex; align-items: center; padding: 0 10px; background: #FFFFFF; overflow: hidden; white-space: nowrap">{{formula}}</div>
+<label style="display: flex; align-items: center; gap: 6px; cursor: pointer; white-space: nowrap"><input type="checkbox" checked="{{onlyBad}}" onChange="{{toggleBad}}" style="accent-color: #B42318">Hanya yang tidak ada di Master_Data ({{badTotal}})</label>
+</div>
+
+<div style="flex-grow: 1; min-height: 0; display: flex">
+
+<aside style="width: 330px; flex-shrink: 0; background: #FFFFFF; border-right: 1px solid #E4E2DA; display: flex; flex-direction: column; min-height: 0">
+<div style="padding: 8px 12px; border-bottom: 1px solid #E4E2DA; font-weight: 800; flex-shrink: 0">Paket pekerjaan (25)</div>
+<div style="overflow-y: auto; flex-grow: 1">
+<sc-for list="{{outline}}" as="o" hint-placeholder-count="12">
+<button onClick="{{o.pick}}" style="display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: 6px; width: 100%; text-align: left; padding: 6px 12px; border: none; border-bottom: 1px solid #F2F0EA; background: {{o.bg}}; border-left: 3px solid {{o.bar}}">
+<span style="line-height: 1.3; font-weight: 700">{{o.name}}</span>
+<span style="display: flex; flex-direction: column; align-items: flex-end; gap: 2px"><span>{{o.val}}</span><span style="font-size: 10px; font-weight: 700; color: #B42318; display: {{o.dBad}}">{{o.bad}} tidak di master</span></span>
+</button>
+</sc-for>
+</div>
+</aside>
+
+<main style="flex-grow: 1; min-width: 0; display: flex; flex-direction: column; background: #FFFFFF">
+<div style="flex-shrink: 0; display: grid; grid-template-columns: 38px 40px minmax(0, 1fr) 46px 84px 128px 128px 150px 150px 160px 126px; background: #EEF1F7; border-bottom: 1px solid #D7DCE8; font-weight: 700; color: #5B5F68; text-align: center">
+<span style="border-right: 1px solid #D7DCE8"></span><span style="border-right: 1px solid #D7DCE8">A</span><span style="border-right: 1px solid #D7DCE8">B</span><span style="border-right: 1px solid #D7DCE8">C</span><span style="border-right: 1px solid #D7DCE8">D</span><span style="border-right: 1px solid #D7DCE8">E</span><span style="border-right: 1px solid #D7DCE8">F</span><span style="border-right: 1px solid #D7DCE8">G</span><span style="border-right: 1px solid #D7DCE8">H</span><span style="border-right: 1px solid #D7DCE8">I</span><span>J</span>
+</div>
+<div style="flex-shrink: 0; display: grid; grid-template-columns: 38px 40px minmax(0, 1fr) 46px 84px 128px 128px 150px 150px 160px 126px; background: #0B1730; color: #FFFFFF; font-weight: 700; font-size: 10px; align-items: center; height: 26px">
+<span></span><span style="padding-left: 6px">NO</span><span style="padding-left: 6px">URAIAN</span><span style="padding-left: 6px">SAT</span><span style="text-align: right; padding-right: 6px">VOL</span><span style="text-align: right; padding-right: 6px">HARGA MAT</span><span style="text-align: right; padding-right: 6px">HARGA JASA</span><span style="text-align: right; padding-right: 6px">NILAI MATERIAL</span><span style="text-align: right; padding-right: 6px">NILAI JASA</span><span style="text-align: right; padding-right: 6px">JUMLAH</span><span style="padding-left: 6px">MASTER_DATA</span>
+</div>
+<div style="overflow: auto; flex-grow: 1; min-height: 0">
+<sc-for list="{{rows}}" as="r" hint-placeholder-count="20">
+<div class="gr" onClick="{{r.pick}}" style="display: grid; grid-template-columns: 38px 40px minmax(0, 1fr) 46px 84px 128px 128px 150px 150px 160px 126px; align-items: center; min-height: 22px; border-bottom: 1px solid #E8EBF2; background: {{r.bg}}; font-weight: {{r.fw}}; cursor: cell">
+<span style="text-align: center; color: #8C9097; background: #EEF1F7; align-self: stretch; display: flex; align-items: center; justify-content: center; border-right: 1px solid #D7DCE8; font-size: 10px">{{r.rn}}</span>
+<span style="padding-left: 6px; color: #6B6F78">{{r.no}}</span>
+<span style="padding: 2px 6px; line-height: 1.25; color: {{r.nameFg}}">{{r.name}}</span>
+<span style="padding-left: 6px; color: #5B5F68">{{r.sat}}</span>
+<div><input class="g" style="display: {{r.dIn}}" value="{{r.vol}}" onInput="{{r.set}}" inputmode="decimal"></div>
+<span style="text-align: right; padding-right: 6px">{{r.pm}}</span><span style="text-align: right; padding-right: 6px">{{r.pj}}</span>
+<span style="text-align: right; padding-right: 6px">{{r.vm}}</span><span style="text-align: right; padding-right: 6px">{{r.vj}}</span><span style="text-align: right; padding-right: 6px; font-weight: 800">{{r.vt}}</span>
+<span style="padding-left: 6px; display: {{r.dChip}}"><span style="font-size: 10px; font-weight: 700; padding: 1px 7px; border-radius: 999px; background: {{r.chipBg}}; color: {{r.chipFg}}">{{r.chip}}</span></span>
+</div>
+</sc-for>
+<div style="background: #FAF9F5; border-top: 2px solid #0B1730">
+<div style="display: grid; grid-template-columns: minmax(0, 1fr) 150px 150px 160px 126px; padding: 4px 0; font-weight: 800"><span style="text-align: right; padding-right: 10px">JUMLAH SEMUA PAKET</span><span style="text-align: right; padding-right: 6px">{{tot.vm}}</span><span style="text-align: right; padding-right: 6px">{{tot.vj}}</span><span style="text-align: right; padding-right: 6px">{{tot.jum}}</span><span></span></div>
+<div style="display: grid; grid-template-columns: minmax(0, 1fr) 160px 126px; padding: 3px 0"><span style="text-align: right; padding-right: 10px; color: #5B5F68">DPP Lain-lain × 11/12</span><span style="text-align: right; padding-right: 6px">{{tot.dpp}}</span><span></span></div>
+<div style="display: grid; grid-template-columns: minmax(0, 1fr) 160px 126px; padding: 3px 0"><span style="text-align: right; padding-right: 10px; color: #5B5F68">PPN 12%</span><span style="text-align: right; padding-right: 6px">{{tot.ppn}}</span><span></span></div>
+<div style="display: grid; grid-template-columns: minmax(0, 1fr) 160px 126px; padding: 5px 0; background: #E7EDF8; color: #0F2E66; font-weight: 800; font-size: 12px"><span style="text-align: right; padding-right: 10px">DIBULATKAN</span><span style="text-align: right; padding-right: 6px">{{tot.bulat}}</span><span></span></div>
+</div>
+</div>
+<div style="height: 30px; flex-shrink: 0; background: #EEF1F7; border-top: 1px solid #D7DCE8; display: flex; align-items: flex-end; padding-left: 10px; gap: 2px">
+<span style="padding: 5px 16px; background: #FFFFFF; border: 1px solid #D7DCE8; border-bottom: none; font-weight: 800; border-radius: 6px 6px 0 0; color: #0F2E66">Lampiran KTK</span>
+<a href="KtkRab.dc.html" style="padding: 5px 16px; color: #5B5F68; font-weight: 600">RAB</a>
+<a href="KtkRekap.dc.html" style="padding: 5px 16px; color: #5B5F68; font-weight: 600">Rekapitulasi</a>
+<a href="KtkCek.dc.html" style="padding: 5px 16px; color: #5B5F68; font-weight: 600">Cek LH per PK</a>
+<span style="margin-left: auto; padding: 8px 14px; color: #5B5F68">{{status}}</span>
+</div>
+</main>
+
+<aside style="width: 340px; flex-shrink: 0; background: #FFFFFF; border-left: 1px solid #E4E2DA; display: flex; flex-direction: column; min-height: 0">
+<div style="padding: 10px 14px; border-bottom: 1px solid #E4E2DA; font-weight: 800; flex-shrink: 0">Detail baris terpilih</div>
+<div style="padding: 12px 14px; overflow-y: auto; flex-grow: 1; display: flex; flex-direction: column; gap: 12px">
+<div><div style="color: #6B6F78; font-size: 10px; font-weight: 700">NAMA MATERIAL DI KONTRAK</div><div style="margin-top: 3px; font-size: 12px; font-weight: 700; line-height: 1.4">{{ins.name}}</div></div>
+<div style="padding: 8px 10px; border-radius: 8px; background: {{ins.bg}}; color: {{ins.fg}}; font-weight: 700">{{ins.status}}</div>
+<div style="display: {{ins.dSug}}"><div style="color: #6B6F78; font-size: 10px; font-weight: 700; margin-bottom: 4px">NAMA MASTER YANG MIRIP</div>
+<sc-for list="{{ins.sug}}" as="s" hint-placeholder-count="3"><div style="padding: 5px 8px; border: 1px solid #E4E2DA; border-radius: 6px; margin-bottom: 4px; line-height: 1.3">{{s.name}}</div></sc-for></div>
+<div style="display: grid; grid-template-columns: 1fr 1fr; gap: 8px">
+<div style="padding: 8px; background: #F6F5F1; border-radius: 8px"><div style="color: #6B6F78; font-size: 10px">Harga material (kol E)</div><div style="font-weight: 800; margin-top: 2px; word-break: break-all">{{ins.pm}}</div></div>
+<div style="padding: 8px; background: #F6F5F1; border-radius: 8px"><div style="color: #6B6F78; font-size: 10px">Harga jasa (kol F)</div><div style="font-weight: 800; margin-top: 2px; word-break: break-all">{{ins.pj}}</div></div>
+<div style="padding: 8px; background: #F6F5F1; border-radius: 8px"><div style="color: #6B6F78; font-size: 10px">Nilai material</div><div style="font-weight: 800; margin-top: 2px; word-break: break-all">{{ins.vm}}</div></div>
+<div style="padding: 8px; background: #F6F5F1; border-radius: 8px"><div style="color: #6B6F78; font-size: 10px">Nilai jasa</div><div style="font-weight: 800; margin-top: 2px; word-break: break-all">{{ins.vj}}</div></div>
+</div>
+<div style="color: #6B6F78; line-height: 1.5">Semua digit ditampilkan di sini (10 desimal). Di tabel harga tampil 2 desimal. Nilai kolom G sampai I dihitung dari semua digit.</div>
+</div>
+</aside>
+</div>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props='{"$preview":{"width":1920,"height":1200}}'>
+class Component extends DCLogic {
+  constructor(props) {
+    super(props);
+    var P10 = function (n) { return Number(n).toFixed(10); };
+    var pk = this.base().map(function (p) {
+      return { n: p.n, it: p.it.map(function (r) { return r[0] === 'S' ? { t: 's', name: r[1] } : { t: 'i', name: r[1], sat: r[2], vol: String(r[3] || 0), pm: P10(r[4]), pj: P10(r[5]) }; }) };
+    });
+    this.state = { pk: pk, cur: 0, selI: 1, onlyBad: false };
+  }
+  base() { if (!this._d) { this._d = __DATA__; } return this._d; }
+  master() { if (!this._m) { var l = __MASTER__, s = {}; l.forEach(function (n) { s[n] = true; }); this._m = { list: l, set: s }; } return this._m; }
+  nk(s) { return String(s).replace(/\s+/g, ' ').trim().toLowerCase(); }
+  D(v) { var s = String(v).replace(',', '.'); if (!/^\d*\.?\d*$/.test(s) || s === '' || s === '.') { return BigInt(0); } var p = s.split('.'); return BigInt((p[0] || '0') + ((p[1] || '') + '0000000000').slice(0, 10)); }
+  V4(v) { var s = String(v).replace(',', '.'); if (!/^\d*\.?\d*$/.test(s) || s === '' || s === '.') { return BigInt(0); } var p = s.split('.'); return BigInt((p[0] || '0') + ((p[1] || '') + '0000').slice(0, 4)); }
+  mul(p, v) { return (p * v + BigInt(5000)) / BigInt(10000); }
+  fmt(b, dec) {
+    var q = BigInt(10) ** BigInt(10 - dec), r = (b + q / BigInt(2)) / q, s = r.toString();
+    while (s.length <= dec) { s = '0' + s; }
+    var ip = s.slice(0, s.length - dec).replace(/\B(?=(\d{3})+(?!\d))/g, '.'), fp = s.slice(s.length - dec);
+    return dec > 0 ? ip + ',' + fp : ip;
+  }
+  line(e) { var v = this.V4(e.vol); return { m: this.mul(this.D(e.pm), v), j: this.mul(this.D(e.pj), v) }; }
+  suggest(name) {
+    var self = this, w = this.nk(name).split(/[^a-z0-9]+/).filter(function (x) { return x.length > 1; }), best = [];
+    this.master().list.forEach(function (m) {
+      var mw = m.split(/[^a-z0-9]+/).filter(function (x) { return x.length > 1; }), hit = 0;
+      w.forEach(function (x) { if (mw.indexOf(x) >= 0) { hit++; } });
+      var sc = hit / Math.max(1, Math.max(w.length, mw.length));
+      if (sc > 0.35) { best.push([sc, m]); }
+    });
+    best.sort(function (a, b) { return b[0] - a[0]; });
+    return best.slice(0, 3).map(function (b) { return { name: b[1] }; });
+  }
+  renderVals() {
+    var self = this, st = this.state, P = st.pk, M = this.master().set, set = function (o) { self.setState(o); };
+    var F2 = function (b) { return self.fmt(b, 2); }, F10 = function (b) { return self.fmt(b, 10); }, Z = BigInt(0), S = BigInt('10000000000');
+    var vm = Z, vj = Z;
+    var outline = P.map(function (p, pi) {
+      var m = Z, j = Z, bad = 0;
+      p.it.forEach(function (e) { if (e.t === 'i') { var l = self.line(e); m += l.m; j += l.j; if (!M[self.nk(e.name)]) { bad++; } } });
+      vm += m; vj += j;
+      return { name: p.n.replace(/^PEKERJAAN\s+/, ''), val: F2(m + j), bad: bad, dBad: bad ? 'block' : 'none', bg: st.cur === pi ? '#E7EDF8' : '#FFFFFF', bar: st.cur === pi ? '#0F2E66' : 'transparent', pick: function () { set({ cur: pi, selI: 0 }); } };
+    });
+    var badTotal = 0; P.forEach(function (p) { p.it.forEach(function (e) { if (e.t === 'i' && !M[self.nk(e.name)]) { badTotal++; } }); });
+    var jum = vm + vj, dpp = (jum * BigInt(11) * BigInt(2) + BigInt(12)) / BigInt(24), ppn = (dpp * BigInt(12) * BigInt(2) + BigInt(100)) / BigInt(200), gross = jum + ppn, bulat = (gross + S / BigInt(2)) / S;
+    var cp = P[st.cur], rows = [], rn = 0, selE = null, seq = 0, shown = 0;
+    cp.it.forEach(function (e, ii) {
+      rn++;
+      if (e.t === 's') { if (!st.onlyBad) { rows.push({ rn: rn, no: '', name: e.name, nameFg: '#16181D', sat: '', vol: '', dIn: 'none', pm: '', pj: '', vm: '', vj: '', vt: '', dChip: 'none', chip: '', chipBg: '', chipFg: '', bg: '#F6F7FB', fw: 800, pick: function () {}, set: function () {} }); } return; }
+      var ok = !!M[self.nk(e.name)];
+      if (st.onlyBad && ok) { return; }
+      seq++; shown++;
+      var l = self.line(e), sel = st.selI === ii;
+      if (sel) { selE = e; }
+      rows.push({ rn: rn, no: String(seq), name: e.name, nameFg: ok ? '#16181D' : '#B42318', sat: e.sat, vol: e.vol, dIn: 'block', pm: F2(self.D(e.pm)), pj: F2(self.D(e.pj)), vm: F2(l.m), vj: F2(l.j), vt: F2(l.m + l.j),
+        dChip: 'block', chip: ok ? 'Cocok' : 'Tidak ada', chipBg: ok ? '#E3F4EA' : '#FDE8E6', chipFg: ok ? '#1B7F4B' : '#B42318', bg: sel ? '#DCE6F8' : '#FFFFFF', fw: 500,
+        pick: function () { set({ selI: ii }); },
+        set: function (ev) { var v = ev.target.value, c = JSON.parse(JSON.stringify(self.state.pk)); c[self.state.cur].it[ii].vol = v; set({ pk: c, selI: ii }); } });
+    });
+    if (!selE) { selE = cp.it.filter(function (e) { return e.t === 'i'; })[0]; }
+    var l2 = selE ? self.line(selE) : { m: Z, j: Z }, ok2 = selE ? !!M[self.nk(selE.name)] : true;
+    var col = selE ? 'B' : '';
+    return {
+      outline: outline, rows: rows, badTotal: badTotal, onlyBad: st.onlyBad, toggleBad: function () { set({ onlyBad: !self.state.onlyBad }); },
+      cellRef: selE ? 'D' + (cp.it.indexOf(selE) + 1) : '', formula: selE ? '=D' + (cp.it.indexOf(selE) + 1) + '*E' + (cp.it.indexOf(selE) + 1) + '   →   ' + selE.name : '',
+      tot: { vm: F2(vm), vj: F2(vj), jum: F2(jum), dpp: F2(dpp), ppn: F2(ppn), bulat: F2(bulat * S), total: 'Rp ' + F2(bulat * S) },
+      status: 'Paket ' + (st.cur + 1) + ' dari ' + P.length + ' · ' + shown + ' baris tampil · ' + badTotal + ' material belum ada di Master_Data',
+      ins: selE ? { name: selE.name, bg: ok2 ? '#E3F4EA' : '#FDE8E6', fg: ok2 ? '#1B7F4B' : '#B42318', status: ok2 ? 'Ada di Master_Data. Harga mengikuti master.' : 'Tidak ada di Master_Data. Tambahkan ke master atau ganti ke nama master.',
+        dSug: ok2 ? 'none' : 'block', sug: ok2 ? [] : self.suggest(selE.name), pm: F10(self.D(selE.pm)), pj: F10(self.D(selE.pj)), vm: F10(l2.m), vj: F10(l2.j) } : { name: '', bg: '#F6F5F1', fg: '#16181D', status: '', dSug: 'none', sug: [], pm: '', pj: '', vm: '', vj: '' }
+    };
+  }
+}
+</script>
+</body>
+</html>
